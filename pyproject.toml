@@ -1,0 +1,15 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "PTH", "SIM"]
+ignore = [
+  "S101",  # assert is how pytest tests are written
+  "S603",  # subprocess calls use fixed argument lists, never a shell
+  "S607",  # tools such as git are resolved from PATH on purpose
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests/static"]

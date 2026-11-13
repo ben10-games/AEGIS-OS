@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Print what this machine can do for AEGIS OS development. Read-only: it changes nothing,
+# installs nothing and needs no privileges. Output is "key: value" lines for PROJECT_STATE.md.
+set -euo pipefail
+
+report() { printf '%-28s %s\n' "$1:" "$2"; }
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+version_of() {
+  if have "$1"; then
+    "$@" 2>&1 | head -n 1 || true
+  else
+    echo "missing"
+  fi
+}
+
+reachable() {
+  # Any HTTP status means the host answered; 000 means blocked or unreachable.
+  local code
+  code="$(curl -sS -o /dev/null -m 10 -w '%{http_code}' "$1" 2>/dev/null || true)"
+  if [[ -n "${code}" && "${code}" != "000" ]]; then
+    echo "reachable (HTTP ${code})"
+  else
+    echo "unreachable"
+  fi
+}
+
+echo "== system"
+# shellcheck source=/dev/null
+report "os" "$(. /etc/os-release 2>/dev/null && echo "${PRETTY_NAME:-unknown}")"
+report "kernel" "$(uname -r)"
+report "cpus" "$(nproc)"
+report "memory_gib" "$(awk '/MemTotal/ {printf "%.1f", $2/1048576}' /proc/meminfo)"
+report "disk_free_gib" "$(df -BG --output=avail . | tail -n 1 | tr -dc '0-9')"
+report "user" "$(id -un) (uid $(id -u))"
+
+echo "== virtualization"
+report "cpu_virt_flags" "$(grep -cE 'vmx|svm' /proc/cpuinfo || true)"
+if [[ -e /dev/kvm ]]; then
+  if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+    report "kvm" "present, read-write for this user"
+  else
+    report "kvm" "present, NOT accessible to this user"
+  fi
+else
+  report "kvm" "absent"
+fi
+report "loop_control" "$([[ -e /dev/loop-control ]] && echo present || echo absent)"
+
+echo "== tools"
+report "podman" "$(version_of podman --version)"
+report "buildah" "$(version_of buildah --version)"
+report "skopeo" "$(version_of skopeo --version)"
+report "docker_client" "$(version_of docker --version)"
+if have docker && docker info >/dev/null 2>&1; then
+  report "docker_daemon" "running"
+else
+  report "docker_daemon" "not running or not accessible"
+fi
+report "qemu" "$(version_of qemu-system-x86_64 --version)"
+report "swtpm" "$(version_of swtpm --version)"
+report "make" "$(version_of make --version)"
+report "python3" "$(version_of python3 --version)"
+report "pytest" "$(version_of pytest --version)"
+report "ruff" "$(version_of ruff --version)"
+if have shellcheck; then
+  report "shellcheck" "$(shellcheck --version | sed -n '2p')"
+else
+  report "shellcheck" "missing"
+fi
+report "yamllint" "$(version_of yamllint --version)"
+report "actionlint" "$(version_of actionlint -version)"
+report "gitleaks" "$(version_of gitleaks version)"
+
+echo "== network"
+if have curl; then
+  for url in \
+    https://quay.io/v2/ \
+    https://registry.fedoraproject.org/v2/ \
+    https://mirrors.fedoraproject.org/ \
+    https://ghcr.io/v2/ \
+    https://github.com/ \
+    https://pypi.org/simple/pip/; do
+    report "${url}" "$(reachable "${url}")"
+  done
+else
+  report "curl" "missing; network not probed"
+fi

@@ -1,0 +1,77 @@
+name: probe
+
+# P1-00: record what GitHub-hosted runners can actually do, so later tasks do not
+# assume KVM, loop devices or registry access (assumptions A1 and A2).
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/probe-env
+      - .github/workflows/probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Runner capabilities
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Capabilities before any change
+        run: scripts/probe-env
+
+      - name: Make /dev/kvm accessible to the runner user
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || echo "A1: /dev/kvm does not exist on this runner"
+
+      - name: "A1: does QEMU start with KVM acceleration?"
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends qemu-system-x86
+          # With -S the guest CPU never runs. If KVM initialises, QEMU stays alive until
+          # timeout kills it (exit 124). Any other exit status means KVM is unusable.
+          status=0
+          timeout 5 qemu-system-x86_64 -accel kvm -machine q35 -cpu host -m 256 \
+            -display none -nodefaults -serial none -monitor none -S || status=$?
+          if [[ "${status}" -eq 124 ]]; then
+            echo "A1 RESULT: KVM usable"
+          else
+            echo "A1 RESULT: KVM NOT usable (qemu exit ${status})"
+            exit 1
+          fi
+
+      - name: "A2: bootc and boot components in fedora-bootc:45"
+        run: |
+          image=quay.io/fedora/fedora-bootc:45
+          sudo podman pull --quiet "${image}"
+          echo "A2 base digest: $(sudo podman image inspect --format '{{.Digest}}' "${image}")"
+          sudo podman run --rm "${image}" bootc --version
+          sudo podman run --rm "${image}" \
+            rpm -q bootc kernel systemd bootupd systemd-boot-unsigned systemd-ukify \
+            selinux-policy-targeted firewalld audit openssh-server || true
+          echo "A2 package count: $(sudo podman run --rm "${image}" rpm -qa | wc -l)"
+
+      - name: Loop devices inside a privileged container
+        run: |
+          sudo podman run --rm --privileged quay.io/fedora/fedora-bootc:45 bash -c '
+            set -euo pipefail
+            truncate -s 64M /tmp/probe.img
+            dev="$(losetup --find --show /tmp/probe.img)"
+            echo "LOOP RESULT: attached ${dev}"
+            losetup --detach "${dev}"
+          '
+
+      - name: Capabilities after setup
+        if: always()
+        run: |
+          scripts/probe-env
+          df -h /
