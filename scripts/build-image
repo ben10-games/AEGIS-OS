@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Build the aegis-base and aegis-dev container images from the digest-pinned base.
+# Needs podman and access to quay.io. Uses sudo when not root, because the disk
+# installer later reads the images from root's container storage.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+base_image="$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
+if [[ "${base_image}" != *@sha256:* ]]; then
+  echo "error: image/base.lock must pin the base image by digest" >&2
+  exit 1
+fi
+
+revision="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+if [[ -n "$(git status --porcelain 2>/dev/null || true)" ]]; then
+  revision="${revision}-dirty"
+fi
+version="${AEGIS_VERSION:-0.1.0-dev}"
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+echo "== building localhost/aegis-base from ${base_image}"
+"${as_root[@]}" podman build \
+  --pull=missing \
+  --build-arg "BASE_IMAGE=${base_image}" \
+  --build-arg "AEGIS_VERSION=${version}" \
+  --build-arg "AEGIS_REVISION=${revision}" \
+  --tag localhost/aegis-base:latest \
+  --file image/Containerfile \
+  image
+
+echo "== building localhost/aegis-dev"
+"${as_root[@]}" podman build \
+  --build-arg "BASE=localhost/aegis-base:latest" \
+  --tag localhost/aegis-dev:latest \
+  --file image/Containerfile.dev \
+  image
+
+# B-01: both images must still be marked as bootable containers.
+for image in localhost/aegis-base:latest localhost/aegis-dev:latest; do
+  label="$("${as_root[@]}" podman image inspect \
+    --format '{{ index .Labels "containers.bootc" }}' "${image}")"
+  if [[ "${label}" != "1" ]]; then
+    echo "error: ${image} lacks the label containers.bootc=1" >&2
+    exit 1
+  fi
+  echo "ok: ${image} containers.bootc=1"
+done
+
+mkdir -p out
+{
+  echo "base_image=${base_image}"
+  echo "revision=${revision}"
+  echo "version=${version}"
+  echo "podman=$(podman --version)"
+  for image in localhost/aegis-base:latest localhost/aegis-dev:latest; do
+    echo "${image}=$("${as_root[@]}" podman image inspect --format '{{ .Id }}' "${image}")"
+  done
+} > out/build-info.txt
+cat out/build-info.txt

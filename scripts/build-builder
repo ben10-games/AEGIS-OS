@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Build the test and tooling container (QEMU, UEFI firmware, software TPM, pytest)
+# from the same digest-pinned base as the operating-system image.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+base_image="$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
+if [[ "${base_image}" != *@sha256:* ]]; then
+  echo "error: image/base.lock must pin the base image by digest" >&2
+  exit 1
+fi
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+"${as_root[@]}" podman build \
+  --pull=missing \
+  --build-arg "BASE_IMAGE=${base_image}" \
+  --tag localhost/aegis-builder:latest \
+  --file build/builder/Containerfile \
+  build/builder
+
+mkdir -p out
+"${as_root[@]}" podman run --rm localhost/aegis-builder:latest \
+  rpm -q qemu-system-x86-core edk2-ovmf swtpm openssh-clients python3-pytest \
+  | tee out/builder-versions.txt

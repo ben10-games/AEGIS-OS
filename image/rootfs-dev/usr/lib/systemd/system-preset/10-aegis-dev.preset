@@ -1,0 +1,2 @@
+# Development variant only: tests reach the virtual machine over SSH.
+enable sshd.service

@@ -1,0 +1,15 @@
+# Test and tooling container. It is built from the same digest-pinned base as the OS
+# image, so QEMU, firmware and pytest versions are identical in CI and on a workstation.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+RUN dnf -y install --setopt=install_weak_deps=False \
+      edk2-ovmf \
+      openssh-clients \
+      python3-pytest \
+      qemu-img \
+      qemu-system-x86-core \
+      swtpm \
+    && dnf clean all
+
+WORKDIR /work
