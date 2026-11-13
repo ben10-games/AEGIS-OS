@@ -7,11 +7,16 @@ only if it actually ran and passed, with the commit and where it ran.
 ## 1. Resume here
 
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
-- **Phase / milestone:** Phase 1, milestone M1 (first boot). M0 is complete.
-- **Next task:** get the `build` workflow green (P1-03 to P1-06: images, disk, first boot
-  and shutdown in a VM), then record V-01 and V-02 in section 5.
-- **Last green CI run:** `lint` on `384c2e3`,
-  https://github.com/ben10-games/AEGIS-OS/actions/runs/43458827403
+- **Phase / milestone:** Phase 1. M0 and M1 (first verified boot) are complete.
+  Milestone M2 (baseline configuration) is next.
+- **Next task:** **P1-07** (golden manifests for packages, enabled units and setuid files
+  for both variants), then P1-08 (operating-system baseline). Do not start M3 before M2.
+- **Last green CI runs:** `build` on `399d421` (first verified boot),
+  https://github.com/ben10-games/AEGIS-OS/actions/runs/43460695621 ;
+  `lint` on `384c2e3`, https://github.com/ben10-games/AEGIS-OS/actions/runs/43458827403
+- **Reading results from a cloud session:** artifacts cannot be downloaded there (the
+  storage host is blocked). Read the "Collect results" step of the `build` job log; it
+  prints `scripts/summarize-results`.
 - **To continue:**
   1. `make static` (must pass before every commit).
   2. Check GitHub Actions for the latest commit on the branch (`lint`, `probe`).
@@ -24,10 +29,10 @@ only if it actually ran and passed, with the commit and where it ran.
 | P1-00 | Environment probe | done | `6ccd8fb`; `probe` run 43459049502 green |
 | P1-01 | Repository scaffold | done | `d373736` |
 | P1-02 | Static tooling and lint workflow | done | `e5c0f94`; `lint` run 43458827403 green |
-| P1-03 | Builder container | todo | |
-| P1-04 | Minimal derived image | todo | |
-| P1-05 | Disk image | todo | |
-| P1-06 | VM harness and first boot | todo | |
+| P1-03 | Builder container | done | `fc13ac6`; `build` run 43460695621 |
+| P1-04 | Minimal derived image | done | `fc13ac6`; `build` run 43460695621 |
+| P1-05 | Disk image | done | `9c8807c`; `build` run 43460695621 |
+| P1-06 | VM harness and first boot | done | `399d421`; `build` run 43460695621 |
 | P1-07 | Variant split and golden manifests | todo | |
 | P1-08 | Operating system baseline | todo | |
 | P1-09 | SELinux enforcement validation | todo | |
@@ -54,12 +59,18 @@ Deviations from the approved blueprint:
 | GNU Make instead of `just` as the task runner | Make is preinstalled everywhere the project runs; installing extra tools in Claude Cloud was refused | ADR-0006 |
 | hadolint not in the static tier yet | No pinned source for it that works in both cloud and CI; to be added with the builder container (P1-03) | this file |
 | `probe` workflow also runs on pushes that change it, not only manually | Lets a cloud session obtain the result without a manual trigger | this file |
+| The builder container holds test tooling only (QEMU, firmware, swtpm, pytest). Image builds and the disk install use the host's podman directly | A privileged loopback install nested inside another container is fragile; one level of nesting worked first time | this file |
+| The builder container is built from the pinned `fedora-bootc` base, not a plain Fedora image | One pinned input instead of two; layers are shared with the OS image build | `build/builder/Containerfile` |
+| One `build` workflow does images, disk and VM tests; there is no separate `vm-test` workflow yet | Multi-gigabyte images are not passed between jobs; split when a registry exists (P1-13) | this file |
+| No `build/disk/phase1.toml`; the ESP has bootc's default size, not 2 GiB | `bootc install to-disk` creates the layout itself; the 2 GiB ESP matters only for UKIs and is handled in P1-11 | this file |
+| Disk image is raw (`out/disk.raw`) with a qcow2 overlay at test time, not a stored qcow2 | Nothing consumes a standalone qcow2 yet | this file |
 
 ## 4. Completed milestones
 
 | Milestone | Date | Evidence |
 |---|---|---|
 | M0 Repository and tooling (P1-00 to P1-02) | 2026-11-13 | `lint` run 43458827403, `probe` run 43459049502 |
+| M1 First verified boot (P1-03 to P1-06) | 2026-11-13 | `build` run 43460695621 on `399d421`: 8 VM tests passed in 43.5 s under KVM |
 
 ## 5. Verified tests
 
@@ -70,7 +81,17 @@ Deviations from the approved blueprint:
 | S-03 Actions pinned by commit SHA | pass | `384c2e3` | GitHub Actions run 43458827403 |
 | S-04 State file and ADR index | pass | `384c2e3` | GitHub Actions run 43458827403 |
 
-No image (B), virtual-machine (V) or reproducibility (R) test has run yet.
+| B-01 Image construction (build exits 0, `bootc container lint --fatal-warnings`, label `containers.bootc=1`), both variants | pass | `399d421` | GitHub Actions run 43460695621 |
+| B-08 Disk image (GPT, EFI system partition, btrfs root), checked from inside the VM; raw image, not qcow2 | pass | `399d421` | GitHub Actions run 43460695621 |
+| V-01 Boot: SSH reachable, system state `running`, no failed units | pass | `399d421` | GitHub Actions run 43460695621, KVM |
+| V-02 Shutdown: QEMU exit 0 after `poweroff`, kernel "Power down" on serial, clean second boot, `/etc` and `/var` sentinels kept | pass | `399d421` | GitHub Actions run 43460695621, KVM |
+
+Early signals that also passed in run 43460695621 (they do **not** replace the full
+tests): the booted system is the image built from the tested commit; SELinux reports
+Enforcing (part of V-08); `/usr` is read-only (part of V-06).
+
+Not yet run: B-02 to B-07, V-03 to V-20, all R tests.
+Nothing has been verified on a local workstation or on physical hardware.
 
 ## 6. Known bugs
 
@@ -78,7 +99,13 @@ None recorded.
 
 ## 7. Security limitations
 
-- No operating-system image exists yet; no security property has been demonstrated.
+- The M1 image is the stock Fedora bootc base plus identity metadata. It boots with the
+  ostree backend and GRUB, **without** Secure Boot, without a sealed root, unsigned, and
+  with no AEGIS hardening. The only demonstrated properties are: it boots, SELinux is
+  enforcing, and `/usr` is read-only.
+- `aegis-base` still has whatever services the Fedora base enables (including possibly
+  sshd); the release-shaped service set is P1-07/P1-08.
+- SELinux denials during boot have not been evaluated yet (V-08).
 - Planned Phase 1 limitations (see blueprint section 11): no disk encryption, throw-away
   signing keys, no automatic rollback on failed boot, no application sandboxing, `/etc`
   and `/var` are not integrity-protected, root can still change SELinux mode at runtime.
@@ -89,10 +116,10 @@ None recorded.
 |---|---|---|
 | A1 | GitHub-hosted Linux runners expose usable KVM | **confirmed** (QEMU started with `-accel kvm`, probe run 43459049502) |
 | A2 | `fedora-bootc:45` ships bootc 1.16 or newer | **confirmed** (bootc 1.17.1, probe run 43459049502) |
-| A3 | `bootc install to-disk` supports btrfs with the composefs backend | open (P1-05, P1-11) |
+| A3 | `bootc install to-disk` supports btrfs with the composefs backend | partly confirmed: btrfs works with the ostree backend (run 43460695621); composefs backend still open (P1-11) |
 | A4 | Fedora's updates-archive repository is usable for locked RPMs | open (P1-15) |
 | A5 | Container signature policy is enforced on the composefs backend | open (P1-14, test V-15) |
-| A6 | SSH key injection through a systemd credential on the QEMU command line works | open (P1-06) |
+| A6 | SSH key injection through a systemd credential on the QEMU command line works | **confirmed** (run 43460695621) |
 
 ## 9. Outstanding tasks and open decisions for the owner
 

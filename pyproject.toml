@@ -14,3 +14,5 @@ ignore = [
 addopts = "-ra"
 testpaths = ["tests/static"]
 pythonpath = ["tests/vm"]
+# xunit1 keeps per-test properties (boot timings, versions) in the JUnit report.
+junit_family = "xunit1"

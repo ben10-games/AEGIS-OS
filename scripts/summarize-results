@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Print the key evidence from a build-and-boot run (out/) as plain text.
+# CI writes this to the job log and the run summary, so a session that cannot
+# download artifacts can still read what actually happened.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+section() {
+  local title="$1" file="$2" lines="${3:-40}"
+  echo "=== ${title}"
+  if [[ -s "${file}" ]]; then
+    head -n "${lines}" "${file}"
+  else
+    echo "(no data: ${file} is missing or empty)"
+  fi
+  echo
+}
+
+section "build" out/build-info.txt
+section "test container packages" out/builder-versions.txt
+section "disk layout" out/disk-layout.txt
+
+if [[ -f out/junit-vm.xml ]]; then
+  echo "=== vm test report"
+  { grep -oE '<testsuite [^>]*>' out/junit-vm.xml || true; } \
+    | { grep -oE '(tests|failures|errors|skipped|time)="[^"]*"' || true; } \
+    | tr '\n' ' '
+  echo
+  grep -oE '<property name="[^"]*" value="[^"]*"' out/junit-vm.xml || true
+  echo
+fi
+
+for boot in boot1 boot2; do
+  logs="out/vm/logs"
+  section "${boot}: startup time" "${logs}/${boot}-systemd-analyze.txt" 12
+  section "${boot}: memory (MiB)" "${logs}/${boot}-memory.txt"
+  section "${boot}: failed units" "${logs}/${boot}-failed-units.txt"
+  section "${boot}: SELinux denials" "${logs}/${boot}-avc.txt" 20
+done
+section "block devices" out/vm/logs/boot1-lsblk.txt
+section "bootc status" out/vm/logs/boot1-bootc-status.txt
+section "identity" out/vm/logs/boot1-os-release.txt

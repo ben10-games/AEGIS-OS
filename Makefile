@@ -46,5 +46,9 @@ builder: ## Build the test container (QEMU, UEFI firmware, pytest)
 vm-test: ## Boot out/disk.raw in QEMU and run the VM tests (V-01, V-02)
 	scripts/run-vm-tests
 
+.PHONY: summary
+summary: ## Print the evidence collected by the last build and VM test run
+	scripts/summarize-results
+
 .PHONY: m1
 m1: image disk builder vm-test ## Everything for milestone M1: build, install, boot, shut down

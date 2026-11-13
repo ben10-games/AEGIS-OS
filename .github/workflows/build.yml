@@ -54,14 +54,13 @@ jobs:
           mkdir -p out
           sudo chown -R "$(id -u):$(id -g)" out
           rm -f out/disk.raw
+          scripts/summarize-results | tee out/summary.txt
           {
             echo '### Build and boot'
             echo '```'
-            cat out/build-info.txt 2>/dev/null || echo 'no build info'
-            cat out/builder-versions.txt 2>/dev/null || true
+            cat out/summary.txt
             echo '```'
           } >> "${GITHUB_STEP_SUMMARY}"
-          ls -la out out/vm/logs 2>/dev/null || true
 
       - name: Upload logs and test report
         if: always()
