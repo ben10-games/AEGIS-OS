@@ -11,9 +11,11 @@ only if it actually ran and passed, with the commit and where it ran.
   Milestone M2 (baseline configuration) is next.
 - **Next task:** **P1-07** (golden manifests for packages, enabled units and setuid files
   for both variants), then P1-08 (operating-system baseline). Do not start M3 before M2.
-- **Last green CI runs:** `build` on `399d421` (first verified boot),
-  https://github.com/ben10-games/AEGIS-OS/actions/runs/43460695621 ;
-  `lint` on `384c2e3`, https://github.com/ben10-games/AEGIS-OS/actions/runs/43458827403
+- **Last green CI runs:** on `a3a5004`: `build`
+  https://github.com/ben10-games/AEGIS-OS/actions/runs/43461672095 and `lint`
+  https://github.com/ben10-games/AEGIS-OS/actions/runs/43461672669 .
+  First verified boot: `build` on `399d421`,
+  https://github.com/ben10-games/AEGIS-OS/actions/runs/43460695621
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the "Collect results" step of the `build` job log; it
   prints `scripts/summarize-results`.
@@ -70,7 +72,11 @@ Deviations from the approved blueprint:
 | Milestone | Date | Evidence |
 |---|---|---|
 | M0 Repository and tooling (P1-00 to P1-02) | 2026-11-13 | `lint` run 43458827403, `probe` run 43459049502 |
-| M1 First verified boot (P1-03 to P1-06) | 2026-11-13 | `build` run 43460695621 on `399d421`: 8 VM tests passed in 43.5 s under KVM |
+| M1 First verified boot (P1-03 to P1-06) | 2026-11-13 | `build` run 43460695621 on `399d421`: 8 VM tests passed in 43.5 s under KVM; repeated on `a3a5004` (run 43461672095) |
+
+Milestone tags `p1-m0` (`cdce239`) and `p1-m1-first-boot` (`399d421`) exist only in the
+session that created them: pushing tags was refused (HTTP 403; the session may push the
+development branch only). The owner can create them from the commit hashes above.
 
 ## 5. Verified tests
 
@@ -90,12 +96,28 @@ Early signals that also passed in run 43460695621 (they do **not** replace the f
 tests): the booted system is the image built from the tested commit; SELinux reports
 Enforcing (part of V-08); `/usr` is read-only (part of V-06).
 
+Measurements from run 43461672095 (`a3a5004`; 2 vCPU, 4 GiB, KVM on a hosted runner).
+These are observations, not the V-12 baseline, which is task P1-17:
+
+| Metric | First boot | Second boot |
+|---|---|---|
+| Startup (kernel + initrd + userspace) | 11.7 s (1.1 + 3.8 + 6.8) | 7.9 s (1.1 + 2.8 + 4.0) |
+| Memory in use (`free -m`, "used") | 462 MiB | 436 MiB |
+| Failed units | 0 | 0 |
+| SELinux denials logged | 3 | 3 |
+
+Memory in use is above the blueprint's provisional 400 MiB budget for V-12; the image is
+still the unmodified Fedora service set, so this is expected to change in P1-08.
+
 Not yet run: B-02 to B-07, V-03 to V-20, all R tests.
 Nothing has been verified on a local workstation or on physical hardware.
 
 ## 6. Known bugs
 
-None recorded.
+| ID | Description | Impact | Plan |
+|---|---|---|---|
+| BUG-1 | Every boot logs 3 SELinux denials: `bootupctl` (domain `bootupd_t`, permissive) reads `/sysroot/.bootc-aleph.json`, which is labelled `default_t`. Seen in run 43461672095. | Nothing is blocked (the domain is permissive), but V-08 requires zero denials. | `bootupd` is removed on the sealed path (P1-11). If the fallback backend is used, fix the label of the file instead. Check whether the label is wrong because the disk was installed from a host without SELinux. |
+| BUG-2 | The image still identifies itself as Fedora (`os-release`, hostname `fedora`). | Cosmetic. | Branding belongs to P1-08. |
 
 ## 7. Security limitations
 
@@ -105,7 +127,9 @@ None recorded.
   enforcing, and `/usr` is read-only.
 - `aegis-base` still has whatever services the Fedora base enables (including possibly
   sshd); the release-shaped service set is P1-07/P1-08.
-- SELinux denials during boot have not been evaluated yet (V-08).
+- SELinux denials occur during boot (BUG-1); V-08 is not met.
+- The disk has a BIOS boot partition and a 512 MiB ESP because `bootc install to-disk`
+  was run with `--generic-image`; BIOS boot support is not wanted in the final design.
 - Planned Phase 1 limitations (see blueprint section 11): no disk encryption, throw-away
   signing keys, no automatic rollback on failed boot, no application sandboxing, `/etc`
   and `/var` are not integrity-protected, root can still change SELinux mode at runtime.
