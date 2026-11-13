@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Boot the disk image in QEMU inside the builder container and run the VM tests.
+#
+#   scripts/run-vm-tests [DISK] [extra pytest arguments...]
+#
+# Uses KVM when /dev/kvm is usable. Without it the tests fall back to software
+# emulation, which is far slower and is reported in the test output.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+disk="${1:-out/disk.raw}"
+if [[ $# -gt 0 ]]; then
+  shift
+fi
+
+if [[ ! -f "${disk}" ]]; then
+  echo "error: disk image ${disk} not found; run 'make disk' first" >&2
+  exit 1
+fi
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+accel=tcg
+kvm_args=()
+if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+  accel=kvm
+  kvm_args=(--device /dev/kvm)
+fi
+echo "== virtual machine acceleration: ${accel}"
+
+revision="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+if [[ -n "$(git status --porcelain 2>/dev/null || true)" ]]; then
+  revision="${revision}-dirty"
+fi
+
+mkdir -p out/vm
+
+# No network for the container: the tests talk to the guest over a forwarded port on
+# the container's own loopback interface, and nothing here needs the internet.
+"${as_root[@]}" podman run --rm \
+  "${kvm_args[@]}" \
+  --network=none \
+  --security-opt label=disable \
+  -v "${PWD}:/work" \
+  -w /work \
+  -e "AEGIS_VM_ACCEL=${accel}" \
+  -e "AEGIS_EXPECT_REVISION=${revision}" \
+  localhost/aegis-builder:latest \
+  python3 -m pytest tests/vm \
+  -p no:cacheprovider \
+  -v \
+  --disk "${disk}" \
+  --workdir out/vm \
+  --junitxml out/junit-vm.xml \
+  "$@"

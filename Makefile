@@ -26,3 +26,25 @@ lint: static ## static + shellcheck, yamllint, actionlint, gitleaks (CI or a ful
 .PHONY: probe
 probe: ## Print environment capabilities (read-only)
 	scripts/probe-env
+
+# --- Image, disk and virtual-machine targets. These need podman, access to quay.io and
+# --- (for vm-test) ideally KVM. They run in GitHub Actions or on a Linux workstation.
+
+.PHONY: image
+image: ## Build the aegis-base and aegis-dev container images (B-01)
+	scripts/build-image
+
+.PHONY: disk
+disk: ## Install aegis-dev into out/disk.raw (an image file, never a real disk)
+	scripts/build-disk
+
+.PHONY: builder
+builder: ## Build the test container (QEMU, UEFI firmware, pytest)
+	scripts/build-builder
+
+.PHONY: vm-test
+vm-test: ## Boot out/disk.raw in QEMU and run the VM tests (V-01, V-02)
+	scripts/run-vm-tests
+
+.PHONY: m1
+m1: image disk builder vm-test ## Everything for milestone M1: build, install, boot, shut down
