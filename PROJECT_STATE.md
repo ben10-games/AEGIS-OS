@@ -8,11 +8,10 @@ only if it actually ran and passed, with the commit and where it ran.
 
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
 - **Phase / milestone:** Phase 1, milestone M0 (repository and tooling)
-- **Blocked:** the first push was refused on 2026-11-13 (HTTP 403: the Claude GitHub App has
-  no access to this repository). Nothing is on GitHub yet. Push the branch first.
-- **Next task:** after the push, read the result of the `probe` and `lint` workflows,
-  record them in sections 5, 8 and 10 below, then start **P1-03 (builder container)**.
-- **Last green CI run:** none yet
+- **Next task:** read the result of the `probe` workflow, record it in sections 8 and 10
+  below, then start **P1-03 (builder container)**.
+- **Last green CI run:** `lint` on `384c2e3`,
+  https://github.com/ben10-games/AEGIS-OS/actions/runs/43458827403
 - **To continue:**
   1. `make static` (must pass before every commit).
   2. Check GitHub Actions for the latest commit on the branch (`lint`, `probe`).
@@ -22,9 +21,9 @@ only if it actually ran and passed, with the commit and where it ran.
 
 | Task | Title | State | Commit / evidence |
 |---|---|---|---|
-| P1-00 | Environment probe | in progress | script and workflow written; CI result not yet read |
-| P1-01 | Repository scaffold | done | initial commit series |
-| P1-02 | Static tooling and lint workflow | in progress | `make static` passes in cloud; full `make lint` not yet seen green in CI |
+| P1-00 | Environment probe | in progress | `e5c0f94`; workflow did not start on the first push of a new branch, re-triggered |
+| P1-01 | Repository scaffold | done | `d373736` |
+| P1-02 | Static tooling and lint workflow | done | `e5c0f94`; `lint` run 43458827403 green |
 | P1-03 | Builder container | todo | |
 | P1-04 | Minimal derived image | todo | |
 | P1-05 | Disk image | todo | |
@@ -64,10 +63,12 @@ None.
 
 | Test | Result | Commit | Where it ran |
 |---|---|---|---|
-| Static repository rules (`make static`: part of S-01, S-03, S-04) | pass | initial commit series | Claude Cloud |
+| S-01 Linters (pytest rules, ruff, shellcheck, yamllint, actionlint) | pass | `384c2e3` | GitHub Actions run 43458827403 |
+| S-02 Secret scan (gitleaks, full history) | pass | `384c2e3` | GitHub Actions run 43458827403 |
+| S-03 Actions pinned by commit SHA | pass | `384c2e3` | GitHub Actions run 43458827403 |
+| S-04 State file and ADR index | pass | `384c2e3` | GitHub Actions run 43458827403 |
 
 No image (B), virtual-machine (V) or reproducibility (R) test has run yet.
-S-01 (all linters) and S-02 (gitleaks) have not yet been seen passing in CI.
 
 ## 6. Known bugs
 

@@ -73,5 +73,11 @@ jobs:
       - name: Capabilities after setup
         if: always()
         run: |
-          scripts/probe-env
+          scripts/probe-env | tee probe.txt
           df -h /
+          {
+            echo '### Runner capabilities'
+            echo '```'
+            cat probe.txt
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
