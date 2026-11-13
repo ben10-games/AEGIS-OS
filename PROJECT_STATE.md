@@ -7,9 +7,9 @@ only if it actually ran and passed, with the commit and where it ran.
 ## 1. Resume here
 
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
-- **Phase / milestone:** Phase 1, milestone M0 (repository and tooling)
-- **Next task:** read the result of the `probe` workflow, record it in sections 8 and 10
-  below, then start **P1-03 (builder container)**.
+- **Phase / milestone:** Phase 1, milestone M1 (first boot). M0 is complete.
+- **Next task:** get the `build` workflow green (P1-03 to P1-06: images, disk, first boot
+  and shutdown in a VM), then record V-01 and V-02 in section 5.
 - **Last green CI run:** `lint` on `384c2e3`,
   https://github.com/ben10-games/AEGIS-OS/actions/runs/43458827403
 - **To continue:**
@@ -21,7 +21,7 @@ only if it actually ran and passed, with the commit and where it ran.
 
 | Task | Title | State | Commit / evidence |
 |---|---|---|---|
-| P1-00 | Environment probe | in progress | `e5c0f94`; workflow did not start on the first push of a new branch, re-triggered |
+| P1-00 | Environment probe | done | `6ccd8fb`; `probe` run 43459049502 green |
 | P1-01 | Repository scaffold | done | `d373736` |
 | P1-02 | Static tooling and lint workflow | done | `e5c0f94`; `lint` run 43458827403 green |
 | P1-03 | Builder container | todo | |
@@ -57,7 +57,9 @@ Deviations from the approved blueprint:
 
 ## 4. Completed milestones
 
-None.
+| Milestone | Date | Evidence |
+|---|---|---|
+| M0 Repository and tooling (P1-00 to P1-02) | 2026-11-13 | `lint` run 43458827403, `probe` run 43459049502 |
 
 ## 5. Verified tests
 
@@ -85,8 +87,8 @@ None recorded.
 
 | ID | Assumption | State |
 |---|---|---|
-| A1 | GitHub-hosted Linux runners expose usable KVM | open (tested by `probe` workflow) |
-| A2 | `fedora-bootc:45` ships bootc 1.16 or newer | open (tested by `probe` workflow) |
+| A1 | GitHub-hosted Linux runners expose usable KVM | **confirmed** (QEMU started with `-accel kvm`, probe run 43459049502) |
+| A2 | `fedora-bootc:45` ships bootc 1.16 or newer | **confirmed** (bootc 1.17.1, probe run 43459049502) |
 | A3 | `bootc install to-disk` supports btrfs with the composefs backend | open (P1-05, P1-11) |
 | A4 | Fedora's updates-archive repository is usable for locked RPMs | open (P1-15) |
 | A5 | Container signature policy is enforced on the composefs backend | open (P1-14, test V-15) |
@@ -113,4 +115,22 @@ Claude Cloud, probed 2026-11-13:
   policy, so only `python3`, `pytest`, `ruff`, `make` and `git` are available. shellcheck,
   yamllint, actionlint and gitleaks therefore run only in CI.
 
-GitHub Actions runners: not yet probed.
+GitHub Actions hosted runner (`ubuntu-24.04`), probed 2026-11-13, run 43459049502:
+
+- 4 CPUs, 15.6 GiB RAM, 83 GiB free disk, kernel 7.0.0-azure.
+- `/dev/kvm` present; usable by the runner user after a udev rule; QEMU 8.2.2 (apt) starts
+  with KVM acceleration.
+- Loop devices can be attached inside a privileged podman container.
+- podman 4.9.3, buildah 1.33.7, skopeo 1.13.3, Docker 28.0.4 (daemon running).
+- quay.io, registry.fedoraproject.org, Fedora mirrors, ghcr.io all reachable.
+
+`quay.io/fedora/fedora-bootc:45` on 2026-11-13
+(`sha256:42259b1db41a7f792a19cfd28e0c66e3e415392109a7d7095f292ad1e2a56453`):
+
+- bootc 1.17.1, kernel 7.3.3-300.fc45, systemd 262.1, selinux-policy-targeted 45.24,
+  openssh-server 10.5p1, 540 packages.
+- `bootupd` 0.3.2 is installed (must be removed for the sealed path, P1-11).
+- Not installed: `systemd-boot-unsigned`, `systemd-ukify`, `firewalld`, `audit`.
+
+GitHub quirk: a workflow with a `paths` filter did not start on the first push of a new
+branch; it started on the next push that touched a matching path.
