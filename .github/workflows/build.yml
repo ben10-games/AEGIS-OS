@@ -10,9 +10,10 @@ on:
 permissions:
   contents: read
 
+# Runs queue instead of cancelling each other: every pushed commit keeps its evidence.
 concurrency:
   group: build-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-and-boot:
