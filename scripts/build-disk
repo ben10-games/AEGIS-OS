@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Install a bootc image into a raw disk IMAGE FILE for virtual machines.
+#
+#   scripts/build-disk [IMAGE] [OUTPUT_FILE]
+#
+# Safety: the target is always a regular file reached through a loop device. This
+# script refuses block devices and never touches a real disk.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+image="${1:-localhost/aegis-dev:latest}"
+output="${2:-out/disk.raw}"
+size="${AEGIS_DISK_SIZE:-12G}"
+
+if [[ -b "${output}" ]]; then
+  echo "error: ${output} is a block device; this script only writes image files" >&2
+  exit 1
+fi
+if [[ -e "${output}" && ! -f "${output}" ]]; then
+  echo "error: ${output} exists and is not a regular file" >&2
+  exit 1
+fi
+
+output_dir="$(dirname "${output}")"
+output_name="$(basename "${output}")"
+mkdir -p "${output_dir}"
+output_dir="$(cd "${output_dir}" && pwd)"
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+"${as_root[@]}" rm -f "${output_dir}/${output_name}"
+truncate -s "${size}" "${output_dir}/${output_name}"
+
+echo "== installing ${image} into ${output_dir}/${output_name} (${size})"
+# The serial console arguments are install-time, machine-local settings for test VMs;
+# they are not part of the image.
+"${as_root[@]}" podman run --rm \
+  --privileged \
+  --pid=host \
+  --security-opt label=type:unconfined_t \
+  -v /var/lib/containers:/var/lib/containers \
+  -v /dev:/dev \
+  -v "${output_dir}:/output" \
+  "${image}" \
+  bootc install to-disk \
+  --via-loopback \
+  --generic-image \
+  --filesystem btrfs \
+  --skip-fetch-check \
+  --karg console=tty0 \
+  --karg console=ttyS0,115200n8 \
+  "/output/${output_name}"
+
+echo "== partition table"
+if command -v sfdisk >/dev/null 2>&1; then
+  sfdisk --list "${output_dir}/${output_name}" | tee "${output_dir}/disk-layout.txt"
+else
+  echo "sfdisk not available; partition table not printed"
+fi
+ls -ls "${output_dir}/${output_name}"
