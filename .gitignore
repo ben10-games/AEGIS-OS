@@ -1,0 +1,29 @@
+# Key material and local secrets. Nothing under these paths may ever be committed.
+.secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+cosign.key
+
+# Build and test outputs
+out/
+*.qcow2
+*.raw
+*.img
+*.efi
+*.spdx.json
+junit-*.xml
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
