@@ -8,7 +8,9 @@ only if it actually ran and passed, with the commit and where it ran.
 
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
 - **Phase / milestone:** Phase 1, milestone M0 (repository and tooling)
-- **Next task:** read the result of the `probe` and `lint` workflows for the latest push,
+- **Blocked:** the first push was refused on 2026-11-13 (HTTP 403: the Claude GitHub App has
+  no access to this repository). Nothing is on GitHub yet. Push the branch first.
+- **Next task:** after the push, read the result of the `probe` and `lint` workflows,
   record them in sections 5, 8 and 10 below, then start **P1-03 (builder container)**.
 - **Last green CI run:** none yet
 - **To continue:**
