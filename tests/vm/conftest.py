@@ -74,6 +74,7 @@ def machine(disk: Path, name: str, workdir: Path, logdir: Path, accel: str):
         authorized_key=public_key,
         accel=accel,
         qmp_socket=scratch / "qmp.sock",
+        probe_port=free_local_port(),
     )
     vm = Vm(cfg, key, timeout_scale=TCG_TIMEOUT_SCALE if accel == "tcg" else 1.0)
     try:

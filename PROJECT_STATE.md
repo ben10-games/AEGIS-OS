@@ -9,9 +9,9 @@ only if it actually ran and passed, with the commit and where it ran.
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
 - **Phase / milestone:** Phase 1, milestone M2 (baseline configuration) in progress.
   M0 and M1 are complete. The approved M2 plan has eight increments; see section 2.
-- **Next task:** increment 3 of M2 (P1-08a): identity and service baseline. Then
-  firewall and audit, kernel arguments and sysctl, networking, SELinux verification and
-  the BUG-1 fix, and the before/after record. Do not start M3 before M2 is complete.
+- **Next task:** finish increment 4 of M2 (firewall and audit), then kernel arguments
+  and sysctl, networking, SELinux verification and the BUG-1 fix, and the before/after
+  record. Do not start M3 before M2 is complete.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the end of the `build` job log: the "Collect results"
   step prints `scripts/summarize-results`, with short inventories, the differences
@@ -35,7 +35,7 @@ only if it actually ran and passed, with the commit and where it ran.
 | P1-05 | Disk image | done | `9c8807c`; `build` run 43460695621 |
 | P1-06 | VM harness and first boot | done | `399d421`; `build` run 43460695621 |
 | P1-07 | Variant split and golden manifests | done | `5d839d4`; `build` run 43547501384 |
-| P1-08 | Operating system baseline | in progress | increment 3 (identity, service baseline) pushed; firewall, kernel arguments, sysctl, networking to follow |
+| P1-08 | Operating system baseline | in progress | identity and service baseline done (`bf592c8`, run 43550888887); firewall and audit pushed; kernel arguments, sysctl, networking to follow |
 | P1-09 | SELinux enforcement validation | todo | |
 | P1-10 | Ephemeral key tooling | todo | |
 | P1-11 | Sealed image, gate G1 | todo | |
@@ -114,7 +114,13 @@ still the unmodified Fedora service set, so this is expected to change in P1-08.
 | Golden manifests detect unlisted content (negative check) | pass | `58a46d0` | run 43546633024 failed for exactly the four manifests that were still empty |
 | Release variant boots to a console login prompt with no failed unit and powers off on the ACPI power button (V-01/V-02 for `aegis-base`, console only) | pass | `5d839d4` | GitHub Actions run 43547501384, KVM |
 
-Not yet run: B-05 to B-07, V-03 to V-20 (except the parts noted above), all R tests.
+| V-17 Accounts: root locked, no account with a usable or empty password, no regular users; dev SSH server offers public-key login only | pass | `bf592c8` | GitHub Actions run 43550888887, KVM |
+| V-20 Automatic update timer is masked and not scheduled | pass | `bf592c8` | GitHub Actions run 43550888887, KVM |
+| Service baseline: every unit the preset turns off is inactive and disabled at runtime | pass | `bf592c8` | GitHub Actions run 43550888887, KVM |
+| Identity: `os-release` and hostname say AEGIS in both variants; release variant answers nothing on the SSH port | pass | `bf592c8` | GitHub Actions run 43550888887, KVM |
+| `/etc` changes equal the reviewed list (ADR-0014), both variants | pass | `bf592c8` | GitHub Actions run 43550888887 |
+
+Not yet run: B-05 to B-07, V-03 to V-16 and V-18 to V-19 (except the parts noted above), all R tests.
 
 ### "Before" measurements for M2
 

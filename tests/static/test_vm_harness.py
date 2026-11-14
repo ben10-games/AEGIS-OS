@@ -30,6 +30,16 @@ def test_kvm_command_uses_host_cpu_and_forwards_ssh():
     assert "file:/logs/serial.log" in command
 
 
+def test_probe_port_is_forwarded_only_when_requested():
+    assert (
+        "hostfwd=tcp:127.0.0.1:2222-:22"
+        in build_qemu_command(config())[build_qemu_command(config()).index("-netdev") + 1]
+    )
+    command = build_qemu_command(config(probe_port=18080))
+    netdev = command[command.index("-netdev") + 1]
+    assert netdev.endswith("hostfwd=tcp:127.0.0.1:2222-:22,hostfwd=tcp:127.0.0.1:18080-:8080")
+
+
 def test_tcg_command_does_not_require_kvm():
     command = build_qemu_command(config(accel="tcg"))
     assert "q35,accel=tcg" in command

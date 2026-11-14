@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Development variant of the AEGIS default zone: the release zone plus SSH, so the
+     test harness can reach the virtual machine. Never part of a release image. -->
+<zone target="DROP">
+  <short>AEGIS (development)</short>
+  <description>Unsolicited incoming traffic is dropped, except SSH for automated tests.</description>
+  <service name="dhcpv6-client"/>
+  <service name="ssh"/>
+</zone>

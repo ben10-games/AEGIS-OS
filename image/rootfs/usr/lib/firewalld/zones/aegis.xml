@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default zone of AEGIS OS (ADR-0008). Unsolicited incoming traffic is dropped.
+     Outgoing connections and their replies are unaffected. -->
+<zone target="DROP">
+  <short>AEGIS</short>
+  <description>Unsolicited incoming traffic is dropped. Nothing is offered to the network.</description>
+  <!-- Replies from DHCPv6 servers are not matched by connection tracking. -->
+  <service name="dhcpv6-client"/>
+</zone>

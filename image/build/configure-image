@@ -67,3 +67,8 @@ fi
 
 # Unattended updates reboot the machine; update policy is a Phase 2 design (V-20).
 systemctl mask bootc-fetch-apply-updates.timer
+
+# --- firewall -------------------------------------------------------------------------
+# firewalld reads its default zone only from /etc/firewalld/firewalld.conf (ADR-0014).
+# The zone itself is /usr/lib/firewalld/zones/aegis.xml.
+firewall-offline-cmd --set-default-zone=aegis

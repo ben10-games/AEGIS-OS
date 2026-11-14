@@ -1,6 +1,7 @@
 NetworkManager-dispatcher.service
 NetworkManager-wait-online.service
 NetworkManager.service
+auditd.service
 authselect-apply-changes.service
 bootloader-update.service
 chronyd.service
@@ -9,6 +10,7 @@ dbus-broker.service
 dbus.socket
 dm-event.socket
 fips-crypto-policy-overlay.service
+firewalld.service
 fstrim.timer
 irqbalance.service
 kmsconvt@.service

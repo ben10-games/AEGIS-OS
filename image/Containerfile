@@ -10,7 +10,10 @@ ARG AEGIS_REVISION=unknown
 COPY image/build/ /usr/libexec/aegis-build/
 
 # The release image carries no remote-login daemon at all (ADR-0002).
+# firewalld is the firewall manager (ADR-0008); audit records security events.
+# Added packages are not version-locked until the RPM lockfile exists (P1-15).
 RUN dnf -y remove openssh-server \
+    && dnf -y install --setopt=install_weak_deps=False audit firewalld \
     && /usr/libexec/aegis-build/clean-package-state
 
 # Vendor configuration lives under /usr/lib; the few files that must be under /etc

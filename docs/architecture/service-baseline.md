@@ -28,6 +28,13 @@ Everything else stays as Fedora ships it. Removing packages is a separate decisi
 | `bootc-fetch-apply-updates.timer` | disabled and masked | Downloads and applies updates and reboots the machine without asking. Update policy is a Phase 2 design (V-20). | Wanted only by `timers.target` |
 | `systemd-sysext.service`, `systemd-confext.service` | disabled | They overlay `/usr` and `/etc` at boot with extension images found under `/var` or `/etc`: content outside the verified OS image, and a way to persist. Off until there is a signature policy. | Wanted only by `sysinit.target`; inactive on a stock system |
 
+## Added to the release image
+
+| Unit | Reason |
+|---|---|
+| `firewalld.service` | Firewall manager (ADR-0008). The default zone `aegis` drops unsolicited incoming traffic and offers nothing to the network. |
+| `auditd.service` | Records security events, including SELinux denials, in `/var/log/audit`, where they can be queried with `ausearch`. |
+
 ## Considered and left alone
 
 | Unit | Why it stays |

@@ -5,6 +5,10 @@
 # Fedora's presets (85-*, 90-*). image/build/configure-image applies exactly the units
 # named here; a unit that does not exist fails the build, which keeps this list honest.
 
+# Firewall (default zone drops unsolicited input) and the audit daemon.
+enable firewalld.service
+enable auditd.service
+
 # Network listeners and discovery that nothing in AEGIS uses.
 disable avahi-daemon.service
 disable avahi-daemon.socket

@@ -27,6 +27,10 @@ FIRMWARE_CANDIDATES: tuple[tuple[str, str], ...] = (
 
 ACCELERATORS = ("kvm", "tcg")
 
+# Guest port used by firewall tests: a listener is started on it inside the guest and
+# probed from outside through a forwarded host port.
+PROBE_GUEST_PORT = 8080
+
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 
@@ -65,6 +69,7 @@ class VmConfig:
     cpus: int = 2
     memory_mib: int = 4096
     qmp_socket: Path | None = None  # control socket, used to press the power button
+    probe_port: int | None = None  # host-side port forwarded to guest port PROBE_GUEST_PORT
 
 
 def build_qemu_command(cfg: VmConfig) -> list[str]:
@@ -75,6 +80,10 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
     # The key reaches the guest as a systemd credential in a firmware table. Nothing is
     # written into the image or the disk. Base64 avoids QEMU's comma-separated parsing.
     credential = base64.b64encode((cfg.authorized_key.strip() + "\n").encode()).decode()
+
+    forwards = f"hostfwd=tcp:127.0.0.1:{cfg.ssh_port}-:22"
+    if cfg.probe_port is not None:
+        forwards += f",hostfwd=tcp:127.0.0.1:{cfg.probe_port}-:{PROBE_GUEST_PORT}"
 
     command = [
         "qemu-system-x86_64",
@@ -94,7 +103,7 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
         "-drive",
         f"if=virtio,format=qcow2,file={cfg.disk}",
         "-netdev",
-        f"user,id=net0,hostfwd=tcp:127.0.0.1:{cfg.ssh_port}-:22",
+        f"user,id=net0,{forwards}",
         "-device",
         "virtio-net-pci,netdev=net0",
         "-device",
