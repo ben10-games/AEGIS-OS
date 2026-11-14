@@ -29,19 +29,17 @@ only if it actually ran and passed, with the commit and where it ran.
 
 - M2 is **not complete**. Increments 1 to 6 are done and green (`e378b1e`, run 43554108533).
   Increment 7 (P1-09, SELinux) is in its second iteration.
-- HEAD is `ad224f0` (pushed). Its `build` run **43556115948 failed** in the step
-  "Build disk images (both variants)" after about one minute. The log has **not been
-  read yet**. That step now also runs `scripts/fix-install-labels` (new in `ad224f0`),
-  which is the most likely place of the failure. The golden-manifest and VM steps were
-  skipped, so nothing about V-08 is known for this commit.
+- `ad224f0` (run 43556115948) failed in "Build disk images": `scripts/fix-install-labels`
+  looked for the root partition with `lsblk`, which reports no partition names inside a
+  container (no udev database). The installation itself had completed. Fixed in the
+  next commit: the partition is found by its GPT type with `sfdisk --dump`.
 - The previous commit `f635e02` (run 43554934333) passed 52 of 55 VM tests: the SELinux
   policy build, module load, file contexts and the enforcement self-test all work.
   The 3 failures were BUG-1 (install-time files still `default_t`).
 
 **Next steps, in order**
 
-1. Read the end of the "Build disk images" step of run 43556115948
-   (job 132329230690) and fix `scripts/fix-install-labels` or `scripts/build-disk`.
+1. Done: disk-build failure of run 43556115948 read and fixed (see above).
 2. Get a green build; then V-08 is verified and P1-09 and M2 can be closed: write
    `docs/architecture/security-baseline.md` (draft exists, see below), the before/after
    measurements, and update sections 2, 4, 5 and 7 of this file.
@@ -51,7 +49,7 @@ only if it actually ran and passed, with the commit and where it ran.
 
 | ID | Command | Output file | State |
 |---|---|---|---|
-| `b05590g4t` | `sleep 580; echo waited` (a timer started at about 04:20Z to wait for build run 43556115948; it does no work itself) | `/tmp/claude-0/-home-user-AEGIS-OS/ca6fec80-564a-5eee-b0bb-f1c9dc5a8c65/tasks/b05590g4t.output` | running; ends by itself at about 04:30Z and prints `waited`. Nothing depends on its output: the run it was waiting for has already finished. |
+| `b05590g4t` | `sleep 580; echo waited` (a timer started at about 04:20Z to wait for build run 43556115948; it does no work itself) | `/tmp/claude-0/-home-user-AEGIS-OS/ca6fec80-564a-5eee-b0bb-f1c9dc5a8c65/tasks/b05590g4t.output` | completed at about 04:30Z and prints `waited`. Nothing depends on its output: the run it was waiting for has already finished. |
 
 No other background task is running. All earlier timers (`bwfgs821u`, `bdlwlhuho`,
 `bb594qeg5`, `bm7je4dcn`, `bo7yr8u33`, `bzmk07uot`, `bjaidndj9`, `b520h0vwk`,

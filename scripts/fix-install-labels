@@ -29,19 +29,27 @@ cleanup() {
 }
 trap cleanup EXIT
 
-root_part=""
-for _ in $(seq 1 30); do
-  name="$(lsblk -rno NAME,PARTLABEL "${loop}" | awk '$2 == "root" {print $1}')"
-  if [[ -n "${name}" && -b "/dev/${name}" ]]; then
-    root_part="/dev/${name}"
-    break
-  fi
-  sleep 0.5
-done
+# The root partition is identified by its GPT type, read straight from the partition
+# table. lsblk and /dev/disk/by-* are of no use here: a container has no udev database.
+root_type_guid="4f68bce3-e8cd-4db1-96e7-fbcaf984b709" # "Linux root (x86-64)"
+table="$(sfdisk --dump "${loop}")"
+root_part="$(awk -v guid="${root_type_guid}" \
+  'tolower($0) ~ "type=" guid && !found {print $1; found = 1}' <<<"${table}")"
 if [[ -z "${root_part}" ]]; then
-  echo "error: no partition labelled 'root' found on ${disk}" >&2
+  echo "error: no partition of type 'Linux root (x86-64)' found on ${disk}" >&2
+  echo "${table}" >&2
   exit 1
 fi
+for _ in $(seq 1 30); do
+  [[ -b "${root_part}" ]] && break
+  sleep 0.5
+done
+if [[ ! -b "${root_part}" ]]; then
+  echo "error: ${root_part} did not appear as a block device" >&2
+  ls -l "${loop}"* >&2 || true
+  exit 1
+fi
+echo "root partition: ${root_part}"
 
 mkdir -p "${mountpoint}"
 mount "${root_part}" "${mountpoint}"
