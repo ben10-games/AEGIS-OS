@@ -19,6 +19,7 @@ Three more files are compared with a running system, not with the image inventor
 | `kargs.txt` | Kernel arguments AEGIS adds | V-19 |
 | `sysctl.txt` | Kernel settings and their values | V-19 |
 | `kernel-error-allowlist.txt` | Error-level kernel messages that are expected | V-03 |
+| `listening-sockets-dev.txt` | TCP and UDP listeners of a running `aegis-dev` | V-10 |
 
 One entry per line. Lines starting with `#` and empty lines are ignored.
 

@@ -1,7 +1,9 @@
-"""Network baseline of the development variant: firewall (V-11) and auditing.
+"""Network baseline of the development variant: connectivity (V-10), firewall (V-11)
+and auditing.
 
-The firewall test does not only read the configuration. It starts a listener inside the
-guest and probes it from outside through a forwarded port, with a positive control.
+The tests need no internet access. Name resolution and the outbound fetch go to small
+servers run by the harness (tests/vm/harness/servers.py). The firewall test starts a
+listener inside the guest and probes it from outside, with a positive control.
 
 Tests in this module run in order against one virtual machine.
 """
@@ -11,13 +13,18 @@ from __future__ import annotations
 import re
 import socket
 import time
+from pathlib import Path
 
 import pytest
 from harness.qemu import PROBE_GUEST_PORT
+from harness.servers import GUEST_VIEW_OF_HOST, DnsResponder, MarkerHttpServer
 
 SSH_DEADLINE_S = 120
 RUNNING_DEADLINE_S = 180
 BANNER = b"AEGIS-OPEN"
+MARKER = "aegis-outbound-marker"
+HARNESS_NAME = "harness.aegis-test.example"
+GOLDEN_LISTENERS = Path(__file__).resolve().parents[1] / "golden" / "listening-sockets-dev.txt"
 
 
 @pytest.fixture(scope="module")
@@ -29,6 +36,16 @@ def guest(vm):
     return vm
 
 
+@pytest.fixture(scope="module")
+def harness_services():
+    """An HTTP server and a DNS server on the host side, reachable from the guest."""
+    http = MarkerHttpServer(MARKER).start()
+    dns = DnsResponder({HARNESS_NAME: GUEST_VIEW_OF_HOST}).start()
+    yield http, dns
+    dns.stop()
+    http.stop()
+
+
 def read_from_outside(port: int, timeout: float = 5.0) -> bytes:
     """What a machine on the network receives from the guest port behind `port`."""
     try:
@@ -37,6 +54,52 @@ def read_from_outside(port: int, timeout: float = 5.0) -> bytes:
             return sock.recv(64)
     except OSError:
         return b""  # refused, reset or timed out
+
+
+def test_v10_address_and_route_come_from_dhcp(guest):
+    """V-10: the interface has an address and a default route, managed by NetworkManager."""
+    addresses = guest.ssh("ip -4 -o addr show scope global").stdout
+    assert re.search(r"inet 10\.0\.2\.\d+/", addresses), addresses
+    assert guest.ssh("ip -4 route show default").stdout.strip(), "no default route"
+    devices = guest.ssh("nmcli -t -f DEVICE,STATE device").stdout
+    assert re.search(r"^(?!lo:).+:connected$", devices, re.MULTILINE), devices
+
+
+def test_v10_resolver_settings(guest):
+    """V-10: opportunistic DNS-over-TLS; link-local name resolution is off."""
+    assert "opportunistic" in guest.ssh("resolvectl dnsovertls").stdout.splitlines()[0]
+    assert guest.ssh("resolvectl llmnr").stdout.splitlines()[0].split()[-1] == "no"
+    assert guest.ssh("resolvectl mdns").stdout.splitlines()[0].split()[-1] == "no"
+
+
+def test_v10_name_resolution_works(guest, harness_services):
+    """V-10: a name is resolved through systemd-resolved and the DHCP-provided server."""
+    _http, dns = harness_services
+    result = guest.ssh(f"resolvectl query --legend=no {HARNESS_NAME}", timeout=60, check=False)
+    assert GUEST_VIEW_OF_HOST in result.stdout, result.stdout + result.stderr
+    assert HARNESS_NAME in dns.queries, f"the harness DNS server saw: {dns.queries}"
+    # The ordinary libc path used by applications gives the same answer.
+    assert GUEST_VIEW_OF_HOST in guest.ssh(f"getent ahostsv4 {HARNESS_NAME}").stdout
+
+
+def test_v10_outbound_connection_works(guest, harness_services):
+    """V-10: the guest fetches a page from a server outside, addressed by name."""
+    http, _dns = harness_services
+    url = f"http://{HARNESS_NAME}:{http.port}/marker"
+    assert guest.ssh(f"curl -fsS --max-time 20 {url}", timeout=60).stdout == MARKER
+    assert http.requests, "the harness HTTP server received no request"
+
+
+def test_v10_listening_sockets_equal_the_golden_list(guest, logdir):
+    """V-10: nothing listens on the network except what the reviewed list allows."""
+    expected = [
+        line.strip()
+        for line in GOLDEN_LISTENERS.read_text().splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    actual = guest.ssh("ss -Htuln | awk '{print $1, $5}' | LC_ALL=C sort -u").stdout.splitlines()
+    (logdir / "network-listeners.txt").write_text("\n".join(actual) + "\n")
+    assert actual == expected, f"listeners differ from tests/golden: {actual}"
 
 
 def test_v11_firewalld_runs_with_the_aegis_zone(guest):

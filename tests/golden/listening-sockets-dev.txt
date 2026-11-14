@@ -1,0 +1,11 @@
+# TCP and UDP listeners of a running aegis-dev system (V-10), as "protocol address:port".
+# Only sshd (development variant) listens on the network. Everything else is loopback:
+# the DNS stub of systemd-resolved (127.0.0.53/54) and chrony's control port (323).
+tcp 0.0.0.0:22
+tcp 127.0.0.53%lo:53
+tcp 127.0.0.54:53
+tcp [::]:22
+udp 127.0.0.1:323
+udp 127.0.0.53%lo:53
+udp 127.0.0.54:53
+udp [::1]:323
