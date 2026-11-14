@@ -113,6 +113,7 @@ section "accounts" "${logs}/boot1-accounts.txt" 20
 section "kernel messages at error level" "${logs}/boot1-kernel-errors.txt" 30
 section "SELinux: unlabeled_t and default_t files" "${logs}/boot1-selinux-labels.txt" 45
 section "audit: event types recorded since boot" "${logs}/audit-event-types.txt" 25
+section "reverse-path filter experiment" "${logs}/rp-filter-experiment.txt" 3
 echo "=== firewall: kernel rules that mention the aegis zone or a drop"
 if [[ -s "${logs}/firewall-ruleset.txt" ]]; then
   grep -nE 'chain filter_(INPUT|IN_aegis|INPUT_POLICIES)|aegis|drop' \

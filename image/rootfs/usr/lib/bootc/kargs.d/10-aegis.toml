@@ -10,6 +10,8 @@
 # randomize_kstack_offset=on  per-syscall kernel stack offset
 # vsyscall=none             removes the fixed-address legacy syscall page
 # audit=1                   audit events are recorded from the first process on
+# audit_backlog_limit=8192  room for the events of early boot until auditd starts;
+#                           with the default of 64 the kernel drops them
 kargs = [
   "lockdown=integrity",
   "slab_nomerge",
@@ -18,4 +20,5 @@ kargs = [
   "randomize_kstack_offset=on",
   "vsyscall=none",
   "audit=1",
+  "audit_backlog_limit=8192",
 ]

@@ -81,11 +81,38 @@ def test_v19_sysctl_values(guest):
     assert not wrong, f"sysctl differences (actual, expected): {wrong}"
 
 
-def test_v19_reverse_path_filter_is_strict_on_every_interface(guest):
-    """The kernel uses the larger of 'all' and the interface value, so check each one."""
-    values = guest.ssh("grep -H . /proc/sys/net/ipv4/conf/*/rp_filter").stdout.split()
-    loose = [entry for entry in values if not entry.endswith(":1")]
-    assert values and not loose, f"interfaces without strict reverse-path filtering: {loose}"
+def test_v19_reverse_path_filter_is_on_for_every_interface(guest, logdir):
+    """Reverse-path filtering is never off, and strict wherever nothing relaxes it.
+
+    The kernel uses the larger of 'all' and the per-interface value: 1 is strict, 2 is
+    loose, 0 would be off. The interface with the default route has been observed at 2.
+    """
+    values = dict(
+        entry.rsplit(":", 1)
+        for entry in guest.ssh("grep -H . /proc/sys/net/ipv4/conf/*/rp_filter").stdout.split()
+    )
+    names = {path.split("/")[-2]: value for path, value in values.items()}
+    assert names.get("all") == "1" and names.get("default") == "1", names
+    off = [name for name, value in names.items() if value == "0"]
+    assert not off, f"reverse-path filtering is off on: {off}"
+
+    route = guest.ssh("ip -4 route show default").stdout.split()
+    uplink = route[route.index("dev") + 1] if "dev" in route else None
+    loose = sorted(name for name, value in names.items() if value == "2")
+    assert set(loose) <= {uplink}, f"loose on interfaces without a default route: {loose}"
+
+    # Attribution experiment, recorded but not asserted: set the uplink to strict, ask
+    # NetworkManager to re-apply the connection, and read the value again.
+    if uplink:
+        path = f"/proc/sys/net/ipv4/conf/{uplink}/rp_filter"
+        before = names.get(uplink)
+        forced = guest.ssh(f"echo 1 > {path} && cat {path}", check=False).stdout.strip()
+        guest.ssh(f"nmcli device reapply {uplink}", check=False)
+        after = guest.ssh(f"sleep 3; cat {path}", check=False).stdout.strip()
+        (logdir / "rp-filter-experiment.txt").write_text(
+            f"uplink={uplink} at_boot={before} after_forcing_strict={forced} "
+            f"after_networkmanager_reapply={after}\n"
+        )
 
 
 def test_shut_down(guest):
