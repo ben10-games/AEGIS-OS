@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Record what is inside the aegis-base and aegis-dev images: packages, enabled and
+# masked units, setuid/setgid files, file capabilities and SELinux permissive domains.
+#
+# Output goes to out/inventory/<variant>/. The golden manifests in tests/golden/ are
+# compared against these files (tests/image/), and are updated from them.
+#
+# Each image is mounted read-only at /target and inspected offline; nothing in it runs.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+builder=localhost/aegis-builder:latest
+out=out/inventory
+
+# inspect IMAGE COMMAND...: run COMMAND in a throw-away container of IMAGE itself, with
+# IMAGE also mounted read-only at /target. No network.
+inspect() {
+  local image="$1"
+  shift
+  "${as_root[@]}" podman run --rm --network=none \
+    --mount "type=image,source=${image},destination=/target" \
+    "${image}" "$@"
+}
+
+for variant in base dev; do
+  image="localhost/aegis-${variant}:latest"
+  dir="${out}/${variant}"
+  mkdir -p "${dir}"
+  echo "== inventory of ${image}"
+
+  inspect "${image}" rpm -qa --qf '%{NAME}.%{ARCH}\n' \
+    | { grep -v '^gpg-pubkey\.' || true; } | LC_ALL=C sort -u > "${dir}/packages.txt"
+
+  inspect "${image}" systemctl --root=/target list-unit-files \
+    --state=enabled --no-legend --no-pager \
+    | awk '{print $1}' | LC_ALL=C sort -u > "${dir}/enabled-units.txt"
+
+  inspect "${image}" systemctl --root=/target list-unit-files \
+    --state=masked --no-legend --no-pager \
+    | awk '{print $1}' | LC_ALL=C sort -u > "${dir}/masked-units.txt"
+
+  inspect "${image}" find /target -xdev -type f -perm /6000 -printf '%04m %u:%g /%P\n' \
+    | LC_ALL=C sort -k3 > "${dir}/setuid-files.txt"
+
+  { inspect "${image}" getcap -r /target 2>/dev/null || true; } \
+    | sed 's#^/target##' | LC_ALL=C sort > "${dir}/file-capabilities.txt"
+
+  if "${as_root[@]}" podman image exists "${builder}"; then
+    "${as_root[@]}" podman run --rm --network=none \
+      --mount "type=image,source=${image},destination=/target" \
+      "${builder}" sh -c 'seinfo --permissive /target/etc/selinux/targeted/policy/policy.*' \
+      | awk 'seen && NF {print $1} /^Permissive Types:/ {seen=1}' \
+      | LC_ALL=C sort -u > "${dir}/selinux-permissive-domains.txt"
+  else
+    echo "note: ${builder} not built; SELinux permissive domains not listed"
+  fi
+
+  wc -l "${dir}"/*.txt
+done
+
+# What the development variant adds (+) or removes (-) compared with the release variant.
+for name in packages enabled-units masked-units setuid-files file-capabilities; do
+  {
+    LC_ALL=C comm -13 "${out}/base/${name}.txt" "${out}/dev/${name}.txt" | sed 's/^/+/'
+    LC_ALL=C comm -23 "${out}/base/${name}.txt" "${out}/dev/${name}.txt" | sed 's/^/-/'
+  } > "${out}/dev/${name}.delta.txt"
+done
+echo "== dev variant delta"
+wc -l "${out}"/dev/*.delta.txt

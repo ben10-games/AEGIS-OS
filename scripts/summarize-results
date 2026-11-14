@@ -2,9 +2,15 @@
 # Print the key evidence from a build-and-boot run (out/) as plain text.
 # CI writes this to the job log and the run summary, so a session that cannot
 # download artifacts can still read what actually happened.
+#
+# Order matters: bulky inventories first, the compact verdict last, so that the tail
+# of the job log is always the part needed most often.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+
+logs=out/vm/logs
+inventory=out/inventory
 
 section() {
   local title="$1" file="$2" lines="${3:-40}"
@@ -17,27 +23,82 @@ section() {
   echo
 }
 
+# Print a one-item-per-line list as wrapped lines to keep the log short.
+wrapped() {
+  local title="$1" file="$2"
+  if [[ -s "${file}" ]]; then
+    echo "=== ${title} ($(wc -l < "${file}") entries)"
+    paste -sd' ' "${file}" | fold -s -w 150
+  elif [[ -e "${file}" ]]; then
+    echo "=== ${title} (0 entries)"
+  else
+    echo "=== ${title} (not recorded: ${file} is missing)"
+  fi
+  echo
+}
+
+if [[ -d "${inventory}/base" ]]; then
+  echo "##### IMAGE INVENTORY (aegis-base)"
+  wrapped "golden:base/packages.txt" "${inventory}/base/packages.txt"
+  wrapped "golden:base/enabled-units.txt" "${inventory}/base/enabled-units.txt"
+  wrapped "golden:base/masked-units.txt" "${inventory}/base/masked-units.txt"
+  section "golden:base/setuid-files.txt" "${inventory}/base/setuid-files.txt" 80
+  section "golden:base/file-capabilities.txt" "${inventory}/base/file-capabilities.txt" 40
+  wrapped "golden:base/selinux-permissive-domains.txt" \
+    "${inventory}/base/selinux-permissive-domains.txt"
+  echo "##### IMAGE INVENTORY (aegis-dev, difference from aegis-base: + added, - removed)"
+  for name in packages enabled-units masked-units setuid-files file-capabilities; do
+    section "golden:dev/${name}.delta.txt" "${inventory}/dev/${name}.delta.txt" 60
+  done
+fi
+
+if [[ -d "${logs}" ]]; then
+  echo "##### RUNTIME INVENTORY (aegis-dev, first boot)"
+  wrapped "running services" "${logs}/boot1-running-services.txt"
+  wrapped "enabled units at runtime" "${logs}/boot1-enabled-units.txt"
+  wrapped "active timers" "${logs}/boot1-active-timers.txt"
+  section "listening TCP/UDP sockets" "${logs}/boot1-listening-sockets.txt" 40
+  section "listening vsock sockets" "${logs}/boot1-listening-vsock.txt" 10
+  section "processes per SELinux domain" "${logs}/boot1-process-domains.txt" 60
+  section "kernel messages at error level" "${logs}/boot1-kernel-errors.txt" 30
+  section "ssh listeners and units" "${logs}/boot1-ssh-listeners.txt" 30
+  section "preset files" "${logs}/boot1-presets.txt" 30
+  section "timers" "${logs}/boot1-timers.txt" 25
+  section "accounts" "${logs}/boot1-accounts.txt" 20
+  section "block devices" "${logs}/boot1-lsblk.txt"
+  section "bootc status" "${logs}/boot1-bootc-status.txt" 45
+  section "identity" "${logs}/boot1-os-release.txt" 40
+
+  echo "##### SELINUX DIAGNOSTICS"
+  section "policy status and module store" "${logs}/boot1-selinux-store.txt" 30
+  section "label of the bootc install record (BUG-1)" "${logs}/boot1-selinux-aleph.txt" 12
+  section "who runs bootupctl (BUG-1)" "${logs}/boot1-bootupctl-origin.txt" 30
+  section "unlabeled_t and default_t files" "${logs}/boot1-selinux-labels.txt" 45
+fi
+
+echo "##### VERDICT"
 section "build" out/build-info.txt
 section "test container packages" out/builder-versions.txt
 section "disk layout" out/disk-layout.txt
 
-if [[ -f out/junit-vm.xml ]]; then
-  echo "=== vm test report"
-  { grep -oE '<testsuite [^>]*>' out/junit-vm.xml || true; } \
+for boot in boot1 boot2; do
+  section "${boot}: startup time" "${logs}/${boot}-systemd-analyze.txt" 3
+  section "${boot}: memory (MiB)" "${logs}/${boot}-memory.txt"
+  section "${boot}: failed units" "${logs}/${boot}-failed-units.txt"
+  section "${boot}: SELinux denials" "${logs}/${boot}-avc.txt" 12
+done
+section "measurements (first boot)" "${logs}/boot1-metrics.json" 60
+
+for report in out/junit-*.xml; do
+  [[ -f "${report}" ]] || continue
+  echo "=== test report ${report}"
+  { grep -oE '<testsuite [^>]*>' "${report}" || true; } \
     | { grep -oE '(tests|failures|errors|skipped|time)="[^"]*"' || true; } \
     | tr '\n' ' '
   echo
-  grep -oE '<property name="[^"]*" value="[^"]*"' out/junit-vm.xml || true
+  { grep -oE '<testcase [^>]*name="[^"]*"' "${report}" || true; } \
+    | sed -E 's/.*name="([^"]*)".*/  ran: \1/'
+  { grep -oE '<(failure|error) message="[^"]{0,300}' "${report}" || true; } \
+    | sed -E 's/^<(failure|error) message="/  FAILED: /'
   echo
-fi
-
-for boot in boot1 boot2; do
-  logs="out/vm/logs"
-  section "${boot}: startup time" "${logs}/${boot}-systemd-analyze.txt" 12
-  section "${boot}: memory (MiB)" "${logs}/${boot}-memory.txt"
-  section "${boot}: failed units" "${logs}/${boot}-failed-units.txt"
-  section "${boot}: SELinux denials" "${logs}/${boot}-avc.txt" 20
 done
-section "block devices" out/vm/logs/boot1-lsblk.txt
-section "bootc status" out/vm/logs/boot1-bootc-status.txt
-section "identity" out/vm/logs/boot1-os-release.txt

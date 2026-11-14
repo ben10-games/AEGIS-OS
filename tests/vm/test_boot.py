@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import os
 
+from harness import metrics
+
 SSH_DEADLINE_S = 120
 RUNNING_DEADLINE_S = 180
 POWEROFF_DEADLINE_S = 60
@@ -40,6 +42,43 @@ def collect_diagnostics(vm, logdir, tag: str) -> None:
         "avc": "journalctl -b --no-pager -g 'avc:  denied' || true",
         "lsblk": "lsblk -o NAME,SIZE,FSTYPE,PARTTYPENAME,MOUNTPOINTS",
         "os-release": "cat /usr/lib/os-release /usr/lib/aegis/release",
+        # BUG-1: who reads the bootc install record, and how is that file labelled?
+        "selinux-aleph": (
+            "ls -Z /sysroot/.bootc-aleph.json;"
+            " matchpathcon /sysroot/.bootc-aleph.json /.bootc-aleph.json;"
+            " ls -dZ / /sysroot"
+        ),
+        "bootupctl-origin": (
+            "journalctl -b --no-pager -o short-monotonic _COMM=bootupctl | head -n 12;"
+            " systemctl list-units --all --no-legend --plain --no-pager 'boot*' | head -n 12"
+        ),
+        "selinux-labels": (
+            "for type in unlabeled_t default_t; do"
+            ' echo "$type: $(find / /etc /var -xdev -context "*:$type:*" 2>/dev/null | wc -l)'
+            " in /, /etc, /var;"
+            ' $(find /sysroot -maxdepth 2 -context "*:$type:*" 2>/dev/null | wc -l)'
+            ' at the top of /sysroot";'
+            " done;"
+            " find / /etc /var -xdev \\( -context '*:unlabeled_t:*' -o -context '*:default_t:*' \\)"
+            " 2>/dev/null | head -n 25;"
+            " find /sysroot -maxdepth 2 -context '*:default_t:*' 2>/dev/null | head -n 10"
+        ),
+        "selinux-store": (
+            "sestatus;"
+            " ls -d /etc/selinux/targeted/active /var/lib/selinux/targeted/active 2>&1;"
+            " grep -Ev '^(#|$)' /etc/selinux/semanage.conf"
+        ),
+        "ssh-listeners": (
+            "systemctl is-enabled sshd.service sshd.socket 2>&1;"
+            " systemctl list-units --all --no-legend --plain --no-pager '*ssh*';"
+            " ls /run/systemd/generator /run/systemd/generator.late 2>/dev/null | grep -i ssh"
+        ),
+        "presets": "ls /usr/lib/systemd/system-preset /etc/systemd/system-preset 2>&1",
+        "timers": "systemctl list-timers --all --no-pager",
+        "accounts": (
+            "passwd -S root; awk -F: '$3 >= 1000 && $3 < 65000 {print $1}' /etc/passwd;"
+            " awk -F: '$2 !~ /^[!*]/ && $2 != \"\" {print $1}' /etc/shadow"
+        ),
     }
     for name, command in commands.items():
         try:
@@ -64,6 +103,19 @@ def test_v01_boot_reaches_running_state(vm, logdir, record_property):
     seconds = vm.wait_for_ssh(SSH_DEADLINE_S)
     record_property("ssh_ready_seconds", round(seconds, 1))
     assert_system_running(vm, logdir, "boot1")
+
+
+def test_collect_measurements(vm, logdir, record_property):
+    """Record startup time, memory and the runtime inventory of the first boot.
+
+    Observations only. They feed the before/after record and the golden manifests;
+    thresholds are V-12 (task P1-17).
+    """
+    measured = metrics.collect(vm, logdir, "boot1")
+    record_property("startup_seconds", measured["startup_seconds"].get("total"))
+    record_property("memory_in_use_mib", measured["memory_mib"].get("in_use"))
+    record_property("running_services", measured["counts"]["running-services"])
+    assert measured["startup_seconds"].get("total"), "systemd-analyze reported no startup time"
 
 
 def test_booted_system_is_the_built_image(vm, record_property):

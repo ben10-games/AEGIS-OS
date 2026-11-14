@@ -9,6 +9,7 @@ RUN dnf -y install --setopt=install_weak_deps=False \
       python3-pytest \
       qemu-img \
       qemu-system-x86-core \
+      setools-console \
       swtpm \
     && dnf clean all
 

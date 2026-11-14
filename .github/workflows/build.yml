@@ -39,11 +39,14 @@ jobs:
       - name: Build container images (B-01)
         run: make image
 
-      - name: Build disk image
-        run: make disk
-
       - name: Build test container
         run: make builder
+
+      - name: Image inventory
+        run: make inventory
+
+      - name: Build disk image
+        run: make disk
 
       - name: Boot and shutdown tests (V-01, V-02)
         run: make vm-test
@@ -70,6 +73,7 @@ jobs:
           path: |
             out/*.txt
             out/*.xml
+            out/inventory/
             out/vm/logs/
           if-no-files-found: warn
           retention-days: 14

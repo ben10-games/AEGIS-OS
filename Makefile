@@ -42,6 +42,10 @@ disk: ## Install aegis-dev into out/disk.raw (an image file, never a real disk)
 builder: ## Build the test container (QEMU, UEFI firmware, pytest)
 	scripts/build-builder
 
+.PHONY: inventory
+inventory: ## Record packages, units, privileged files and permissive domains of both images
+	scripts/inventory-image
+
 .PHONY: vm-test
 vm-test: ## Boot out/disk.raw in QEMU and run the VM tests (V-01, V-02)
 	scripts/run-vm-tests
@@ -51,4 +55,4 @@ summary: ## Print the evidence collected by the last build and VM test run
 	scripts/summarize-results
 
 .PHONY: m1
-m1: image disk builder vm-test ## Everything for milestone M1: build, install, boot, shut down
+m1: image builder inventory disk vm-test ## Build, inventory, install, boot, shut down

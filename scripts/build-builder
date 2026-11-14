@@ -25,5 +25,5 @@ fi
 
 mkdir -p out
 "${as_root[@]}" podman run --rm localhost/aegis-builder:latest \
-  rpm -q qemu-system-x86-core edk2-ovmf swtpm openssh-clients python3-pytest \
+  rpm -q qemu-system-x86-core edk2-ovmf swtpm openssh-clients python3-pytest setools-console \
   | tee out/builder-versions.txt
