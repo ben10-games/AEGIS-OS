@@ -1,0 +1,11 @@
+# Development variant only; started by tests/vm/test_selinux.py, never enabled.
+# The program is a copy of 'cat' labelled aegis_selftest_exec_t, so systemd starts it
+# in the confined domain aegis_selftest_t.
+[Unit]
+Description=AEGIS SELinux self-test: read the allowed file
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/aegis/selftest/cat /usr/share/aegis/selftest/allowed
+StandardOutput=null
+StandardError=null

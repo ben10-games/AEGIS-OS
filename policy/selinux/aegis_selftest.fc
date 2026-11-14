@@ -1,0 +1,3 @@
+/usr/libexec/aegis/selftest/cat		--	gen_context(system_u:object_r:aegis_selftest_exec_t,s0)
+/usr/share/aegis/selftest/allowed	--	gen_context(system_u:object_r:aegis_selftest_allowed_t,s0)
+/usr/share/aegis/selftest/forbidden	--	gen_context(system_u:object_r:aegis_selftest_forbidden_t,s0)

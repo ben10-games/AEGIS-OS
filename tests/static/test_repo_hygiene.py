@@ -52,3 +52,19 @@ def test_lint_requirements_are_hash_pinned(root):
     for line in requirements:
         assert re.match(r"^[a-z0-9-]+==\S+ ", line), f"not pinned to a version: {line[:40]}"
         assert "--hash=sha256:" in line, f"no hash: {line[:40]}"
+
+
+def test_selinux_policy_sources_never_weaken_enforcement(root):
+    """AEGIS policy modules may not make a domain permissive or silence denials."""
+    sources = sorted((root / "policy" / "selinux").glob("*.te"))
+    assert sources, "no SELinux policy sources found"
+    for path in sources:
+        rules = [
+            line.strip()
+            for line in path.read_text().splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        ]
+        for rule in rules:
+            assert not rule.startswith("permissive "), f"{path.name}: {rule}"
+            assert "dontaudit" not in rule, f"{path.name}: {rule}"
+            assert "unconfined_domain" not in rule, f"{path.name}: {rule}"

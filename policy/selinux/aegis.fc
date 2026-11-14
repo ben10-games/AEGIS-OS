@@ -1,0 +1,6 @@
+# The record bootc writes about the installation; read by bootupd, which may read root_t.
+/sysroot/\.bootc-aleph\.json		--	gen_context(system_u:object_r:root_t,s0)
+
+# Written by bootupd below the boot directory, which is labelled boot_t everywhere else.
+/sysroot/boot/grub2(/.*)?			gen_context(system_u:object_r:boot_t,s0)
+/sysroot/boot/bootupd-state\.json	--	gen_context(system_u:object_r:boot_t,s0)

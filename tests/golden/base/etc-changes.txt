@@ -22,6 +22,9 @@ A modprobe.d/firewalld-sysctls.conf
 
 # openssh-server is removed from the release image.
 D pam.d/sshd
+
+# The AEGIS policy module (file contexts only) is installed into the policy store.
+M selinux/targeted/** (policy store)
 D ssh/sshd_config
 D ssh/sshd_config.d/40-redhat-crypto-policies.conf
 D ssh/sshd_config.d/50-redhat.conf

@@ -68,6 +68,16 @@ fi
 # Unattended updates reboot the machine; update policy is a Phase 2 design (V-20).
 systemctl mask bootc-fetch-apply-updates.timer
 
+# --- SELinux --------------------------------------------------------------------------
+# Install the AEGIS policy modules into the policy store of the image. -n: do not try
+# to load the policy into the kernel of the build machine.
+semodule -n -s targeted -i /usr/share/selinux/packages/aegis/*.pp
+
+if [[ "${variant}" == "dev" ]]; then
+  # The self-test program is a copy of 'cat'; its label comes from aegis_selftest.fc.
+  install -D -m 0755 /usr/bin/cat /usr/libexec/aegis/selftest/cat
+fi
+
 # --- firewall -------------------------------------------------------------------------
 # firewalld reads its default zone only from /etc/firewalld/firewalld.conf (ADR-0014).
 # The zone itself is /usr/lib/firewalld/zones/aegis.xml.

@@ -1,0 +1,27 @@
+policy_module(aegis_selftest, 1.0.0)
+
+########################################
+#
+# Development variant only. A confined domain that exists to prove, in automated
+# tests, that the loaded policy is enforced: it may read one file type and has no
+# rule for another. tests/vm/test_selinux.py starts it through two systemd units.
+#
+
+type aegis_selftest_t;
+type aegis_selftest_exec_t;
+init_daemon_domain(aegis_selftest_t, aegis_selftest_exec_t)
+
+type aegis_selftest_allowed_t;
+files_type(aegis_selftest_allowed_t)
+
+type aegis_selftest_forbidden_t;
+files_type(aegis_selftest_forbidden_t)
+
+# Reach the test files below /usr/share and behave like an ordinary small program.
+files_search_usr(aegis_selftest_t)
+miscfiles_read_localization(aegis_selftest_t)
+
+# The one access this domain is given.
+allow aegis_selftest_t aegis_selftest_allowed_t:file read_file_perms;
+
+# Deliberately no rule for aegis_selftest_forbidden_t.
