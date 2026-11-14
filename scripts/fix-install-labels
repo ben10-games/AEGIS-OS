@@ -16,7 +16,8 @@
 set -euo pipefail
 
 disk="$1"
-mountpoint=/mnt/aegis-root
+# Not /mnt: in a bootc image that is a symbolic link into /var, which is empty here.
+mountpoint="$(mktemp -d /tmp/aegis-root.XXXXXX)"
 
 label_of() {
   getfattr --absolute-names -h -n security.selinux --only-values "$1" 2>/dev/null | tr -d '\0'
@@ -25,6 +26,7 @@ label_of() {
 loop="$(losetup --find --show --partscan "${disk}")"
 cleanup() {
   umount "${mountpoint}" 2>/dev/null || true
+  rmdir "${mountpoint}" 2>/dev/null || true
   losetup --detach "${loop}" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -51,7 +53,6 @@ if [[ ! -b "${root_part}" ]]; then
 fi
 echo "root partition: ${root_part}"
 
-mkdir -p "${mountpoint}"
 mount "${root_part}" "${mountpoint}"
 
 fixed=0
