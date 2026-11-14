@@ -9,9 +9,9 @@ only if it actually ran and passed, with the commit and where it ran.
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
 - **Phase / milestone:** Phase 1, milestone M2 (baseline configuration) in progress.
   M0 and M1 are complete. The approved M2 plan has eight increments; see section 2.
-- **Next task:** finish increment 4 of M2 (firewall and audit), then kernel arguments
-  and sysctl, networking, SELinux verification and the BUG-1 fix, and the before/after
-  record. Do not start M3 before M2 is complete.
+- **Next task:** finish increment 7 of M2 (P1-09: SELinux verification and the BUG-1
+  fix), then the before/after record and baseline documents. Do not start M3 before M2
+  is complete.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the end of the `build` job log: the "Collect results"
   step prints `scripts/summarize-results`, with short inventories, the differences
@@ -35,8 +35,8 @@ only if it actually ran and passed, with the commit and where it ran.
 | P1-05 | Disk image | done | `9c8807c`; `build` run 43460695621 |
 | P1-06 | VM harness and first boot | done | `399d421`; `build` run 43460695621 |
 | P1-07 | Variant split and golden manifests | done | `5d839d4`; `build` run 43547501384 |
-| P1-08 | Operating system baseline | in progress | identity and service baseline done (`bf592c8`, run 43550888887); firewall and audit pushed; kernel arguments, sysctl, networking to follow |
-| P1-09 | SELinux enforcement validation | todo | |
+| P1-08 | Operating system baseline | done | `e378b1e`; `build` run 43554108533 (identity, services, firewall, audit, kernel arguments, sysctl, networking) |
+| P1-09 | SELinux enforcement validation | in progress | policy module, self-test and BUG-1 fix pushed |
 | P1-10 | Ephemeral key tooling | todo | |
 | P1-11 | Sealed image, gate G1 | todo | |
 | P1-12 | Tamper and negative boot tests | todo | |
@@ -120,7 +120,13 @@ still the unmodified Fedora service set, so this is expected to change in P1-08.
 | Identity: `os-release` and hostname say AEGIS in both variants; release variant answers nothing on the SSH port | pass | `bf592c8` | GitHub Actions run 43550888887, KVM |
 | `/etc` changes equal the reviewed list (ADR-0014), both variants | pass | `bf592c8` | GitHub Actions run 43550888887 |
 
-Not yet run: B-05 to B-07, V-03 to V-16 and V-18 to V-19 (except the parts noted above), all R tests.
+| V-03 Kernel: one kernel in the image and it is the one running; not tainted; only allow-listed error messages | pass | `e378b1e` | GitHub Actions run 43554108533, KVM |
+| V-10 Networking: address and route from DHCP; name resolution through systemd-resolved; outbound fetch by name; listeners equal the golden list (harness DNS and HTTP servers, no internet; HTTP not HTTPS) | pass | `e378b1e` | GitHub Actions run 43554108533, KVM |
+| V-11 Firewall: firewalld active, default zone `aegis` with target DROP, drop verdict in the kernel ruleset; a listener outside the zone is unreachable from outside, with positive controls | pass | `e378b1e` | GitHub Actions run 43554108533, KVM |
+| V-19 Kernel arguments, lockdown in integrity mode, 31 sysctl values equal the golden lists; reverse-path filtering never off | pass | `e378b1e` | GitHub Actions run 43554108533, KVM |
+| Audit daemon attached to the kernel, auditing enabled, log written | pass | `e378b1e` | GitHub Actions run 43554108533, KVM |
+
+Not yet run: B-05 to B-07, V-04 to V-09, V-12 to V-16, V-18 (except the parts noted above), all R tests.
 
 ### "Before" measurements for M2
 
@@ -151,6 +157,7 @@ Nothing has been verified on a local workstation or on physical hardware.
 | BUG-2 | The image still identifies itself as Fedora (`os-release`, hostname `fedora`). | Cosmetic. | M2 increment 3. |
 | BUG-3 | At power-off the console shows "Failed to unmount /run/shutdown/mounts/...: Device or resource busy" and "Not all file systems unmounted, 1 left" before "Syncing filesystems" and "Power down". Seen on `aegis-base` in run 43546633024. | None observed: the following boot shows no filesystem recovery (V-02). Looks like the physical root that backs the running deployment. | Confirm the cause; re-check after the sealed boot chain changes the mount layout (P1-11). |
 | BUG-4 | Closed. `podman build` 4.9 left an empty `/etc/hostname` in the image; the image now ships that file with the static hostname `aegis`. | | |
+| BUG-6 | `ausearch -ts boot` returns nothing on the test VM although the audit log is being written (run 43554108533). | Tests that query the audit log by "since boot" would silently see no events. | The SELinux tests read the whole audit log and the journal and filter by time themselves. Cause not yet investigated. |
 | BUG-5 | The initramfs is the one built by Fedora. It contains Fedora's `os-release`, so early boot identifies itself as Fedora and sets the hostname `fedora` until the real system applies `/etc/hostname`. | Cosmetic in M2. | The initramfs is regenerated when the UKI is built for the sealed boot chain (P1-11). |
 
 ## 7. Security limitations
@@ -162,6 +169,12 @@ Nothing has been verified on a local workstation or on physical hardware.
 - `aegis-base` still has whatever services the Fedora base enables (including possibly
   sshd); the release-shaped service set is P1-07/P1-08.
 - SELinux denials occur during boot (BUG-1); V-08 is not met.
+- Reverse-path filtering is strict on every interface except the one that carries the
+  default route, which is loose. Shown by experiment in run 43554108533: after forcing
+  the value to strict, `nmcli device reapply` set it back to loose. NetworkManager
+  relaxes it on purpose for interfaces with a default route. Filtering is never off.
+- The firewall and audit daemons cost memory: about 529 MiB in use after boot, against
+  472 MiB for the stock image.
 - The disk has a BIOS boot partition and a 512 MiB ESP because `bootc install to-disk`
   was run with `--generic-image`; BIOS boot support is not wanted in the final design.
 - Planned Phase 1 limitations (see blueprint section 11): no disk encryption, throw-away
