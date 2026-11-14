@@ -19,8 +19,10 @@ disk="$1"
 # Not /mnt: in a bootc image that is a symbolic link into /var, which is empty here.
 mountpoint="$(mktemp -d /tmp/aegis-root.XXXXXX)"
 
+# Prints the SELinux label of a path, or nothing if it has none.
 label_of() {
-  getfattr --absolute-names -h -n security.selinux --only-values "$1" 2>/dev/null | tr -d '\0'
+  { getfattr --absolute-names -h -n security.selinux --only-values "$1" 2>/dev/null || true; } \
+    | tr -d '\0'
 }
 
 loop="$(losetup --find --show --partscan "${disk}")"
