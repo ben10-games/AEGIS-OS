@@ -55,7 +55,6 @@ section "disk layout" out/disk-layout.txt
 section "preset files" "${logs}/boot1-presets.txt" 30
 section "timers" "${logs}/boot1-timers.txt" 25
 section "ssh listeners and units" "${logs}/boot1-ssh-listeners.txt" 30
-section "reverse dependencies of baseline candidates" "${logs}/boot1-reverse-deps.txt" 90
 section "SELinux policy status and module store" "${logs}/boot1-selinux-store.txt" 30
 section "SELinux: label of the bootc install record (BUG-1)" "${logs}/boot1-selinux-aleph.txt" 12
 section "SELinux: who runs bootupctl (BUG-1)" "${logs}/boot1-bootupctl-origin.txt" 30
@@ -73,7 +72,34 @@ echo "--- aegis-dev compared with aegis-base (+ added, - removed)"
 for name in packages enabled-units masked-units setuid-files file-capabilities etc-changes; do
   section "golden:dev/${name}.delta.txt" "${inventory}/dev/${name}.delta.txt" 60
 done
+echo "=== fingerprints of files added or modified under /etc (aegis-base)"
+if [[ -s "${inventory}/base/etc-changes.txt" && -s "${inventory}/base/etc.tsv" ]]; then
+  awk '$1 != "D" {print $2}' "${inventory}/base/etc-changes.txt" \
+    | while IFS= read -r path; do
+      awk -F'\t' -v path="${path}" '$1 == path {print $1, $2}' "${inventory}/base/etc.tsv"
+    done | head -n 60
+else
+  echo "(none)"
+fi
+echo
+
+echo "=== differences between the golden manifests and this build (< golden, > image)"
+for variant in base dev; do
+  for golden in tests/golden/"${variant}"/*.txt; do
+    actual="${inventory}/${variant}/$(basename "${golden}")"
+    [[ -f "${actual}" ]] || { echo "${actual} was not produced"; continue; }
+    difference="$(diff <(grep -Ev '^(#|$)' "${golden}" || true) "${actual}" | grep '^[<>]' || true)"
+    if [[ -n "${difference}" ]]; then
+      echo "--- ${variant}/$(basename "${golden}")"
+      echo "${difference}" | head -n 60
+    fi
+  done
+done
+echo "(end of differences)"
+echo
+
 echo "--- runtime, aegis-dev, first boot"
+section "reverse dependencies of baseline candidates" "${logs}/boot1-reverse-deps.txt" 90
 wrapped "running services" "${logs}/boot1-running-services.txt"
 wrapped "active timers" "${logs}/boot1-active-timers.txt"
 section "listening TCP/UDP sockets" "${logs}/boot1-listening-sockets.txt" 40

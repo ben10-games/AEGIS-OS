@@ -1,0 +1,3 @@
+# An empty /etc/hostname is left behind by 'podman build' (4.9). It is not AEGIS
+# configuration; systemd ignores an empty hostname file and uses DEFAULT_HOSTNAME.
+A hostname

@@ -75,11 +75,15 @@ for variant in base dev; do
     --state=masked --no-legend --no-pager || true; } \
     | awk '{print $1}' | LC_ALL=C sort -u > "${dir}/masked-units.txt"
 
-  inspect "${image}" find /target -xdev -type f -perm /6000 -printf '%m %u:%g /%P\n' \
+  # /sysroot holds the ostree object store: content-addressed copies of the same files
+  # under hash names that change with every build. The real paths are listed instead.
+  inspect "${image}" find /target -xdev -path /target/sysroot -prune -o \
+    -type f -perm /6000 -printf '%m %u:%g /%P\n' \
     | LC_ALL=C sort -k3 > "${dir}/setuid-files.txt"
 
   { inspect "${image}" getcap -r /target 2>/dev/null || true; } \
-    | sed 's#^/target##' | LC_ALL=C sort > "${dir}/file-capabilities.txt"
+    | sed 's#^/target##' | { grep -v '^/sysroot/' || true; } \
+    | LC_ALL=C sort > "${dir}/file-capabilities.txt"
 
   if "${as_root[@]}" podman image exists "${builder}"; then
     "${as_root[@]}" podman run --rm --network=none \

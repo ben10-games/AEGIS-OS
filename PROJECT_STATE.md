@@ -7,22 +7,21 @@ only if it actually ran and passed, with the commit and where it ran.
 ## 1. Resume here
 
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
-- **Phase / milestone:** Phase 1. M0 and M1 (first verified boot) are complete.
-  Milestone M2 (baseline configuration) is next.
-- **Next task:** **P1-07** (golden manifests for packages, enabled units and setuid files
-  for both variants), then P1-08 (operating-system baseline). Do not start M3 before M2.
-- **Last green CI runs:** on `a3a5004`: `build`
-  https://github.com/ben10-games/AEGIS-OS/actions/runs/43461672095 and `lint`
-  https://github.com/ben10-games/AEGIS-OS/actions/runs/43461672669 .
-  First verified boot: `build` on `399d421`,
-  https://github.com/ben10-games/AEGIS-OS/actions/runs/43460695621
+- **Phase / milestone:** Phase 1, milestone M2 (baseline configuration) in progress.
+  M0 and M1 are complete. The approved M2 plan has eight increments; see section 2.
+- **Next task:** increment 3 of M2 (P1-08a): identity and service baseline. Then
+  firewall and audit, kernel arguments and sysctl, networking, SELinux verification and
+  the BUG-1 fix, and the before/after record. Do not start M3 before M2 is complete.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
-  storage host is blocked). Read the "Collect results" step of the `build` job log; it
-  prints `scripts/summarize-results`.
+  storage host is blocked). Read the end of the `build` job log: the "Collect results"
+  step prints `scripts/summarize-results`, with short inventories, the differences
+  between golden manifests and the build, measurements and test reports last.
 - **To continue:**
   1. `make static` (must pass before every commit).
-  2. Check GitHub Actions for the latest commit on the branch (`lint`, `probe`).
-  3. Follow the task order in `docs/architecture/phase-1-blueprint.md` section 8.
+  2. Push, then read the `lint` and `build` results for that commit.
+  3. When an image change alters a golden manifest, copy the new entries from the
+     "differences between the golden manifests and this build" block of the job log
+     into `tests/golden/` in the same commit series.
 
 ## 2. Status
 
@@ -35,7 +34,7 @@ only if it actually ran and passed, with the commit and where it ran.
 | P1-04 | Minimal derived image | done | `fc13ac6`; `build` run 43460695621 |
 | P1-05 | Disk image | done | `9c8807c`; `build` run 43460695621 |
 | P1-06 | VM harness and first boot | done | `399d421`; `build` run 43460695621 |
-| P1-07 | Variant split and golden manifests | todo | |
+| P1-07 | Variant split and golden manifests | in progress | goldens and release-variant boot test written; first fully green run pending |
 | P1-08 | Operating system baseline | todo | |
 | P1-09 | SELinux enforcement validation | todo | |
 | P1-10 | Ephemeral key tooling | todo | |
@@ -109,15 +108,37 @@ These are observations, not the V-12 baseline, which is task P1-17:
 Memory in use is above the blueprint's provisional 400 MiB budget for V-12; the image is
 still the unmodified Fedora service set, so this is expected to change in P1-08.
 
-Not yet run: B-02 to B-07, V-03 to V-20, all R tests.
+Not yet run: B-05 to B-07, V-03 to V-20, all R tests.
+
+### "Before" measurements for M2
+
+Stock Fedora service set, `aegis-dev`, first boot, run 43546633024 (`58a46d0`; 2 vCPU,
+4 GiB, KVM). These are the numbers the M2 baseline is compared with.
+
+| Metric | Value |
+|---|---|
+| Startup, first boot | 8.9 s (0.9 kernel + 2.6 initrd + 5.4 userspace) |
+| Startup, second boot | 7.1 s |
+| Memory in use (MemTotal - MemAvailable) | 472 MiB |
+| Running services | 22 |
+| Enabled units | 63 |
+| Active timers | 6 |
+| TCP/UDP listeners | 14 (sshd on all interfaces, LLMNR 5355 and mDNS 5353 on all interfaces, DNS stub and chrony on loopback) |
+| Processes | 153 |
+| Failed units | 0 |
+| SELinux denials per boot | 3 (BUG-1) |
+| SELinux permissive domains in the policy | 31 |
+| Setuid/setgid files, files with capabilities | 17, 8 |
 Nothing has been verified on a local workstation or on physical hardware.
 
 ## 6. Known bugs
 
 | ID | Description | Impact | Plan |
 |---|---|---|---|
-| BUG-1 | Every boot logs 3 SELinux denials: `bootupctl` (domain `bootupd_t`, permissive) reads `/sysroot/.bootc-aleph.json`, which is labelled `default_t`. Seen in run 43461672095. | Nothing is blocked (the domain is permissive), but V-08 requires zero denials. | `bootupd` is removed on the sealed path (P1-11). If the fallback backend is used, fix the label of the file instead. Check whether the label is wrong because the disk was installed from a host without SELinux. |
-| BUG-2 | The image still identifies itself as Fedora (`os-release`, hostname `fedora`). | Cosmetic. | Branding belongs to P1-08. |
+| BUG-1 | Every boot logs 3 SELinux denials: `bootloader-update.service` runs `bootupctl` (domain `bootupd_t`, declared permissive by Fedora), which reads `/sysroot/.bootc-aleph.json`. Root cause, confirmed in run 43545946188: three things created in the physical root at install time (`/sysroot/.bootc-aleph.json`, `/sysroot/boot/grub2`, `/sysroot/boot/bootupd-state.json`) are labelled `default_t`. Fedora's policy has no file-context rule for those `/sysroot/...` paths, and `bootupd_t` may read `root_t` and `boot_t` but not `default_t`. No file anywhere is `unlabeled_t`, so this is not a labelling failure of the build host. Only the first denied access per type is logged in a permissive domain, so the other two files are affected as well. | Nothing is blocked (the domain is permissive), but V-08 requires zero denials. | M2 increment 7: file-context rules in an AEGIS policy module giving these paths the types `bootupd_t` is already allowed to use. No allow rule, no `dontaudit`. Upstream report to be drafted. |
+| BUG-2 | The image still identifies itself as Fedora (`os-release`, hostname `fedora`). | Cosmetic. | M2 increment 3. |
+| BUG-3 | At power-off the console shows "Failed to unmount /run/shutdown/mounts/...: Device or resource busy" and "Not all file systems unmounted, 1 left" before "Syncing filesystems" and "Power down". Seen on `aegis-base` in run 43546633024. | None observed: the following boot shows no filesystem recovery (V-02). Looks like the physical root that backs the running deployment. | Confirm the cause; re-check after the sealed boot chain changes the mount layout (P1-11). |
+| BUG-4 | `podman build` 4.9 leaves an empty `/etc/hostname` in the image. | None: systemd ignores an empty hostname file. Recorded in `tests/golden/base/etc-changes.txt`. | Goes away if the build moves to a newer podman. |
 
 ## 7. Security limitations
 
