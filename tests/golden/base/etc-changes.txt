@@ -1,21 +1,42 @@
 # Files that aegis-base adds (A), modifies (M) or deletes (D) under /etc, compared
 # with the pinned upstream base. See ADR-0014.
 
+# The audit package: default configuration and rules.
+A audit/audit-stop.rules
+A audit/audit.rules
+A audit/auditd.conf
+A audit/rules.d/audit.rules
+
+# The firewalld package. firewalld.conf carries the one AEGIS change: DefaultZone=aegis.
+A firewalld/firewalld-server.conf
+A firewalld/firewalld-standard.conf
+A firewalld/firewalld-workstation.conf
+A firewalld/firewalld.conf
+
 # Static hostname. The initramfs still carries Fedora's os-release and sets the name
 # 'fedora' before the real system starts, so DEFAULT_HOSTNAME alone has no effect.
 A hostname
+
+A logrotate.d/firewalld
+A modprobe.d/firewalld-sysctls.conf
 
 # openssh-server is removed from the release image.
 D pam.d/sshd
 D ssh/sshd_config
 D ssh/sshd_config.d/40-redhat-crypto-policies.conf
 D ssh/sshd_config.d/50-redhat.conf
+A sysconfig/firewalld
 D sysconfig/sshd
 
-# Service baseline: one mask, and the enablement links of the units turned off.
+# Service baseline: one mask, the enablement links of the units turned on (audit,
+# firewall) and of the units turned off.
 A systemd/system/bootc-fetch-apply-updates.timer
+A systemd/system/dbus-org.fedoraproject.FirewallD1.service
 D systemd/system/dbus-org.freedesktop.Avahi.service
+A systemd/system/multi-user.target.wants/audit-rules.service
+A systemd/system/multi-user.target.wants/auditd.service
 D systemd/system/multi-user.target.wants/avahi-daemon.service
+A systemd/system/multi-user.target.wants/firewalld.service
 D systemd/system/multi-user.target.wants/nfs-client.target
 D systemd/system/multi-user.target.wants/sshd.service
 D systemd/system/multi-user.target.wants/sssd.service

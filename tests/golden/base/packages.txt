@@ -17,6 +17,8 @@ amd-ucode-firmware.noarch
 atheros-firmware.noarch
 attr.x86_64
 audit-libs.x86_64
+audit-rules.x86_64
+audit.x86_64
 authselect-libs.x86_64
 authselect.x86_64
 avahi-libs.x86_64
@@ -107,6 +109,8 @@ file.x86_64
 filesystem.x86_64
 findutils.x86_64
 fips-provider.x86_64
+firewalld-filesystem.noarch
+firewalld.noarch
 flatpak-session-helper.x86_64
 fmt.x86_64
 fonts-filesystem.noarch
@@ -417,12 +421,16 @@ python3-boto3.noarch
 python3-botocore.noarch
 python3-charset-normalizer.noarch
 python3-dateutil.noarch
+python3-dbus.x86_64
 python3-file-magic.noarch
+python3-firewall.noarch
+python3-gobject-base.x86_64
 python3-html2text.noarch
 python3-idna.noarch
 python3-jmespath.noarch
 python3-libdnf5.x86_64
 python3-libs.x86_64
+python3-nftables.noarch
 python3-packaging.noarch
 python3-pexpect.noarch
 python3-ptyprocess.noarch
