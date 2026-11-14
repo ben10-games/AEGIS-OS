@@ -69,11 +69,11 @@ fi
 systemctl mask bootc-fetch-apply-updates.timer
 
 # --- SELinux --------------------------------------------------------------------------
-# Install the AEGIS policy modules into the policy store of the image. -n: do not try
-# to load the policy into the kernel of the build machine.
-semodule -n -s targeted -i /usr/share/selinux/packages/aegis/*.pp
-
+# The release image uses Fedora's policy unchanged. The development variant adds one
+# module, used only by the enforcement self-test (policy/selinux/aegis_selftest.te).
 if [[ "${variant}" == "dev" ]]; then
+  # -n: do not try to load the policy into the kernel of the build machine.
+  semodule -n -s targeted -i /usr/share/selinux/packages/aegis/aegis_selftest.pp
   # The self-test program is a copy of 'cat'; its label comes from aegis_selftest.fc.
   install -D -m 0755 /usr/bin/cat /usr/libexec/aegis/selftest/cat
 fi

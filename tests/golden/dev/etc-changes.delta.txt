@@ -1,6 +1,8 @@
 # aegis-dev installs openssh-server again, so the files the release image deletes are
-# back, plus one configuration file that switches password login off.
+# back, plus one configuration file that switches password login off. The self-test
+# policy module is installed into the SELinux policy store.
 +A ssh/sshd_config.d/10-aegis-dev.conf
++M selinux/targeted/** (policy store)
 -D pam.d/sshd
 -D ssh/sshd_config
 -D ssh/sshd_config.d/40-redhat-crypto-policies.conf

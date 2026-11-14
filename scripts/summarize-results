@@ -114,6 +114,10 @@ section "kernel messages at error level" "${logs}/boot1-kernel-errors.txt" 30
 section "SELinux: unlabeled_t and default_t files" "${logs}/boot1-selinux-labels.txt" 45
 section "audit: event types recorded since boot" "${logs}/audit-event-types.txt" 25
 section "reverse-path filter experiment" "${logs}/rp-filter-experiment.txt" 3
+echo "=== disk installation: SELinux notes and label corrections"
+grep -hiE 'selinux|relabel' out/install-*.log 2>/dev/null | sort | uniq -c | head -n 20 \
+  || echo "(no install log)"
+echo
 section "SELinux: denials during boot (V-08)" "${logs}/selinux-denials-at-boot.txt" 12
 section "SELinux: denial caused by the self-test" "${logs}/selinux-selftest-denial.txt" 4
 echo "=== firewall: kernel rules that mention the aegis zone or a drop"

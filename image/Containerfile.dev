@@ -3,8 +3,8 @@
 # the virtual machine starts. Built from the repository root.
 ARG BASE=localhost/aegis-base:latest
 
-# Stage 1: compile the AEGIS SELinux module against exactly the policy version in the
-# base image. The compiler and its dependencies stay in this stage.
+# Stage 1: compile the self-test SELinux module against exactly the policy version in
+# the base image. The compiler and its dependencies stay in this stage.
 FROM ${BASE} AS policy
 RUN dnf -y install --setopt=install_weak_deps=False make \
       "selinux-policy-devel-$(rpm -q --qf '%{VERSION}-%{RELEASE}' selinux-policy)"

@@ -53,7 +53,20 @@ echo "== installing ${image} into ${output_dir}/${output_name} (${size})"
   --skip-fetch-check \
   --karg console=tty0 \
   --karg console=ttyS0,115200n8 \
-  "/output/${output_name}"
+  "/output/${output_name}" 2>&1 | tee "${output_dir}/install-${output_name%.raw}.log"
+
+echo "== correcting SELinux labels of files created at the end of the installation"
+# See scripts/fix-install-labels for the reason. Runs in the installed image, so the
+# tools match the target; the disk is reached only through its image file.
+"${as_root[@]}" podman run --rm \
+  --privileged \
+  --security-opt label=type:unconfined_t \
+  -v /dev:/dev \
+  -v "${output_dir}:/output" \
+  -v "${PWD}/scripts:/aegis-scripts:ro" \
+  "${image}" \
+  bash /aegis-scripts/fix-install-labels "/output/${output_name}" \
+  | tee -a "${output_dir}/install-${output_name%.raw}.log"
 
 echo "== partition table"
 if command -v sfdisk >/dev/null 2>&1; then

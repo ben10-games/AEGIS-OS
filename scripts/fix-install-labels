@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Runs inside a privileged container of the installed image, right after
+# 'bootc install to-disk' (see scripts/build-disk). Not meant to be run by hand.
+#
+#   fix-install-labels DISK_IMAGE_FILE
+#
+# Why: when the installer runs on a machine whose kernel has no SELinux (GitHub's
+# runners, most non-Fedora hosts), the files that bootc and bootupd create in the
+# physical root at the very end of the installation do not inherit the SELinux type of
+# their directory, as they would on an SELinux system. They end up with the catch-all
+# type default_t, which the policy lets nobody use: BUG-1 in PROJECT_STATE.md.
+#
+# What: every file outside the ostree repository that carries default_t receives the
+# label of its parent directory, which is what creation on an SELinux system produces.
+# No policy is changed, and nothing but default_t labels is touched.
+set -euo pipefail
+
+disk="$1"
+mountpoint=/mnt/aegis-root
+
+label_of() {
+  getfattr --absolute-names -h -n security.selinux --only-values "$1" 2>/dev/null | tr -d '\0'
+}
+
+loop="$(losetup --find --show --partscan "${disk}")"
+cleanup() {
+  umount "${mountpoint}" 2>/dev/null || true
+  losetup --detach "${loop}" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+root_part=""
+for _ in $(seq 1 30); do
+  name="$(lsblk -rno NAME,PARTLABEL "${loop}" | awk '$2 == "root" {print $1}')"
+  if [[ -n "${name}" && -b "/dev/${name}" ]]; then
+    root_part="/dev/${name}"
+    break
+  fi
+  sleep 0.5
+done
+if [[ -z "${root_part}" ]]; then
+  echo "error: no partition labelled 'root' found on ${disk}" >&2
+  exit 1
+fi
+
+mkdir -p "${mountpoint}"
+mount "${root_part}" "${mountpoint}"
+
+fixed=0
+# find lists a directory before its contents, so a relabelled directory passes its
+# new label on to the files inside it.
+while IFS= read -r -d '' path; do
+  label="$(label_of "${path}")"
+  if [[ "${label}" == *:default_t:* ]]; then
+    parent="$(label_of "$(dirname "${path}")")"
+    if [[ -z "${parent}" || "${parent}" == *:default_t:* ]]; then
+      echo "error: cannot derive a label for ${path} (parent: '${parent}')" >&2
+      exit 1
+    fi
+    setfattr -h -n security.selinux -v "${parent}" "${path}"
+    echo "relabelled /${path#"${mountpoint}"/}: default_t -> ${parent}"
+    fixed=$((fixed + 1))
+  fi
+done < <(find "${mountpoint}" -xdev -path "${mountpoint}/ostree" -prune -o -print0)
+
+echo "install-time label fix: ${fixed} file(s) relabelled"

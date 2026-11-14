@@ -15,8 +15,9 @@ import pytest
 SSH_DEADLINE_S = 120
 RUNNING_DEADLINE_S = 180
 
-# Files created in the physical root at install time and the type each must carry
-# (policy/selinux/aegis.fc). They were default_t before, which caused BUG-1.
+# Files created in the physical root at the end of the installation, and the type each
+# inherits from its directory on an SELinux system. Installed from a host without
+# SELinux they were default_t, which caused BUG-1 (see scripts/fix-install-labels).
 INSTALL_TIME_FILES = {
     "/sysroot/.bootc-aleph.json": "root_t",
     "/sysroot/boot/grub2": "boot_t",
@@ -84,10 +85,9 @@ def test_v08_selinux_is_enforcing_and_cannot_be_disabled_at_boot(guest):
     assert not {"selinux=0", "enforcing=0"} & set(command_line)
 
 
-def test_v08_aegis_policy_module_is_loaded(guest):
-    """The policy built from policy/selinux/ is in the running system's policy store."""
+def test_v08_selftest_policy_module_is_loaded(guest):
+    """The module built from policy/selinux/ is in the running system's policy store."""
     modules = guest.ssh("semodule -l").stdout.split()
-    assert "aegis" in modules
     assert "aegis_selftest" in modules  # development variant only
 
 
