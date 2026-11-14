@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Runs inside the image build, right after any dnf operation. Removes what package
+# operations leave in /var and /run. In a bootc image /usr is the system; files in
+# /var are only copied once at install time and never updated, and /run must be empty.
+# 'bootc container lint' rejects these leftovers.
+set -euo pipefail
+
+dnf clean all
+rm -rf \
+  /run/dnf \
+  /var/cache/ldconfig/aux-cache \
+  /var/cache/libdnf5 \
+  /var/lib/dnf \
+  /var/log/dnf5.log*

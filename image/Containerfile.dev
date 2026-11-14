@@ -7,13 +7,13 @@ FROM ${BASE}
 ARG AEGIS_VERSION=0.1.0-dev
 ARG AEGIS_REVISION=unknown
 
+COPY image/build/ /usr/libexec/aegis-build/
+
 RUN dnf -y install --setopt=install_weak_deps=False openssh-server \
-    && dnf clean all \
-    && rm -rf /var/cache/libdnf5 /var/lib/dnf /var/log/dnf5.log* /run/dnf
+    && /usr/libexec/aegis-build/clean-package-state
 
 COPY image/rootfs-dev/ /
 
-COPY image/build/ /usr/libexec/aegis-build/
 RUN AEGIS_VARIANT=dev AEGIS_VERSION="${AEGIS_VERSION}" AEGIS_REVISION="${AEGIS_REVISION}" \
       /usr/libexec/aegis-build/configure-image \
     && rm -rf /usr/libexec/aegis-build

@@ -6,16 +6,17 @@ FROM ${BASE_IMAGE}
 ARG AEGIS_VERSION=0.1.0-dev
 ARG AEGIS_REVISION=unknown
 
+# Build helpers. They are removed again below and are not part of the image.
+COPY image/build/ /usr/libexec/aegis-build/
+
 # The release image carries no remote-login daemon at all (ADR-0002).
 RUN dnf -y remove openssh-server \
-    && dnf clean all \
-    && rm -rf /var/cache/libdnf5 /var/lib/dnf /var/log/dnf5.log* /run/dnf
+    && /usr/libexec/aegis-build/clean-package-state
 
 # Vendor configuration lives under /usr/lib (ADR-0014).
 COPY image/rootfs/ /
 
-# Identity and unit enablement. The build scripts do not stay in the image.
-COPY image/build/ /usr/libexec/aegis-build/
+# Identity and unit enablement.
 RUN AEGIS_VARIANT=base AEGIS_VERSION="${AEGIS_VERSION}" AEGIS_REVISION="${AEGIS_REVISION}" \
       /usr/libexec/aegis-build/configure-image \
     && rm -rf /usr/libexec/aegis-build
