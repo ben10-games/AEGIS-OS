@@ -103,10 +103,14 @@ done
 
 # What the development variant adds (+) or removes (-) compared with the release variant.
 for name in packages enabled-units masked-units setuid-files file-capabilities etc-changes; do
+  # comm needs whole-line order; some lists are ordered by path instead.
+  LC_ALL=C sort "${out}/base/${name}.txt" > "${out}/base.sorted"
+  LC_ALL=C sort "${out}/dev/${name}.txt" > "${out}/dev.sorted"
   {
-    LC_ALL=C comm -13 "${out}/base/${name}.txt" "${out}/dev/${name}.txt" | sed 's/^/+/'
-    LC_ALL=C comm -23 "${out}/base/${name}.txt" "${out}/dev/${name}.txt" | sed 's/^/-/'
+    LC_ALL=C comm -13 "${out}/base.sorted" "${out}/dev.sorted" | sed 's/^/+/'
+    LC_ALL=C comm -23 "${out}/base.sorted" "${out}/dev.sorted" | sed 's/^/-/'
   } > "${out}/dev/${name}.delta.txt"
+  rm -f "${out}/base.sorted" "${out}/dev.sorted"
 done
 echo "== dev variant delta"
 wc -l "${out}"/dev/*.delta.txt
