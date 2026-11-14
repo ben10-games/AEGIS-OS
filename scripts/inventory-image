@@ -41,11 +41,12 @@ for variant in base dev; do
     --state=enabled --no-legend --no-pager \
     | awk '{print $1}' | LC_ALL=C sort -u > "${dir}/enabled-units.txt"
 
-  inspect "${image}" systemctl --root=/target list-unit-files \
-    --state=masked --no-legend --no-pager \
+  # systemctl exits non-zero when no unit file matches; an empty list is a valid answer.
+  { inspect "${image}" systemctl --root=/target list-unit-files \
+    --state=masked --no-legend --no-pager || true; } \
     | awk '{print $1}' | LC_ALL=C sort -u > "${dir}/masked-units.txt"
 
-  inspect "${image}" find /target -xdev -type f -perm /6000 -printf '%04m %u:%g /%P\n' \
+  inspect "${image}" find /target -xdev -type f -perm /6000 -printf '%m %u:%g /%P\n' \
     | LC_ALL=C sort -k3 > "${dir}/setuid-files.txt"
 
   { inspect "${image}" getcap -r /target 2>/dev/null || true; } \
