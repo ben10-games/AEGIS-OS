@@ -9,7 +9,7 @@ ARG AEGIS_REVISION=unknown
 
 RUN dnf -y install --setopt=install_weak_deps=False openssh-server \
     && dnf clean all \
-    && rm -rf /var/cache/libdnf5 /var/lib/dnf /var/log/dnf5.log*
+    && rm -rf /var/cache/libdnf5 /var/lib/dnf /var/log/dnf5.log* /run/dnf
 
 COPY image/rootfs-dev/ /
 

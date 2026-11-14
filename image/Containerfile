@@ -9,7 +9,7 @@ ARG AEGIS_REVISION=unknown
 # The release image carries no remote-login daemon at all (ADR-0002).
 RUN dnf -y remove openssh-server \
     && dnf clean all \
-    && rm -rf /var/cache/libdnf5 /var/lib/dnf /var/log/dnf5.log*
+    && rm -rf /var/cache/libdnf5 /var/lib/dnf /var/log/dnf5.log* /run/dnf
 
 # Vendor configuration lives under /usr/lib (ADR-0014).
 COPY image/rootfs/ /

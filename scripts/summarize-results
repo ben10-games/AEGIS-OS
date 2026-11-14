@@ -42,6 +42,12 @@ wrapped() {
   echo
 }
 
+if [[ ! -d "${inventory}" && ! -d "${logs}" ]]; then
+  echo "##### NOTHING TO SUMMARIZE: no inventory and no VM logs under out/."
+  echo "The build stopped before producing them; the error is above this step in the log."
+  exit 0
+fi
+
 echo "##### 1. BULKY LISTS"
 wrapped "golden:base/packages.txt" "${inventory}/base/packages.txt"
 wrapped "golden:base/enabled-units.txt" "${inventory}/base/enabled-units.txt"
