@@ -31,7 +31,12 @@ def test_secrets_directory_is_ignored(root):
 
 
 def test_scripts_are_executable_and_strict(root):
-    scripts = [p for p in (root / "scripts").iterdir() if p.is_file()]
+    scripts = [
+        p
+        for directory in (root / "scripts", root / "image" / "build")
+        for p in directory.iterdir()
+        if p.is_file()
+    ]
     assert scripts, "no scripts found"
     for path in scripts:
         text = path.read_text()

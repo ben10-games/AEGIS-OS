@@ -18,3 +18,4 @@ Accepted, Provisional, Open, Superseded.
 | [0011](0011-macos-scope.md) | macOS application support is out of scope | Accepted |
 | [0012](0012-hardware-secure-boot-enrollment.md) | Secure Boot key enrollment on physical hardware | Open |
 | [0013](0013-custom-minimal-base.md) | Custom minimal base versus stock fedora-bootc | Open |
+| [0014](0014-configuration-placement.md) | Where AEGIS configuration lives | Accepted |

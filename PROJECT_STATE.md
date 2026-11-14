@@ -34,8 +34,8 @@ only if it actually ran and passed, with the commit and where it ran.
 | P1-04 | Minimal derived image | done | `fc13ac6`; `build` run 43460695621 |
 | P1-05 | Disk image | done | `9c8807c`; `build` run 43460695621 |
 | P1-06 | VM harness and first boot | done | `399d421`; `build` run 43460695621 |
-| P1-07 | Variant split and golden manifests | in progress | goldens and release-variant boot test written; first fully green run pending |
-| P1-08 | Operating system baseline | todo | |
+| P1-07 | Variant split and golden manifests | done | `5d839d4`; `build` run 43547501384 |
+| P1-08 | Operating system baseline | in progress | increment 3 (identity, service baseline) pushed; firewall, kernel arguments, sysctl, networking to follow |
 | P1-09 | SELinux enforcement validation | todo | |
 | P1-10 | Ephemeral key tooling | todo | |
 | P1-11 | Sealed image, gate G1 | todo | |
@@ -108,7 +108,13 @@ These are observations, not the V-12 baseline, which is task P1-17:
 Memory in use is above the blueprint's provisional 400 MiB budget for V-12; the image is
 still the unmodified Fedora service set, so this is expected to change in P1-08.
 
-Not yet run: B-05 to B-07, V-03 to V-20, all R tests.
+| B-02 Package manifest (names, 540 packages), both variants | pass | `5d839d4` | GitHub Actions run 43547501384 |
+| B-03 Enabled and masked units, both variants | pass | `5d839d4` | GitHub Actions run 43547501384 |
+| B-04 Setuid/setgid files and file capabilities, both variants | pass | `5d839d4` | GitHub Actions run 43547501384 |
+| Golden manifests detect unlisted content (negative check) | pass | `58a46d0` | run 43546633024 failed for exactly the four manifests that were still empty |
+| Release variant boots to a console login prompt with no failed unit and powers off on the ACPI power button (V-01/V-02 for `aegis-base`, console only) | pass | `5d839d4` | GitHub Actions run 43547501384, KVM |
+
+Not yet run: B-05 to B-07, V-03 to V-20 (except the parts noted above), all R tests.
 
 ### "Before" measurements for M2
 

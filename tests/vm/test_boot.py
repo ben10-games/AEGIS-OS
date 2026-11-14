@@ -41,7 +41,7 @@ def collect_diagnostics(vm, logdir, tag: str) -> None:
         "memory": "free -m",
         "avc": "journalctl -b --no-pager -g 'avc:  denied' || true",
         "lsblk": "lsblk -o NAME,SIZE,FSTYPE,PARTTYPENAME,MOUNTPOINTS",
-        "os-release": "cat /usr/lib/os-release /usr/lib/aegis/release",
+        "os-release": "cat /usr/lib/os-release; hostname",
         # BUG-1: who reads the bootc install record, and how is that file labelled?
         "selinux-aleph": (
             "ls -Z /sysroot/.bootc-aleph.json;"
@@ -128,15 +128,31 @@ def test_collect_measurements(vm, logdir, record_property):
     assert measured["startup_seconds"].get("total"), "systemd-analyze reported no startup time"
 
 
+def os_release(vm) -> dict[str, str]:
+    """The guest's os-release as a dictionary, with quotes removed."""
+    fields = {}
+    for line in vm.ssh("cat /usr/lib/os-release").stdout.splitlines():
+        key, separator, value = line.partition("=")
+        if separator:
+            fields[key] = value.strip().strip('"')
+    return fields
+
+
 def test_booted_system_is_the_built_image(vm, record_property):
     """The running system is the AEGIS dev image built from this commit."""
-    release = dict(
-        line.split("=", 1) for line in vm.ssh("cat /usr/lib/aegis/release").stdout.splitlines()
-    )
-    assert release["AEGIS_VARIANT"] == "dev"
+    release = os_release(vm)
+    assert release["ID"] == "aegis"
+    assert release["ID_LIKE"] == "fedora"
+    assert release["NAME"] == "AEGIS OS"
+    assert release["VARIANT_ID"] == "dev"
+    assert release["IMAGE_ID"] == "aegis-dev"
     expected = os.environ.get("AEGIS_EXPECT_REVISION")
     if expected:
-        assert release["AEGIS_REVISION"] == expected
+        assert release["BUILD_ID"] == expected
+    # Problems with AEGIS must not be sent to Fedora or Red Hat.
+    assert not [key for key in release if key.startswith("REDHAT_")]
+    assert "fedoraproject" not in release["BUG_REPORT_URL"]
+    assert vm.ssh("hostname").stdout.strip() == "aegis"
 
     status = json.loads(vm.ssh("bootc status --format json").stdout)
     booted = status["status"]["booted"]

@@ -16,9 +16,12 @@ IDs (S-, B-, V-, R-) come from it.
 4. **Update `PROJECT_STATE.md` in the same commit as the work it describes.**
 5. **Small commits**, Conventional Commits style, one task per commit series.
 6. **One base distribution.** Do not introduce a second operating-system architecture.
-7. Configuration shipped by AEGIS goes under `/usr/lib` in the image (`image/rootfs/usr/lib`),
-   never under `/etc`.
-8. Every `uses:` in a workflow is pinned to a full commit SHA. Workflows declare minimal
+7. Configuration shipped by AEGIS goes under `/usr/lib` in the image (`image/rootfs/usr/lib`)
+   whenever the software reads it there. Anything the image changes under `/etc` must be
+   listed in `tests/golden/base/etc-changes.txt` (ADR-0014).
+8. The golden manifests in `tests/golden/` change only in the same commit series as the
+   image change that causes them.
+9. Every `uses:` in a workflow is pinned to a full commit SHA. Workflows declare minimal
    `permissions`.
 
 ## Environment facts
@@ -36,6 +39,8 @@ IDs (S-, B-, V-, R-) come from it.
 |---|---|---|
 | `make static` | Repository rule tests + ruff | Anywhere |
 | `make lint` | `static` plus shellcheck, yamllint, actionlint, gitleaks | CI, or a machine with those tools |
+| `make all` | Build both images, inventory, golden manifest tests, disks, VM tests | CI, or Linux with podman and KVM |
+| `make summary` | Print the evidence of the last build and test run | After `make all` |
 | `scripts/probe-env` | Prints environment capabilities (read-only) | Anywhere |
 
 ## Stop and ask the owner when

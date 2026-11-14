@@ -2,9 +2,6 @@ NetworkManager-dispatcher.service
 NetworkManager-wait-online.service
 NetworkManager.service
 authselect-apply-changes.service
-avahi-daemon.service
-avahi-daemon.socket
-bootc-fetch-apply-updates.timer
 bootloader-update.service
 chronyd.service
 clevis-luks-askpass.path
@@ -21,7 +18,6 @@ lvm-devices-import.service
 lvm2-lvmpolld.socket
 lvm2-monitor.service
 mdmonitor.service
-nfs-client.target
 ostree-remount.service
 raid-check.timer
 reboot.target
@@ -29,13 +25,9 @@ remote-cryptsetup.target
 remote-fs.target
 remote-integritysetup.target
 remote-veritysetup.target
-rpm-ostree-countme.timer
 rpmdb-rebuild.service
 selinux-autorelabel-mark.service
-sshd.service
-sssd.service
 systemd-boot-clear-sysfail.service
-systemd-confext.service
 systemd-homed-activate.service
 systemd-homed.service
 systemd-journalctl-metrics.socket
@@ -54,7 +46,6 @@ systemd-report.socket
 systemd-resolved-monitor.socket
 systemd-resolved-varlink.socket
 systemd-resolved.service
-systemd-sysext.service
 systemd-sysupdate-notify-bootctl.socket
 systemd-sysupdate-notify-pcrlock.socket
 systemd-sysupdate-notify-sysext.socket

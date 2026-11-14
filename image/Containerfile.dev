@@ -1,13 +1,22 @@
 # AEGIS OS development variant: aegis-base plus SSH so automated tests can reach the VM.
 # Never a release artifact. No login key is baked in; the test harness injects one when
-# the virtual machine starts.
+# the virtual machine starts. Built from the repository root.
 ARG BASE=localhost/aegis-base:latest
 FROM ${BASE}
 
-COPY rootfs-dev/ /
+ARG AEGIS_VERSION=0.1.0-dev
+ARG AEGIS_REVISION=unknown
 
-RUN systemctl preset sshd.service \
-    && sed -i 's/^AEGIS_VARIANT=.*/AEGIS_VARIANT=dev/' /usr/lib/aegis/release
+RUN dnf -y install --setopt=install_weak_deps=False openssh-server \
+    && dnf clean all \
+    && rm -rf /var/cache/libdnf5 /var/lib/dnf /var/log/dnf5.log*
+
+COPY image/rootfs-dev/ /
+
+COPY image/build/ /usr/libexec/aegis-build/
+RUN AEGIS_VARIANT=dev AEGIS_VERSION="${AEGIS_VERSION}" AEGIS_REVISION="${AEGIS_REVISION}" \
+      /usr/libexec/aegis-build/configure-image \
+    && rm -rf /usr/libexec/aegis-build
 
 LABEL org.opencontainers.image.title="AEGIS OS (dev)"
 

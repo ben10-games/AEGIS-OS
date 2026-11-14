@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Runs inside the image build (see image/Containerfile). Applies the parts of the AEGIS
+# configuration that are commands rather than files: identity and unit enablement.
+# The script is copied in for the build step and removed again; it is not in the image.
+set -euo pipefail
+
+variant="${AEGIS_VARIANT:?set AEGIS_VARIANT to base or dev}"
+version="${AEGIS_VERSION:?}"
+revision="${AEGIS_REVISION:?}"
+
+case "${variant}" in
+  base) variant_name="Release" ;;
+  dev) variant_name="Development" ;;
+  *)
+    echo "error: unknown variant '${variant}'" >&2
+    exit 1
+    ;;
+esac
+
+# --- identity -----------------------------------------------------------------------
+# ID_LIKE=fedora and Fedora's VERSION_ID stay, because tools use them to recognise the
+# package base. Fedora and Red Hat bug-report fields go: AEGIS problems are not theirs.
+os_release="$(realpath /usr/lib/os-release)"
+
+set_field() {
+  local key="$1" value="$2"
+  if grep -q "^${key}=" "${os_release}"; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "${os_release}"
+  else
+    echo "${key}=${value}" >> "${os_release}"
+  fi
+}
+
+set_field NAME '"AEGIS OS"'
+set_field ID aegis
+set_field ID_LIKE fedora
+set_field VERSION "\"${version}\""
+set_field PRETTY_NAME "\"AEGIS OS ${version}\""
+set_field VARIANT "\"${variant_name}\""
+set_field VARIANT_ID "${variant}"
+set_field IMAGE_ID "aegis-${variant}"
+set_field IMAGE_VERSION "${version}"
+set_field BUILD_ID "${revision}"
+set_field DEFAULT_HOSTNAME aegis
+set_field HOME_URL '"https://github.com/ben10-games/AEGIS-OS"'
+set_field DOCUMENTATION_URL '"https://github.com/ben10-games/AEGIS-OS#readme"'
+set_field SUPPORT_URL '"https://github.com/ben10-games/AEGIS-OS/issues"'
+set_field BUG_REPORT_URL '"https://github.com/ben10-games/AEGIS-OS/issues"'
+sed -i -E '/^REDHAT_(BUGZILLA|SUPPORT)_PRODUCT(_VERSION)?=/d' "${os_release}"
+
+# --- unit enablement ------------------------------------------------------------------
+# Apply the AEGIS preset files to exactly the units they name.
+units=()
+for preset in /usr/lib/systemd/system-preset/0[0-9]-aegis*.preset; do
+  while read -r action unit _; do
+    case "${action}" in
+      enable | disable) units+=("${unit}") ;;
+      *) ;;
+    esac
+  done < "${preset}"
+done
+if [[ "${#units[@]}" -gt 0 ]]; then
+  systemctl preset "${units[@]}"
+fi
+
+# Unattended updates reboot the machine; update policy is a Phase 2 design (V-20).
+systemctl mask bootc-fetch-apply-updates.timer

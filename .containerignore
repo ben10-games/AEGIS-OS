@@ -1,0 +1,4 @@
+# The image build needs only these directories from the repository.
+*
+!image/
+!policy/

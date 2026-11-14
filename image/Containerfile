@@ -1,16 +1,24 @@
-# AEGIS OS base image (release-shaped). Milestone M1: the pinned Fedora bootc base plus
-# identity metadata only. Hardening and the sealed boot chain arrive in later tasks.
+# AEGIS OS base image (release-shaped): the pinned Fedora bootc base with the AEGIS
+# identity and service baseline. Built from the repository root (see scripts/build-image).
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 ARG AEGIS_VERSION=0.1.0-dev
 ARG AEGIS_REVISION=unknown
 
-# Vendor data lives under /usr/lib; the image writes nothing of its own to /etc.
-RUN install -d -m 0755 /usr/lib/aegis \
-    && printf 'AEGIS_VARIANT=base\nAEGIS_VERSION=%s\nAEGIS_REVISION=%s\n' \
-       "${AEGIS_VERSION}" "${AEGIS_REVISION}" > /usr/lib/aegis/release \
-    && chmod 0644 /usr/lib/aegis/release
+# The release image carries no remote-login daemon at all (ADR-0002).
+RUN dnf -y remove openssh-server \
+    && dnf clean all \
+    && rm -rf /var/cache/libdnf5 /var/lib/dnf /var/log/dnf5.log*
+
+# Vendor configuration lives under /usr/lib (ADR-0014).
+COPY image/rootfs/ /
+
+# Identity and unit enablement. The build scripts do not stay in the image.
+COPY image/build/ /usr/libexec/aegis-build/
+RUN AEGIS_VARIANT=base AEGIS_VERSION="${AEGIS_VERSION}" AEGIS_REVISION="${AEGIS_REVISION}" \
+      /usr/libexec/aegis-build/configure-image \
+    && rm -rf /usr/libexec/aegis-build
 
 LABEL org.opencontainers.image.title="AEGIS OS (base)" \
       org.opencontainers.image.source="https://github.com/ben10-games/AEGIS-OS" \

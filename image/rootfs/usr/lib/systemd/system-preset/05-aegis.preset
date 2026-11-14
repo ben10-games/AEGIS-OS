@@ -1,0 +1,24 @@
+# AEGIS service baseline. The reason for every line is in
+# docs/architecture/service-baseline.md.
+#
+# Preset files apply in name order and the first match wins, so this file overrides
+# Fedora's presets (85-*, 90-*). image/build/configure-image applies exactly the units
+# named here; a unit that does not exist fails the build, which keeps this list honest.
+
+# Network listeners and discovery that nothing in AEGIS uses.
+disable avahi-daemon.service
+disable avahi-daemon.socket
+
+# Enterprise directory login and network file systems: not a Phase 1 target.
+disable sssd.service
+disable nfs-client.target
+
+# Unattended network activity: usage counting sent to Fedora, and updates that reboot
+# the machine by themselves. The timer is also masked (V-20).
+disable rpm-ostree-countme.timer
+disable bootc-fetch-apply-updates.timer
+
+# System and configuration extension images overlay /usr and /etc with content that
+# is not part of the verified OS image. Off until there is a signature policy (Phase 2).
+disable systemd-sysext.service
+disable systemd-confext.service

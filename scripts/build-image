@@ -31,14 +31,16 @@ echo "== building localhost/aegis-base from ${base_image}"
   --build-arg "AEGIS_REVISION=${revision}" \
   --tag localhost/aegis-base:latest \
   --file image/Containerfile \
-  image
+  .
 
 echo "== building localhost/aegis-dev"
 "${as_root[@]}" podman build \
   --build-arg "BASE=localhost/aegis-base:latest" \
+  --build-arg "AEGIS_VERSION=${version}" \
+  --build-arg "AEGIS_REVISION=${revision}" \
   --tag localhost/aegis-dev:latest \
   --file image/Containerfile.dev \
-  image
+  .
 
 # B-01: both images must still be marked as bootable containers.
 for image in localhost/aegis-base:latest localhost/aegis-dev:latest; do
