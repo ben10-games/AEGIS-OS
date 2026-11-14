@@ -7,12 +7,15 @@ that have no QEMU at all.
 from __future__ import annotations
 
 import base64
+import re
 import shutil
 import socket
 import subprocess
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
+
+from harness.qmp import QmpClient
 
 # (code, variables-template) pairs, in order of preference.
 FIRMWARE_CANDIDATES: tuple[tuple[str, str], ...] = (
@@ -23,6 +26,8 @@ FIRMWARE_CANDIDATES: tuple[tuple[str, str], ...] = (
 )
 
 ACCELERATORS = ("kvm", "tcg")
+
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 
 class HarnessError(RuntimeError):
@@ -59,6 +64,7 @@ class VmConfig:
     accel: str = "kvm"
     cpus: int = 2
     memory_mib: int = 4096
+    qmp_socket: Path | None = None  # control socket, used to press the power button
 
 
 def build_qemu_command(cfg: VmConfig) -> list[str]:
@@ -70,7 +76,7 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
     # written into the image or the disk. Base64 avoids QEMU's comma-separated parsing.
     credential = base64.b64encode((cfg.authorized_key.strip() + "\n").encode()).decode()
 
-    return [
+    command = [
         "qemu-system-x86_64",
         "-machine",
         f"q35,accel={cfg.accel}",
@@ -103,6 +109,14 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
         "none",
         "-nodefaults",
     ]
+    if cfg.qmp_socket is not None:
+        command += ["-qmp", f"unix:{cfg.qmp_socket},server=on,wait=off"]
+    return command
+
+
+def strip_ansi(text: str) -> str:
+    """Remove terminal colour codes, which systemd puts around '[FAILED]' and '[  OK  ]'."""
+    return _ANSI.sub("", text)
 
 
 def create_overlay(base_image: Path, overlay: Path) -> None:
@@ -149,7 +163,7 @@ class Vm:
             raise HarnessError("virtual machine is already running")
         self.boot_count += 1
         cfg = replace(self.cfg, serial_log=self.serial_log)
-        qemu_log = self.serial_log.with_name(f"qemu-boot{self.boot_count}.log")
+        qemu_log = self.serial_log.with_name(f"{self.serial_log.stem}-qemu.log")
         self._qemu_log = qemu_log.open("w")
         self.proc = subprocess.Popen(
             build_qemu_command(cfg),
@@ -177,6 +191,39 @@ class Vm:
         if self._qemu_log is not None:
             self._qemu_log.close()
             self._qemu_log = None
+
+    # -- console and power button (work without any login) ------------------------
+
+    def serial_text(self) -> str:
+        """Serial console output of the current boot, without colour codes."""
+        if not self.serial_log.exists():
+            return ""
+        return strip_ansi(self.serial_log.read_text(errors="replace"))
+
+    def wait_for_serial(self, pattern: re.Pattern, timeout: float) -> float:
+        """Wait until the serial console matches a pattern. Returns the seconds it took."""
+        started = time.monotonic()
+        deadline = started + timeout * self.timeout_scale
+        while time.monotonic() < deadline:
+            if pattern.search(self.serial_text()):
+                return time.monotonic() - started
+            if not self.is_running():
+                raise AssertionError(
+                    f"QEMU exited with status {self.proc.returncode} while waiting for "
+                    f"'{pattern.pattern}' on the serial console; see {self.serial_log}"
+                )
+            time.sleep(1)
+        raise AssertionError(
+            f"'{pattern.pattern}' did not appear on the serial console within "
+            f"{timeout * self.timeout_scale:.0f}s; see {self.serial_log}"
+        )
+
+    def press_power_button(self) -> None:
+        """Send the ACPI power-button event, as a person pressing the button would."""
+        if self.cfg.qmp_socket is None:
+            raise HarnessError("this virtual machine was started without a control socket")
+        with QmpClient(self.cfg.qmp_socket) as qmp:
+            qmp.command("system_powerdown")
 
     # -- guest access ------------------------------------------------------------
 

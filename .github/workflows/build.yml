@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   build-and-boot:
-    name: Build image, build disk, boot in VM (B-01, B-08, V-01, V-02)
+    name: Build images, check manifests, boot both variants in a VM
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -45,10 +45,16 @@ jobs:
       - name: Image inventory
         run: make inventory
 
-      - name: Build disk image
+      - name: Build disk images (both variants)
+        id: disk
         run: make disk
 
-      - name: Boot and shutdown tests (V-01, V-02)
+      - name: Golden manifest tests (B-02, B-03, B-04)
+        run: make image-test
+
+      # Runs even when the manifest tests fail, so one push reports both.
+      - name: Virtual machine tests
+        if: ${{ !cancelled() && steps.disk.outcome == 'success' }}
         run: make vm-test
 
       - name: Collect results
@@ -56,7 +62,7 @@ jobs:
         run: |
           mkdir -p out
           sudo chown -R "$(id -u):$(id -g)" out
-          rm -f out/disk.raw
+          rm -f out/disk.raw out/disk-base.raw
           scripts/summarize-results | tee out/summary.txt
           {
             echo '### Build and boot'

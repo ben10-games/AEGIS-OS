@@ -35,8 +35,9 @@ image: ## Build the aegis-base and aegis-dev container images (B-01)
 	scripts/build-image
 
 .PHONY: disk
-disk: ## Install aegis-dev into out/disk.raw (an image file, never a real disk)
-	scripts/build-disk
+disk: ## Install both variants into image files under out/ (never a real disk)
+	scripts/build-disk localhost/aegis-dev:latest out/disk.raw
+	scripts/build-disk localhost/aegis-base:latest out/disk-base.raw
 
 .PHONY: builder
 builder: ## Build the test container (QEMU, UEFI firmware, pytest)
@@ -46,13 +47,21 @@ builder: ## Build the test container (QEMU, UEFI firmware, pytest)
 inventory: ## Record packages, units, privileged files and permissive domains of both images
 	scripts/inventory-image
 
+.PHONY: image-test
+image-test: ## Compare the inventory with the golden manifests (B-02, B-03, B-04)
+	scripts/run-image-tests
+
+.PHONY: golden-update
+golden-update: ## Accept the current inventory as the new golden manifests (review the diff!)
+	scripts/update-golden
+
 .PHONY: vm-test
-vm-test: ## Boot out/disk.raw in QEMU and run the VM tests (V-01, V-02)
+vm-test: ## Boot both disk images in QEMU and run the VM tests
 	scripts/run-vm-tests
 
 .PHONY: summary
 summary: ## Print the evidence collected by the last build and VM test run
 	scripts/summarize-results
 
-.PHONY: m1
-m1: image builder inventory disk vm-test ## Build, inventory, install, boot, shut down
+.PHONY: all
+all: image builder inventory image-test disk vm-test ## Build, inventory, install, boot and test everything

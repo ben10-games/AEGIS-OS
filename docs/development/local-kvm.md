@@ -29,7 +29,8 @@ Builds `localhost/aegis-base` and `localhost/aegis-dev` from the base pinned in
 make disk
 ```
 
-Installs `aegis-dev` into `out/disk.raw` (12 GiB sparse file, GPT, btrfs root).
+Installs `aegis-dev` into `out/disk.raw` and `aegis-base` into `out/disk-base.raw`
+(12 GiB sparse files, GPT, btrfs root).
 
 ```bash
 make builder
@@ -41,10 +42,11 @@ Builds the test container.
 make vm-test
 ```
 
-Boots the disk in QEMU under UEFI, waits for SSH, checks the system is healthy, powers
-off, boots again. Logs land in `out/vm/logs/`, the report in `out/junit-vm.xml`.
+Boots both disks in QEMU under UEFI. The development variant is checked over SSH; the
+release variant has no remote login and is checked through its console and power button. Logs land in `out/vm/logs/`, the report in `out/junit-vm.xml`.
 
-`make m1` runs all four in order.
+`make all` runs every step in order, including the inventory and the golden manifest tests
+(`make inventory`, `make image-test`).
 
 ## Without KVM
 

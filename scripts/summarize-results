@@ -46,8 +46,10 @@ if [[ -d "${inventory}/base" ]]; then
   section "golden:base/file-capabilities.txt" "${inventory}/base/file-capabilities.txt" 40
   wrapped "golden:base/selinux-permissive-domains.txt" \
     "${inventory}/base/selinux-permissive-domains.txt"
+  section "golden:base/etc-changes.txt (A added, M modified, D deleted vs upstream base)" \
+    "${inventory}/base/etc-changes.txt" 80
   echo "##### IMAGE INVENTORY (aegis-dev, difference from aegis-base: + added, - removed)"
-  for name in packages enabled-units masked-units setuid-files file-capabilities; do
+  for name in packages enabled-units masked-units setuid-files file-capabilities etc-changes; do
     section "golden:dev/${name}.delta.txt" "${inventory}/dev/${name}.delta.txt" 60
   done
 fi
@@ -63,6 +65,7 @@ if [[ -d "${logs}" ]]; then
   section "kernel messages at error level" "${logs}/boot1-kernel-errors.txt" 30
   section "ssh listeners and units" "${logs}/boot1-ssh-listeners.txt" 30
   section "preset files" "${logs}/boot1-presets.txt" 30
+  section "reverse dependencies of baseline candidates" "${logs}/boot1-reverse-deps.txt" 90
   section "timers" "${logs}/boot1-timers.txt" 25
   section "accounts" "${logs}/boot1-accounts.txt" 20
   section "block devices" "${logs}/boot1-lsblk.txt"
@@ -88,6 +91,14 @@ for boot in boot1 boot2; do
   section "${boot}: SELinux denials" "${logs}/${boot}-avc.txt" 12
 done
 section "measurements (first boot)" "${logs}/boot1-metrics.json" 60
+
+echo "=== aegis-base console (last lines of the first boot)"
+if [[ -s "${logs}/test_base_boot-serial-boot1.log" ]]; then
+  tail -n 14 "${logs}/test_base_boot-serial-boot1.log" | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' | tr -d '\r'
+else
+  echo "(no data)"
+fi
+echo
 
 for report in out/junit-*.xml; do
   [[ -f "${report}" ]] || continue

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Copy the current image inventory over the golden manifests.
+# Use only after an intended change, and review 'git diff tests/golden' before committing:
+# the golden files are the reviewed record of what the images contain.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+if [[ ! -d out/inventory/base || ! -d out/inventory/dev ]]; then
+  echo "error: out/inventory not found; run 'make inventory' first" >&2
+  exit 1
+fi
+
+for file in tests/golden/base/*.txt; do
+  cp "out/inventory/base/$(basename "${file}")" "${file}"
+done
+for file in tests/golden/dev/*.delta.txt; do
+  cp "out/inventory/dev/$(basename "${file}")" "${file}"
+done
+git --no-pager diff --stat -- tests/golden

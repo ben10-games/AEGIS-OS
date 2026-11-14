@@ -17,6 +17,7 @@ fi
 
 builder=localhost/aegis-builder:latest
 out=out/inventory
+upstream="$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
 
 # inspect IMAGE COMMAND...: run COMMAND in a throw-away container of IMAGE itself, with
 # IMAGE also mounted read-only at /target. No network.
@@ -27,6 +28,34 @@ inspect() {
     --mount "type=image,source=${image},destination=/target" \
     "${image}" "$@"
 }
+
+# etc_manifest IMAGE: one "path<TAB>fingerprint" line per file or symlink under /etc.
+etc_manifest() {
+  inspect "$1" sh -c '
+    cd /target/etc
+    find . -xdev -type f -exec sha256sum {} + | sed -E "s/^([0-9a-f]+) [ *]\.\/(.*)$/\2\t\1/"
+    find . -xdev -type l -printf "%P\tlink:%l\n"
+  ' | LC_ALL=C sort
+}
+
+# etc_changes UPSTREAM_MANIFEST IMAGE_MANIFEST: files added (A), modified (M) or deleted (D)
+# under /etc relative to the pinned upstream base. The SELinux policy store is one entry:
+# installing a policy module rewrites many generated files there.
+etc_changes() {
+  awk -F'\t' '
+    NR == FNR { upstream[$1] = $2; next }
+    { seen[$1] = 1
+      if (!($1 in upstream)) print "A " $1
+      else if (upstream[$1] != $2) print "M " $1 }
+    END { for (path in upstream) if (!(path in seen)) print "D " path }
+  ' "$1" "$2" \
+    | sed -E 's#^[AMD] selinux/targeted/.*#M selinux/targeted/** (policy store)#' \
+    | LC_ALL=C sort -u | LC_ALL=C sort -k2
+}
+
+mkdir -p "${out}"
+echo "== /etc manifest of the upstream base ${upstream}"
+etc_manifest "${upstream}" > "${out}/upstream-etc.tsv"
 
 for variant in base dev; do
   image="localhost/aegis-${variant}:latest"
@@ -62,11 +91,14 @@ for variant in base dev; do
     echo "note: ${builder} not built; SELinux permissive domains not listed"
   fi
 
+  etc_manifest "${image}" > "${dir}/etc.tsv"
+  etc_changes "${out}/upstream-etc.tsv" "${dir}/etc.tsv" > "${dir}/etc-changes.txt"
+
   wc -l "${dir}"/*.txt
 done
 
 # What the development variant adds (+) or removes (-) compared with the release variant.
-for name in packages enabled-units masked-units setuid-files file-capabilities; do
+for name in packages enabled-units masked-units setuid-files file-capabilities etc-changes; do
   {
     LC_ALL=C comm -13 "${out}/base/${name}.txt" "${out}/dev/${name}.txt" | sed 's/^/+/'
     LC_ALL=C comm -23 "${out}/base/${name}.txt" "${out}/dev/${name}.txt" | sed 's/^/-/'

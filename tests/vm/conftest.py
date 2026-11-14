@@ -1,7 +1,8 @@
-"""Fixtures for virtual-machine tests. These need QEMU, UEFI firmware and a built disk image."""
+"""Fixtures for virtual-machine tests. These need QEMU, UEFI firmware and built disk images."""
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import tempfile
@@ -22,7 +23,8 @@ TCG_TIMEOUT_SCALE = 10.0
 
 
 def pytest_addoption(parser):
-    parser.addoption("--disk", default="out/disk.raw", help="disk image to boot")
+    parser.addoption("--disk", default="out/disk.raw", help="aegis-dev disk image")
+    parser.addoption("--base-disk", default="out/disk-base.raw", help="aegis-base disk image")
     parser.addoption("--workdir", default="out/vm", help="directory for logs and scratch files")
 
 
@@ -45,10 +47,9 @@ def logdir(workdir) -> Path:
     return path
 
 
-@pytest.fixture(scope="module")
-def vm(request, workdir, logdir, accel):
+@contextlib.contextmanager
+def machine(disk: Path, name: str, workdir: Path, logdir: Path, accel: str):
     """A virtual machine on a fresh copy-on-write disk. Tests start and stop it themselves."""
-    disk = Path(request.config.getoption("--disk")).resolve()
     if not disk.is_file():
         pytest.fail(f"disk image {disk} not found; build it with 'make disk'")
 
@@ -69,14 +70,31 @@ def vm(request, workdir, logdir, accel):
         firmware_code=code,
         firmware_vars=firmware_vars,
         ssh_port=free_local_port(),
-        serial_log=logdir / f"{request.module.__name__}-serial.log",
+        serial_log=logdir / f"{name}-serial.log",
         authorized_key=public_key,
         accel=accel,
+        qmp_socket=scratch / "qmp.sock",
     )
-    machine = Vm(cfg, key, timeout_scale=TCG_TIMEOUT_SCALE if accel == "tcg" else 1.0)
+    vm = Vm(cfg, key, timeout_scale=TCG_TIMEOUT_SCALE if accel == "tcg" else 1.0)
     try:
-        yield machine
+        yield vm
     finally:
-        machine.kill()
+        vm.kill()
         shutil.rmtree(secrets, ignore_errors=True)
         shutil.rmtree(scratch, ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def vm(request, workdir, logdir, accel):
+    """The development variant: reachable over SSH with a key injected for this run."""
+    disk = Path(request.config.getoption("--disk")).resolve()
+    with machine(disk, request.module.__name__, workdir, logdir, accel) as instance:
+        yield instance
+
+
+@pytest.fixture(scope="module")
+def base_vm(request, workdir, logdir, accel):
+    """The release variant: no remote login, observed through the serial console only."""
+    disk = Path(request.config.getoption("--base-disk")).resolve()
+    with machine(disk, request.module.__name__, workdir, logdir, accel) as instance:
+        yield instance
