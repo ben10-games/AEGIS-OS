@@ -3,8 +3,11 @@
 # CI writes this to the job log and the run summary, so a session that cannot
 # download artifacts can still read what actually happened.
 #
-# Order matters: bulky inventories first, the compact verdict last, so that the tail
-# of the job log is always the part needed most often.
+# Order matters, because a job log can only be read from its end:
+#   1. bulky lists that rarely change (packages, enabled units)
+#   2. diagnostics
+#   3. short inventories (privileged files, listeners, services)
+#   4. verdict: measurements and test reports
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -17,8 +20,10 @@ section() {
   echo "=== ${title}"
   if [[ -s "${file}" ]]; then
     head -n "${lines}" "${file}"
+  elif [[ -e "${file}" ]]; then
+    echo "(empty)"
   else
-    echo "(no data: ${file} is missing or empty)"
+    echo "(not recorded: ${file} is missing)"
   fi
   echo
 }
@@ -37,56 +42,52 @@ wrapped() {
   echo
 }
 
-if [[ -d "${inventory}/base" ]]; then
-  echo "##### IMAGE INVENTORY (aegis-base)"
-  wrapped "golden:base/packages.txt" "${inventory}/base/packages.txt"
-  wrapped "golden:base/enabled-units.txt" "${inventory}/base/enabled-units.txt"
-  wrapped "golden:base/masked-units.txt" "${inventory}/base/masked-units.txt"
-  section "golden:base/setuid-files.txt" "${inventory}/base/setuid-files.txt" 80
-  section "golden:base/file-capabilities.txt" "${inventory}/base/file-capabilities.txt" 40
-  wrapped "golden:base/selinux-permissive-domains.txt" \
-    "${inventory}/base/selinux-permissive-domains.txt"
-  section "golden:base/etc-changes.txt (A added, M modified, D deleted vs upstream base)" \
-    "${inventory}/base/etc-changes.txt" 80
-  echo "##### IMAGE INVENTORY (aegis-dev, difference from aegis-base: + added, - removed)"
-  for name in packages enabled-units masked-units setuid-files file-capabilities etc-changes; do
-    section "golden:dev/${name}.delta.txt" "${inventory}/dev/${name}.delta.txt" 60
-  done
-fi
+echo "##### 1. BULKY LISTS"
+wrapped "golden:base/packages.txt" "${inventory}/base/packages.txt"
+wrapped "golden:base/enabled-units.txt" "${inventory}/base/enabled-units.txt"
+wrapped "enabled units at runtime (aegis-dev)" "${logs}/boot1-enabled-units.txt"
 
-if [[ -d "${logs}" ]]; then
-  echo "##### RUNTIME INVENTORY (aegis-dev, first boot)"
-  wrapped "running services" "${logs}/boot1-running-services.txt"
-  wrapped "enabled units at runtime" "${logs}/boot1-enabled-units.txt"
-  wrapped "active timers" "${logs}/boot1-active-timers.txt"
-  section "listening TCP/UDP sockets" "${logs}/boot1-listening-sockets.txt" 40
-  section "listening vsock sockets" "${logs}/boot1-listening-vsock.txt" 10
-  section "processes per SELinux domain" "${logs}/boot1-process-domains.txt" 60
-  section "kernel messages at error level" "${logs}/boot1-kernel-errors.txt" 30
-  section "ssh listeners and units" "${logs}/boot1-ssh-listeners.txt" 30
-  section "preset files" "${logs}/boot1-presets.txt" 30
-  section "reverse dependencies of baseline candidates" "${logs}/boot1-reverse-deps.txt" 90
-  section "timers" "${logs}/boot1-timers.txt" 25
-  section "accounts" "${logs}/boot1-accounts.txt" 20
-  section "block devices" "${logs}/boot1-lsblk.txt"
-  section "bootc status" "${logs}/boot1-bootc-status.txt" 45
-  section "identity" "${logs}/boot1-os-release.txt" 40
+echo "##### 2. DIAGNOSTICS (aegis-dev, first boot)"
+section "bootc status" "${logs}/boot1-bootc-status.txt" 45
+section "identity" "${logs}/boot1-os-release.txt" 40
+section "block devices" "${logs}/boot1-lsblk.txt"
+section "disk layout" out/disk-layout.txt
+section "preset files" "${logs}/boot1-presets.txt" 30
+section "timers" "${logs}/boot1-timers.txt" 25
+section "ssh listeners and units" "${logs}/boot1-ssh-listeners.txt" 30
+section "reverse dependencies of baseline candidates" "${logs}/boot1-reverse-deps.txt" 90
+section "SELinux policy status and module store" "${logs}/boot1-selinux-store.txt" 30
+section "SELinux: label of the bootc install record (BUG-1)" "${logs}/boot1-selinux-aleph.txt" 12
+section "SELinux: who runs bootupctl (BUG-1)" "${logs}/boot1-bootupctl-origin.txt" 30
+section "SELinux: processes per domain" "${logs}/boot1-process-domains.txt" 60
 
-  echo "##### SELINUX DIAGNOSTICS"
-  section "policy status and module store" "${logs}/boot1-selinux-store.txt" 30
-  section "label of the bootc install record (BUG-1)" "${logs}/boot1-selinux-aleph.txt" 12
-  section "who runs bootupctl (BUG-1)" "${logs}/boot1-bootupctl-origin.txt" 30
-  section "unlabeled_t and default_t files" "${logs}/boot1-selinux-labels.txt" 45
-fi
+echo "##### 3. SHORT INVENTORIES"
+wrapped "golden:base/masked-units.txt" "${inventory}/base/masked-units.txt"
+section "golden:base/setuid-files.txt" "${inventory}/base/setuid-files.txt" 80
+section "golden:base/file-capabilities.txt" "${inventory}/base/file-capabilities.txt" 40
+wrapped "golden:base/selinux-permissive-domains.txt" \
+  "${inventory}/base/selinux-permissive-domains.txt"
+section "golden:base/etc-changes.txt (A added, M modified, D deleted vs upstream base)" \
+  "${inventory}/base/etc-changes.txt" 80
+echo "--- aegis-dev compared with aegis-base (+ added, - removed)"
+for name in packages enabled-units masked-units setuid-files file-capabilities etc-changes; do
+  section "golden:dev/${name}.delta.txt" "${inventory}/dev/${name}.delta.txt" 60
+done
+echo "--- runtime, aegis-dev, first boot"
+wrapped "running services" "${logs}/boot1-running-services.txt"
+wrapped "active timers" "${logs}/boot1-active-timers.txt"
+section "listening TCP/UDP sockets" "${logs}/boot1-listening-sockets.txt" 40
+section "listening vsock sockets" "${logs}/boot1-listening-vsock.txt" 10
+section "accounts" "${logs}/boot1-accounts.txt" 20
+section "kernel messages at error level" "${logs}/boot1-kernel-errors.txt" 30
+section "SELinux: unlabeled_t and default_t files" "${logs}/boot1-selinux-labels.txt" 45
 
-echo "##### VERDICT"
+echo "##### 4. VERDICT"
 section "build" out/build-info.txt
 section "test container packages" out/builder-versions.txt
-section "disk layout" out/disk-layout.txt
 
 for boot in boot1 boot2; do
-  section "${boot}: startup time" "${logs}/${boot}-systemd-analyze.txt" 3
-  section "${boot}: memory (MiB)" "${logs}/${boot}-memory.txt"
+  section "${boot}: startup time" "${logs}/${boot}-systemd-analyze.txt" 2
   section "${boot}: failed units" "${logs}/${boot}-failed-units.txt"
   section "${boot}: SELinux denials" "${logs}/${boot}-avc.txt" 12
 done
@@ -94,7 +95,8 @@ section "measurements (first boot)" "${logs}/boot1-metrics.json" 60
 
 echo "=== aegis-base console (last lines of the first boot)"
 if [[ -s "${logs}/test_base_boot-serial-boot1.log" ]]; then
-  tail -n 14 "${logs}/test_base_boot-serial-boot1.log" | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' | tr -d '\r'
+  tail -n 14 "${logs}/test_base_boot-serial-boot1.log" \
+    | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' | tr -d '\r'
 else
   echo "(no data)"
 fi
@@ -109,7 +111,7 @@ for report in out/junit-*.xml; do
   echo
   { grep -oE '<testcase [^>]*name="[^"]*"' "${report}" || true; } \
     | sed -E 's/.*name="([^"]*)".*/  ran: \1/'
-  { grep -oE '<(failure|error) message="[^"]{0,300}' "${report}" || true; } \
-    | sed -E 's/^<(failure|error) message="/  FAILED: /'
+  { grep -oE '<(failure|error) message="[^"]{0,400}' "${report}" || true; } \
+    | sed -E 's/^<(failure|error) message="/  FAILED: /; s/&#10;/ | /g; s/&quot;/"/g'
   echo
 done
