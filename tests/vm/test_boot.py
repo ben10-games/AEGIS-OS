@@ -74,16 +74,6 @@ def collect_diagnostics(vm, logdir, tag: str) -> None:
             " ls /run/systemd/generator /run/systemd/generator.late 2>/dev/null | grep -i ssh"
         ),
         "presets": "ls /usr/lib/systemd/system-preset /etc/systemd/system-preset 2>&1",
-        # Who needs the units that the service baseline turns off? (P1-08)
-        "reverse-deps": (
-            "for unit in avahi-daemon.service avahi-daemon.socket sssd.service nfs-client.target"
-            " NetworkManager-wait-online.service network-online.target systemd-sysext.service"
-            " systemd-confext.service rpm-ostree-countme.timer bootc-fetch-apply-updates.timer"
-            " sshd.service; do"
-            ' echo "## $unit ($(systemctl is-active $unit)) is wanted or required by:";'
-            " systemctl list-dependencies --reverse --plain --no-pager $unit | sed 1d | head -n 8;"
-            " done"
-        ),
         "timers": "systemctl list-timers --all --no-pager",
         "accounts": (
             "passwd -S root; awk -F: '$3 >= 1000 && $3 < 65000 {print $1}' /etc/passwd;"

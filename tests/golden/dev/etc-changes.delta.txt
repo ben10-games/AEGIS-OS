@@ -1,0 +1,9 @@
+# aegis-dev installs openssh-server again, so the files the release image deletes are
+# back, plus one configuration file that switches password login off.
++A ssh/sshd_config.d/10-aegis-dev.conf
+-D pam.d/sshd
+-D ssh/sshd_config
+-D ssh/sshd_config.d/40-redhat-crypto-policies.conf
+-D ssh/sshd_config.d/50-redhat.conf
+-D sysconfig/sshd
+-D systemd/system/multi-user.target.wants/sshd.service

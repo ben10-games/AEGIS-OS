@@ -41,6 +41,8 @@ set_field VARIANT_ID "${variant}"
 set_field IMAGE_ID "aegis-${variant}"
 set_field IMAGE_VERSION "${version}"
 set_field BUILD_ID "${revision}"
+# The effective default hostname is /etc/hostname (image/rootfs/etc/hostname): the
+# initramfs sets a name from its own copy of os-release before this one is read.
 set_field DEFAULT_HOSTNAME aegis
 set_field HOME_URL '"https://github.com/ben10-games/AEGIS-OS"'
 set_field DOCUMENTATION_URL '"https://github.com/ben10-games/AEGIS-OS#readme"'

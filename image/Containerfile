@@ -13,7 +13,8 @@ COPY image/build/ /usr/libexec/aegis-build/
 RUN dnf -y remove openssh-server \
     && /usr/libexec/aegis-build/clean-package-state
 
-# Vendor configuration lives under /usr/lib (ADR-0014).
+# Vendor configuration lives under /usr/lib; the few files that must be under /etc
+# are listed in tests/golden/base/etc-changes.txt (ADR-0014).
 COPY image/rootfs/ /
 
 # Identity and unit enablement.

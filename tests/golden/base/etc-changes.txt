@@ -1,3 +1,27 @@
-# An empty /etc/hostname is left behind by 'podman build' (4.9). It is not AEGIS
-# configuration; systemd ignores an empty hostname file and uses DEFAULT_HOSTNAME.
+# Files that aegis-base adds (A), modifies (M) or deletes (D) under /etc, compared
+# with the pinned upstream base. See ADR-0014.
+
+# Static hostname. The initramfs still carries Fedora's os-release and sets the name
+# 'fedora' before the real system starts, so DEFAULT_HOSTNAME alone has no effect.
 A hostname
+
+# openssh-server is removed from the release image.
+D pam.d/sshd
+D ssh/sshd_config
+D ssh/sshd_config.d/40-redhat-crypto-policies.conf
+D ssh/sshd_config.d/50-redhat.conf
+D sysconfig/sshd
+
+# Service baseline: one mask, and the enablement links of the units turned off.
+A systemd/system/bootc-fetch-apply-updates.timer
+D systemd/system/dbus-org.freedesktop.Avahi.service
+D systemd/system/multi-user.target.wants/avahi-daemon.service
+D systemd/system/multi-user.target.wants/nfs-client.target
+D systemd/system/multi-user.target.wants/sshd.service
+D systemd/system/multi-user.target.wants/sssd.service
+D systemd/system/remote-fs.target.wants/nfs-client.target
+D systemd/system/sockets.target.wants/avahi-daemon.socket
+D systemd/system/sysinit.target.wants/systemd-confext.service
+D systemd/system/sysinit.target.wants/systemd-sysext.service
+D systemd/system/timers.target.wants/bootc-fetch-apply-updates.timer
+D systemd/system/timers.target.wants/rpm-ostree-countme.timer

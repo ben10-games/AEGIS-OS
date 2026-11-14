@@ -105,7 +105,6 @@ echo "(end of differences)"
 echo
 
 echo "--- runtime, aegis-dev, first boot"
-section "reverse dependencies of baseline candidates" "${logs}/boot1-reverse-deps.txt" 90
 wrapped "running services" "${logs}/boot1-running-services.txt"
 wrapped "active timers" "${logs}/boot1-active-timers.txt"
 section "listening TCP/UDP sockets" "${logs}/boot1-listening-sockets.txt" 40
