@@ -23,6 +23,70 @@ only if it actually ran and passed, with the commit and where it ran.
      "differences between the golden manifests and this build" block of the job log
      into `tests/golden/` in the same commit series.
 
+### Session handoff, recorded 2026-11-14T04:28Z (before a context compaction)
+
+**Where the work stands**
+
+- M2 is **not complete**. Increments 1 to 6 are done and green (`e378b1e`, run 43554108533).
+  Increment 7 (P1-09, SELinux) is in its second iteration.
+- HEAD is `ad224f0` (pushed). Its `build` run **43556115948 failed** in the step
+  "Build disk images (both variants)" after about one minute. The log has **not been
+  read yet**. That step now also runs `scripts/fix-install-labels` (new in `ad224f0`),
+  which is the most likely place of the failure. The golden-manifest and VM steps were
+  skipped, so nothing about V-08 is known for this commit.
+- The previous commit `f635e02` (run 43554934333) passed 52 of 55 VM tests: the SELinux
+  policy build, module load, file contexts and the enforcement self-test all work.
+  The 3 failures were BUG-1 (install-time files still `default_t`).
+
+**Next steps, in order**
+
+1. Read the end of the "Build disk images" step of run 43556115948
+   (job 132329230690) and fix `scripts/fix-install-labels` or `scripts/build-disk`.
+2. Get a green build; then V-08 is verified and P1-09 and M2 can be closed: write
+   `docs/architecture/security-baseline.md` (draft exists, see below), the before/after
+   measurements, and update sections 2, 4, 5 and 7 of this file.
+3. Then the owner's follow-up request: local VM testing (see "Stashed work").
+
+**Background tasks in this session**
+
+| ID | Command | Output file | State |
+|---|---|---|---|
+| `b05590g4t` | `sleep 580; echo waited` (a timer started at about 04:20Z to wait for build run 43556115948; it does no work itself) | `/tmp/claude-0/-home-user-AEGIS-OS/ca6fec80-564a-5eee-b0bb-f1c9dc5a8c65/tasks/b05590g4t.output` | running; ends by itself at about 04:30Z and prints `waited`. Nothing depends on its output: the run it was waiting for has already finished. |
+
+No other background task is running. All earlier timers (`bwfgs821u`, `bdlwlhuho`,
+`bb594qeg5`, `bm7je4dcn`, `bo7yr8u33`, `bzmk07uot`, `bjaidndj9`, `b520h0vwk`,
+`bpv62na23`, `b75o97nmb`, `bj7905ers`, `b9lsncky1`, `b3572xvqm`, `bwg3ax6qz`,
+`b2zudpz6t`, `bljmwy1ul`, `b13rmh7zz`, `br5bq05xg`) have completed. No build, VM or
+other long-running process runs in this container; all builds run in GitHub Actions.
+
+**Work that exists only in this container (not pushed)**
+
+- `git stash` entry `stash@{0}` ("WIP on ... f635e02"): the complete draft of the
+  local-VM deliverables requested by the owner. Apply with `git stash pop` once M2 is
+  green. It contains: `LOCAL_VM_GUIDE.md`, `local-vm/run-aegis-vm.sh`,
+  `local-vm/run-aegis-vm.ps1`, `scripts/export-qcow2`, `tests/vm/test_local_image.py`,
+  and changes to `.github/workflows/build.yml` (export step, artifact
+  `aegis-os-dev-qcow2` published on `workflow_dispatch` or when the head commit message
+  contains `[publish-image]`, and a `windows-launch` job), `Makefile`,
+  `scripts/run-vm-tests`, `scripts/summarize-results`, `tests/vm/conftest.py`.
+  None of it has run in CI. The stash was made on `f635e02`; `scripts/summarize-results`
+  changed again in `ad224f0`, so expect a small merge when popping.
+- Draft of `docs/architecture/security-baseline.md`:
+  `/tmp/claude-0/-home-user-AEGIS-OS/ca6fec80-564a-5eee-b0bb-f1c9dc5a8c65/scratchpad/security-baseline.md`.
+  It assumes V-08 passes; check that before committing it.
+- Local tags `p1-m0` and `p1-m1-first-boot` (tag pushes are refused with HTTP 403).
+
+**Design decisions for the local-VM image (so they need not be re-derived)**
+
+- The image is `aegis-dev` exported as compressed QCOW2 (zlib, for compatibility).
+- No password or key in the image. Login is granted at launch through systemd
+  credentials in SMBIOS strings: `agetty.autologin=root` and `login.noauth=yes` for the
+  serial console, `ssh.authorized_keys.root` for SSH. Whether the console autologin
+  credentials work on Fedora 45 is **untested**; the SSH credential is proven.
+- CI must boot the exported file with `local-vm/run-aegis-vm.sh` (the published
+  launcher), using `--snapshot`, before the artifact is uploaded.
+- The Windows launcher defaults to software emulation; WHPX is documented as untested.
+
 ## 2. Status
 
 | Task | Title | State | Commit / evidence |
