@@ -12,6 +12,14 @@ with the real images (`make inventory`, `make image-test`); any difference fails
 | `base/etc-changes.txt` | Files AEGIS adds (A), modifies (M) or deletes (D) under `/etc` compared with the pinned upstream base | ADR-0014 |
 | `dev/*.delta.txt` | What `aegis-dev` adds (`+`) or removes (`-`) relative to `aegis-base` | same tests |
 
+Three more files are compared with a running system, not with the image inventory:
+
+| File | Meaning | Test |
+|---|---|---|
+| `kargs.txt` | Kernel arguments AEGIS adds | V-19 |
+| `sysctl.txt` | Kernel settings and their values | V-19 |
+| `kernel-error-allowlist.txt` | Error-level kernel messages that are expected | V-03 |
+
 One entry per line. Lines starting with `#` and empty lines are ignored.
 
 Package entries carry no version: packages AEGIS adds are not version-locked until the

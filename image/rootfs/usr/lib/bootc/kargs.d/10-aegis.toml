@@ -1,0 +1,21 @@
+# Kernel arguments of AEGIS OS. bootc applies them at install time and on updates.
+# Only arguments without a known performance or compatibility cost are here; the ones
+# left out on purpose (init_on_free, nosmt, debugfs=off, mitigation changes) need
+# measurements first (ADR-0003). The reviewed list is tests/golden/kargs.txt.
+#
+# lockdown=integrity        user space, root included, cannot modify the running kernel
+# slab_nomerge              keeps slab caches separate: harder heap exploitation
+# init_on_alloc=1           memory handed out by the kernel is zeroed
+# page_alloc.shuffle=1      randomises the page allocator free lists
+# randomize_kstack_offset=on  per-syscall kernel stack offset
+# vsyscall=none             removes the fixed-address legacy syscall page
+# audit=1                   audit events are recorded from the first process on
+kargs = [
+  "lockdown=integrity",
+  "slab_nomerge",
+  "init_on_alloc=1",
+  "page_alloc.shuffle=1",
+  "randomize_kstack_offset=on",
+  "vsyscall=none",
+  "audit=1",
+]

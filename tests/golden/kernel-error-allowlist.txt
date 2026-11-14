@@ -1,0 +1,5 @@
+# Kernel messages at error level that are expected. One regular expression per line,
+# matched against the whole message. Anything else fails V-03.
+
+# Printed on hosts without Intel TDX, which includes every CI runner and most hardware.
+virt/tdx: TDX not supported by the host platform

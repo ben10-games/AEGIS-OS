@@ -1,0 +1,7 @@
+lockdown=integrity
+slab_nomerge
+init_on_alloc=1
+page_alloc.shuffle=1
+randomize_kstack_offset=on
+vsyscall=none
+audit=1
