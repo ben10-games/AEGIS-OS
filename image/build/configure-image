@@ -71,4 +71,7 @@ systemctl mask bootc-fetch-apply-updates.timer
 # --- firewall -------------------------------------------------------------------------
 # firewalld reads its default zone only from /etc/firewalld/firewalld.conf (ADR-0014).
 # The zone itself is /usr/lib/firewalld/zones/aegis.xml.
-firewall-offline-cmd --set-default-zone=aegis
+# The tool reports "already set" as an error, and the dev build runs this script again.
+if [[ "$(firewall-offline-cmd --get-default-zone)" != "aegis" ]]; then
+  firewall-offline-cmd --set-default-zone=aegis
+fi
