@@ -5,7 +5,8 @@ AEGIS OS is a security-focused desktop operating system built as a derived
 UEFI Secure Boot → signed systemd-boot → signed Unified Kernel Image → composefs root
 filesystem verified with fs-verity → SELinux-enforcing userspace.
 
-**Project status: Phase 1 (Core Foundation), early.** Nothing here is installable yet.
+**Project status: Phase 1 (Core Foundation), early.** Nothing here is installable on a
+computer yet; a development image for virtual machines exists (`LOCAL_VM_GUIDE.md`).
 `PROJECT_STATE.md` is the single source of truth for what exists and what has been verified.
 
 ## Important limitations
@@ -23,6 +24,8 @@ filesystem verified with fs-verity → SELinux-enforcing userspace.
 | See why a decision was made | `docs/adr/` |
 | Know the current state and next task | `PROJECT_STATE.md` |
 | Continue development with an AI assistant | `CLAUDE.md` |
+| Try the development image in a virtual machine | `LOCAL_VM_GUIDE.md` |
+| Know what the image protects against, and what not | `docs/architecture/security-baseline.md` |
 
 ## Checks you can run anywhere
 

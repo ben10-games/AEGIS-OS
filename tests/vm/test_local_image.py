@@ -164,6 +164,8 @@ def test_record_how_the_console_login_happened(launched, logdir):
     )
     (logdir / "local-image-console.txt").write_text(report.stdout + report.stderr)
     assert report.returncode == 0, report.stderr
+    assert "--autologin root" in report.stdout
+    assert report.stdout.strip().endswith("AVC records since boot: 0"), report.stdout
 
 
 def test_exported_system_is_healthy_and_enforcing(launched, timeout_scale):

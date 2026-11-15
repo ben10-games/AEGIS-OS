@@ -9,9 +9,11 @@ only if it actually ran and passed, with the commit and where it ran.
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
 - **Phase / milestone:** Phase 1. M0, M1 and **M2 (baseline configuration) are
   complete**; see sections 4 and 5 and `docs/architecture/security-baseline.md`.
-- **Next task:** the owner's request for a downloadable development image for local
-  virtual-machine testing (see "Local VM image" below). M3 (sealed boot chain, P1-10 to
-  P1-12) has **not** been started and waits for the owner's go-ahead.
+- **Next task:** none in progress. The downloadable development image for local
+  virtual-machine testing is done (see "Local VM image" below). M3 (sealed boot chain,
+  P1-10 to P1-12) has **not** been started and waits for the owner's go-ahead. Two owner
+  decisions are open in section 9; the base image pin (BUG-7) will need renewing again
+  within days until the first of them is made.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the end of the `build` job log: the "Collect results"
   step prints `scripts/summarize-results`, with short inventories, the differences
@@ -23,41 +25,49 @@ only if it actually ran and passed, with the commit and where it ran.
      "differences between the golden manifests and this build" block of the job log
      into `tests/golden/` in the same commit series.
 
-### Local VM image (owner request, in progress)
+### Local VM image (owner request, done)
 
-Committed, **not yet verified in CI**: `LOCAL_VM_GUIDE.md`, `local-vm/run-aegis-vm.sh`,
-`local-vm/run-aegis-vm.ps1`, `scripts/export-qcow2` (`make export`),
-`tests/vm/test_local_image.py`, `tests/static/test_local_launcher.py`, and in the `build`
-workflow the export step, the publication step (artifact `aegis-os-dev-qcow2`, only on a
-manual run or when the head commit message contains `[publish-image]`, only after every
-test passed) and the job `windows-launch`.
+`LOCAL_VM_GUIDE.md` is the user-facing document. The `build` workflow exports the
+`aegis-dev` disk as compressed QCOW2 (`make export`), tests the exported file, and
+publishes it as artifact **`aegis-os-dev-qcow2`** only when every test in the job
+passed, and only on a manual run ("Run workflow") or when the head commit message
+contains `[publish-image]`. Artifacts expire after 14 days.
 
-Run 43718015605 (`0b3da6c`, renewed base): 60 of 61 tests passed, among them the 55 M2
-tests and, for the exported image, SSH login with a launch-time key, system health,
-SELinux enforcing, power-off and unchanged checksum. The automatic console login
-failed, so nothing was published.
+Verified in run 43719668136 on `aafc33a` (base image pin of 2026-11-15):
 
-Next: confirm the drop-in based console login in CI, then record here what was verified
-and bring `LOCAL_VM_GUIDE.md` section 9 in line with it.
+- Linux job: 14 image tests and 62 VM tests passed (the 55 M2 tests plus 7 for the
+  exported image). The exported file was started with `local-vm/run-aegis-vm.sh`
+  (QEMU 11.1.3, Fedora OVMF, KVM, snapshot mode): automatic root login on the serial
+  console, SSH with a key passed at launch, system state `running`, SELinux enforcing,
+  0 AVC records, root password locked, power-off with exit code 0, SHA-256 equal to
+  `SHA256SUMS` before and after.
+- Windows job (`windows-launch`, Windows Server 2025, QEMU for Windows 11.1.0,
+  software emulation): artifact downloaded, checksums verified, started with
+  `local-vm/run-aegis-vm.ps1`; console login after about 2.5 minutes, SSH login,
+  SELinux enforcing, power-off with exit code 0.
+- `tests/static/test_local_launcher.py` (in `make static`): the Linux launcher attaches
+  only the image and the firmware, binds SSH to 127.0.0.1, refuses devices, directories
+  and private keys.
 
-New external host, to be confirmed by the owner: the `windows-launch` job installs QEMU
-on the hosted Windows runner with `choco install qemu` (Chocolatey community
-repository). It is a test-only job; nothing from it enters the image.
+Not verified: Windows 10/11 desktop editions, WHPX acceleration, Linux distributions
+other than Fedora, physical hardware.
 
-**Design decisions for the local-VM image (so they need not be re-derived)**
+How login works (nothing is stored in the image):
 
-- The image is `aegis-dev` exported as compressed QCOW2 (zlib, for compatibility).
-- No password or key in the image. Login is granted at launch through systemd
-  credentials in SMBIOS strings: `ssh.authorized_keys.root` for SSH (proven), and for
-  the serial console `systemd.unit-dropin.serial-getty@ttyS0.service`, a drop-in that
+- SSH: credential `ssh.authorized_keys.root`, passed in an SMBIOS string at launch.
+- Console: credential `systemd.unit-dropin.serial-getty@ttyS0.service`, a drop-in that
   starts `agetty --autologin root`.
 - The credentials `agetty.autologin=root` and `login.noauth=yes` do **not** work on this
-  image: run 43718015605 showed a plain login prompt. Cause not established; a likely
+  image (run 43718015605 showed a plain login prompt). Cause not established; a likely
   one is that agetty ignores `$CREDENTIALS_DIRECTORY` after an SELinux domain
   transition (secure-execution mode).
-- CI must boot the exported file with `local-vm/run-aegis-vm.sh` (the published
-  launcher), using `--snapshot`, before the artifact is uploaded.
-- The Windows launcher defaults to software emulation; WHPX is documented as untested.
+- The disk is exported before it has ever been booted, so it holds no SSH host keys and
+  no machine identity; each user's first boot creates them.
+
+The Windows job installs QEMU on the hosted runner with `choco install qemu`
+(Chocolatey community repository, which downloads from qemu.weilnetz.de). That is an
+external host the owner has not confirmed yet (section 9). Nothing from it enters the
+image.
 
 ## 2. Status
 
@@ -166,6 +176,10 @@ still the unmodified Fedora service set, so this is expected to change in P1-08.
 | V-08 SELinux: enforcing and not switchable off from the kernel command line; zero denials during boot (audit log and journal); install-time files carry the types `bootupd` may use; no `unlabeled_t` or `default_t` file; no service in `unconfined_service_t` or `initrc_t`; self-test domain may read what its policy allows and is refused what it does not, logged with `permissive=0` | pass | `c3308a8` | GitHub Actions run 43557838924, KVM (also run 43557821995) |
 | Whole M2 suite on one commit: 14 image tests, 55 VM tests (includes the M1 tests B-01, B-08, V-01, V-02) | pass | `c3308a8` | GitHub Actions run 43557838924, KVM (also run 43557821995) |
 
+| M2 suite repeated on the renewed base image (14 image tests, 55 VM tests) | pass | `aafc33a` | GitHub Actions run 43719668136, KVM |
+| Local VM image: exported QCOW2 started with the published Linux launcher; console autologin, SSH, health, SELinux enforcing, power-off, unchanged checksum (7 tests) | pass | `aafc33a` | GitHub Actions run 43719668136, KVM |
+| Local VM image: published artifact started with the PowerShell launcher; checksums, console autologin, SSH, SELinux enforcing, power-off | pass | `aafc33a` | GitHub Actions run 43719668136, job `windows-launch`, Windows Server 2025, software emulation |
+
 Not yet run: B-05 to B-07, V-04 to V-07, V-09, V-12 to V-16, V-18 (except the parts noted above), all R tests.
 
 ### Measurements before and after M2
@@ -222,10 +236,10 @@ for each statement, and what it does not. In short:
   (`tests/golden/base/selinux-permissive-domains.txt`); programs in them are logged, not
   confined. `bootupd_t` is the one that runs at every boot. Root can switch SELinux to
   permissive at runtime.
-- Console and SSH access can be granted from outside the image through systemd
-  credentials in the firmware's SMBIOS strings. This is how the test harness logs in and
-  is equivalent to console access; whether a release image should honour them is a
-  Phase 2 decision.
+- Root access can be granted from outside the image through systemd credentials in the
+  firmware's SMBIOS strings (an SSH key, or unit files and drop-ins that run as root).
+  This is how the test harness and the local VM launchers log in and is equivalent to
+  console access; whether a release image should honour them is a Phase 2 decision.
 - Reverse-path filtering is strict on every interface except the one that carries the
   default route, which is loose. Shown by experiment in run 43554108533: after forcing
   the value to strict, `nmcli device reapply` set it back to loose. NetworkManager

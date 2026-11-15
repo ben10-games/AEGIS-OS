@@ -41,7 +41,12 @@ Software on the host, which you install yourself (this project installs nothing)
 1. Open the repository on GitHub, then **Actions** → workflow **build** → the most
    recent run marked with a green tick that has an artifact named
    **`aegis-os-dev-qcow2`** (at the bottom of the run page). You must be signed in.
-2. Download the artifact. It is a ZIP file; extract it into an empty folder.
+2. Download the artifact (about 1.2 GB). It is a ZIP file; extract it into an empty
+   folder.
+
+GitHub deletes artifacts after 14 days. To get a fresh one, open **Actions** → **build**
+→ **Run workflow**, choose the development branch and start it. The image appears on
+that run's page after about ten minutes, and only if every test passed.
 
 The folder then contains:
 
@@ -124,10 +129,11 @@ With SSH access:
 ```
 
 By default the Windows launcher uses software emulation (`-Accel tcg`), which works on
-every machine but is slow: expect the first boot to take several minutes. If the
-Windows feature *Windows Hypervisor Platform* is already enabled on your machine you
-can try `-Accel whpx`, which is much faster; that mode has not been tested by this
-project.
+every machine but is slow: in the project's test on a 4-core Windows machine the root
+prompt appeared about two and a half minutes after the start. If the Windows feature
+*Windows Hypervisor Platform* is already enabled on your machine you can try
+`-Accel whpx`, which is much faster; that mode has not been tested by this project, and
+this guide does not ask you to enable it.
 
 ### The equivalent QEMU command
 
@@ -181,8 +187,8 @@ mechanism is the virtual equivalent of sitting at the machine's own console.
 2. Kernel and systemd messages scroll by. Lines start with `[  OK  ]`.
 3. `aegis login: root (automatic login)` and a prompt `[root@aegis ~]#`.
 
-With hardware acceleration this takes about 10 to 20 seconds. In software emulation
-it can take several minutes.
+With hardware acceleration (Linux with KVM) this takes well under a minute. In software
+emulation it takes a few minutes.
 
 Things to try:
 
@@ -246,12 +252,25 @@ synced before power-off and the next boot shows no file-system recovery.
 
 ## 9. What was verified, and where
 
-See the section "Local VM image" in `PROJECT_STATE.md` for the CI runs behind each
-statement. Summary of how the published image is tested before it is offered for
-download: CI boots the exported `.qcow2` with `run-aegis-vm.sh` exactly as described
-in section 4, waits for the automatic console login, logs in over SSH with a key
-passed at launch, checks that the system is healthy with SELinux enforcing, powers it
-off, and confirms that the published file is byte-for-byte the file that was booted.
+Every published image is tested in the same GitHub Actions run before it is offered for
+download; if a test fails, nothing is published. First verified in run 43719668136
+(commit `aafc33a`); `PROJECT_STATE.md` lists the runs.
+
+| What | How it was tested |
+|---|---|
+| The image boots with UEFI firmware and the Linux launcher | CI starts `run-aegis-vm.sh` on the exported `.qcow2` exactly as in section 4 (QEMU 11.1, Fedora's OVMF, KVM) |
+| Automatic root login on the console | CI waits for the `root@aegis` prompt on the serial console |
+| SSH login with a key passed at launch | CI generates a key, passes the public half to the launcher and logs in |
+| The system is healthy and SELinux is enforcing | `systemctl is-system-running` is `running`, `getenforce` is `Enforcing`, no SELinux denial is logged, root's password is locked |
+| Clean power-off | `poweroff` in the guest ends the launcher with exit code 0 |
+| The published file is the tested file | The image is opened in snapshot mode and its SHA-256 is compared with `SHA256SUMS` before and after |
+| The Windows launcher | A second job downloads the published artifact on Windows Server 2025, installs QEMU for Windows 11.1.0, verifies the checksums as in section 3, starts `run-aegis-vm.ps1` with software emulation, and checks console login, SSH login, SELinux enforcing and power-off |
+| The launcher attaches nothing but the image | Tests run the Linux launcher against a stand-in for QEMU and check its complete command line; devices and directories are refused |
+
+Not tested: Windows 10 and 11 desktop editions themselves, `-Accel whpx`, Linux
+distributions other than Fedora (the firmware paths for Debian, Ubuntu, Arch and
+openSUSE are in the launcher but were not exercised), QEMU versions older than 8, and
+any physical hardware.
 
 ## 10. Limits of this image
 

@@ -47,12 +47,13 @@ Nothing here has been checked on physical hardware.
   source address is unreachable through any interface are still dropped.
 - **The firewall and audit daemons cost memory.** See the before/after table in
   `PROJECT_STATE.md`.
-- **Console and SSH access can be granted from outside the image.** systemd reads
-  credentials from the firmware's SMBIOS strings. Whoever configures the virtual
-  machine can make it log root in on the console or install an SSH key. This is how the
-  test harness and the local test image work, and it is equivalent to physical access
-  to the console. On physical hardware these strings are set by the manufacturer. A
-  release image should decide deliberately whether to honour them (Phase 2).
+- **Root access can be granted from outside the image.** systemd reads credentials
+  from the firmware's SMBIOS strings. Whoever configures the virtual machine can
+  install an SSH key for root, and can add unit files and drop-ins, which run as root.
+  This is how the test harness and the local test image log in (`LOCAL_VM_GUIDE.md`),
+  and it is equivalent to physical access to the console. On physical hardware these
+  strings are set by the manufacturer. A release image should decide deliberately
+  whether to honour them (Phase 2).
 
 ## Findings that are not AEGIS defects but affect it
 
