@@ -9,7 +9,8 @@
 #
 # Login: the image contains no password and no key. This script passes two systemd
 # credentials through the virtual firmware, and only for this run:
-#   - automatic root login on the serial console (this terminal)
+#   - a drop-in for the serial console's login service that logs root in automatically
+#     (the serial console is this terminal)
 #   - your SSH public key, if you give one with --ssh-key
 set -euo pipefail
 
@@ -145,8 +146,10 @@ if [[ "${snapshot}" -eq 1 ]]; then
   args+=(-snapshot)
 fi
 if [[ "${autologin}" -eq 1 ]]; then
-  args+=(-smbios "type=11,value=io.systemd.credential:agetty.autologin=root")
-  args+=(-smbios "type=11,value=io.systemd.credential:login.noauth=yes")
+  # systemd turns this credential into a drop-in for serial-getty@ttyS0.service.
+  dropin=$'[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin root --noclear --keep-baud 115200,57600,38400,9600 - $TERM\n'
+  encoded="$(printf '%s' "${dropin}" | base64 -w0)"
+  args+=(-smbios "type=11,value=io.systemd.credential.binary:systemd.unit-dropin.serial-getty@ttyS0.service=${encoded}")
 fi
 if [[ -n "${ssh_key}" ]]; then
   if [[ ! -f "${ssh_key}" ]] || grep -q "PRIVATE KEY" "${ssh_key}"; then

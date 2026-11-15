@@ -32,8 +32,13 @@ workflow the export step, the publication step (artifact `aegis-os-dev-qcow2`, o
 manual run or when the head commit message contains `[publish-image]`, only after every
 test passed) and the job `windows-launch`.
 
-Next: read the first run, correct what fails, then record here what was verified and
-bring `LOCAL_VM_GUIDE.md` section 9 in line with it.
+Run 43718015605 (`0b3da6c`, renewed base): 60 of 61 tests passed, among them the 55 M2
+tests and, for the exported image, SSH login with a launch-time key, system health,
+SELinux enforcing, power-off and unchanged checksum. The automatic console login
+failed, so nothing was published.
+
+Next: confirm the drop-in based console login in CI, then record here what was verified
+and bring `LOCAL_VM_GUIDE.md` section 9 in line with it.
 
 New external host, to be confirmed by the owner: the `windows-launch` job installs QEMU
 on the hosted Windows runner with `choco install qemu` (Chocolatey community
@@ -43,9 +48,13 @@ repository). It is a test-only job; nothing from it enters the image.
 
 - The image is `aegis-dev` exported as compressed QCOW2 (zlib, for compatibility).
 - No password or key in the image. Login is granted at launch through systemd
-  credentials in SMBIOS strings: `agetty.autologin=root` and `login.noauth=yes` for the
-  serial console, `ssh.authorized_keys.root` for SSH. Whether the console autologin
-  credentials work on Fedora 45 is **untested**; the SSH credential is proven.
+  credentials in SMBIOS strings: `ssh.authorized_keys.root` for SSH (proven), and for
+  the serial console `systemd.unit-dropin.serial-getty@ttyS0.service`, a drop-in that
+  starts `agetty --autologin root`.
+- The credentials `agetty.autologin=root` and `login.noauth=yes` do **not** work on this
+  image: run 43718015605 showed a plain login prompt. Cause not established; a likely
+  one is that agetty ignores `$CREDENTIALS_DIRECTORY` after an SELinux domain
+  transition (secure-execution mode).
 - CI must boot the exported file with `local-vm/run-aegis-vm.sh` (the published
   launcher), using `--snapshot`, before the artifact is uploaded.
 - The Windows launcher defaults to software emulation; WHPX is documented as untested.

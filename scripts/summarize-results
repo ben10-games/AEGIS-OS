@@ -151,6 +151,7 @@ echo
 
 section "exported image for local testing" out/release/IMAGE-INFO.txt 12
 section "checksums of the exported files" out/release/SHA256SUMS 6
+section "exported image: how the console login happened" "${logs}/local-image-console.txt" 14
 echo "=== exported image: console of the launcher test (last lines)"
 if [[ -s "${logs}/local-image-serial.log" ]]; then
   tail -n 8 "${logs}/local-image-serial.log" | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' | tr -d '\r'

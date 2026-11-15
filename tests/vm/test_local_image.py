@@ -153,6 +153,19 @@ def test_ssh_login_with_the_key_passed_at_launch(launched, timeout_scale):
     assert result is not None and result.returncode == 0, result.stderr if result else "no attempt"
 
 
+def test_record_how_the_console_login_happened(launched, logdir):
+    """Evidence for the guide: the login service's command line and who holds the console."""
+    report = ssh(
+        launched,
+        "systemctl show serial-getty@ttyS0.service -p ExecStart -p DropInPaths --no-pager;"
+        " echo; ps -eo label,tty,args | grep -E 'ttyS0|agetty' | grep -v grep;"
+        " echo; echo -n 'AVC records since boot: ';"
+        " journalctl -b --no-pager -o cat | grep -c 'avc:  denied' || true",
+    )
+    (logdir / "local-image-console.txt").write_text(report.stdout + report.stderr)
+    assert report.returncode == 0, report.stderr
+
+
 def test_exported_system_is_healthy_and_enforcing(launched, timeout_scale):
     """The system a user boots is the AEGIS development image, healthy, SELinux enforcing."""
     state = ssh(launched, "systemctl is-system-running --wait", timeout=180 * timeout_scale)

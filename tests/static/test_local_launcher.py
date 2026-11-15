@@ -13,6 +13,14 @@ import pytest
 PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIexampleexampleexampleexampleexampleexample me"
 
 
+AUTOLOGIN_DROPIN = (
+    "[Service]\n"
+    "ExecStart=\n"
+    "ExecStart=-/sbin/agetty --autologin root --noclear"
+    " --keep-baud 115200,57600,38400,9600 - $TERM\n"
+)
+
+
 @pytest.fixture
 def sandbox(tmp_path, root):
     """A fake qemu-system-x86_64 that records its arguments, plus image and firmware files."""
@@ -102,7 +110,11 @@ def test_ssh_is_forwarded_on_loopback_only(sandbox):
 def test_login_is_granted_by_launch_time_credentials_only(sandbox):
     _, args = sandbox["run"]("--ssh-key", str(sandbox["key"]))
     smbios = values(args, "-smbios")
-    assert "type=11,value=io.systemd.credential:agetty.autologin=root" in smbios
+    autologin = (
+        "type=11,value=io.systemd.credential.binary:systemd.unit-dropin.serial-getty@ttyS0.service="
+    )
+    dropin = base64.b64decode(next(v[len(autologin) :] for v in smbios if v.startswith(autologin)))
+    assert dropin.decode() == AUTOLOGIN_DROPIN
     prefix = "type=11,value=io.systemd.credential.binary:ssh.authorized_keys.root="
     encoded = next(v[len(prefix) :] for v in smbios if v.startswith(prefix))
     assert base64.b64decode(encoded).decode() == PUBLIC_KEY + "\n"
@@ -126,6 +138,14 @@ def test_snapshot_mode_and_commas_in_file_names(sandbox):
     _, args = sandbox["run"]("--snapshot", image_path=odd)
     assert "-snapshot" in args
     assert values(args, "-drive")[2].endswith("file=" + str(odd).replace(",", ",,"))
+
+
+def test_both_launchers_pass_the_same_autologin_dropin(root):
+    """The PowerShell launcher cannot be run here; its drop-in text is compared instead."""
+    text = (root / "local-vm" / "run-aegis-vm.ps1").read_text()
+    powershell = AUTOLOGIN_DROPIN.replace("\n", "`n").replace("$TERM", "`$TERM")
+    assert f'$dropin = "{powershell}"' in text
+    assert "systemd.unit-dropin.serial-getty@ttyS0.service=$dropinBase64" in text
 
 
 def test_launchers_contain_no_password(root):

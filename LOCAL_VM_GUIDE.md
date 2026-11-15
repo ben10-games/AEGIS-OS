@@ -142,10 +142,12 @@ qemu-system-x86_64 \
   -drive if=virtio,format=qcow2,file=aegis-os-dev.qcow2 \
   -netdev user,id=net0,hostfwd=tcp:127.0.0.1:2222-:22 \
   -device virtio-net-pci,netdev=net0 -device virtio-rng-pci \
-  -smbios type=11,value=io.systemd.credential:agetty.autologin=root \
-  -smbios type=11,value=io.systemd.credential:login.noauth=yes \
   -display none -serial mon:stdio -nodefaults
 ```
+
+That command gives you a login prompt but no way to log in, because the image has no
+password. The launchers add the options that grant access (section 5); use a launcher
+unless you have a reason not to.
 
 Never add a `-drive` or `-hda` option that names a physical disk (`/dev/sda`,
 `/dev/nvme0n1`, `\\.\PhysicalDrive0`). The launchers refuse anything that is not a
@@ -156,9 +158,10 @@ regular `.qcow2` file.
 The image contains **no password and no key**. The root account is locked. Access is
 granted only by what you pass when you start the VM, and only for that run:
 
-1. **Console.** The launcher asks the guest, through the virtual firmware, to log
-   `root` in automatically on the serial console. That console is the window you
-   started the launcher from. You get a root shell without typing anything.
+1. **Console.** The launcher hands the guest, through the virtual firmware, a small
+   systemd drop-in that makes the serial console's login service log `root` in
+   automatically. That console is the window you started the launcher from. You get a
+   root shell without typing anything.
    Start with `--no-autologin` (Linux) or `-NoAutologin` (Windows) to switch this off.
 2. **SSH.** If you gave a public key, it is installed for `root` for this boot:
 
@@ -236,7 +239,7 @@ synced before power-off and the next boot shows no file-system recovery.
 | Windows: `-Accel whpx` fails to start | The *Windows Hypervisor Platform* feature is not enabled, or another hypervisor holds it. Use the default (`tcg`). |
 | "Could not set up host forwarding rule" | Port 2222 is in use on your computer. Choose another: `--ssh-port 2233` / `-SshPort 2233`. |
 | Nothing appears for a long time | Without acceleration the first boot is slow. Wait five minutes before giving up. |
-| The console shows a login prompt but does not log in | You started with `--no-autologin`, or ran QEMU by hand without the two `-smbios` options from section 4. |
+| The console shows a login prompt but does not log in | You started with `--no-autologin`, or ran QEMU by hand instead of with a launcher. |
 | SSH says "Permission denied (publickey)" | Start the VM with `--ssh-key` / `-SshKey` pointing at the **public** key that matches the private key your SSH client uses. The key is applied at boot; restart the VM after changing it. |
 | SSH warns that the host key changed | A fresh image generates new host keys. Remove the old entry: `ssh-keygen -R "[127.0.0.1]:2222"`. |
 | You want a clean slate | Delete the `.qcow2` and the `.uefi-vars.*` file next to it, and extract the artifact again. |

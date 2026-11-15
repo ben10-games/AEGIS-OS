@@ -9,7 +9,8 @@
 
   Login: the image contains no password and no key. This script passes two systemd
   credentials through the virtual firmware, for this run only:
-    - automatic root login on the serial console (this window)
+    - a drop-in for the serial console's login service that logs root in
+      automatically (the serial console is this window)
     - your SSH public key, if you give one with -SshKey
 
 .EXAMPLE
@@ -92,8 +93,10 @@ $qemuArgs = @(
 )
 if ($Snapshot) { $qemuArgs += "-snapshot" }
 if (-not $NoAutologin) {
-    $qemuArgs += @("-smbios", "type=11,value=io.systemd.credential:agetty.autologin=root")
-    $qemuArgs += @("-smbios", "type=11,value=io.systemd.credential:login.noauth=yes")
+    # systemd turns this credential into a drop-in for serial-getty@ttyS0.service.
+    $dropin = "[Service]`nExecStart=`nExecStart=-/sbin/agetty --autologin root --noclear --keep-baud 115200,57600,38400,9600 - `$TERM`n"
+    $dropinBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($dropin))
+    $qemuArgs += @("-smbios", "type=11,value=io.systemd.credential.binary:systemd.unit-dropin.serial-getty@ttyS0.service=$dropinBase64")
 }
 if ($SshKey) {
     if (-not (Test-Path -LiteralPath $SshKey -PathType Leaf)) {
