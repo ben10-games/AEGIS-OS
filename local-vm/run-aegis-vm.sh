@@ -125,6 +125,7 @@ if [[ ! -f "${vars_copy}" ]]; then
   cp "${firmware_vars}" "${vars_copy}"
 fi
 
+# shellcheck disable=SC2054 # the commas belong to QEMU's option syntax
 args=(
   -machine "q35,accel=${accel}"
   -cpu "${cpu}"
