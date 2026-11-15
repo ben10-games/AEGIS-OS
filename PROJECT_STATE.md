@@ -7,11 +7,11 @@ only if it actually ran and passed, with the commit and where it ran.
 ## 1. Resume here
 
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
-- **Phase / milestone:** Phase 1, milestone M2 (baseline configuration) in progress.
-  M0 and M1 are complete. The approved M2 plan has eight increments; see section 2.
-- **Next task:** finish increment 7 of M2 (P1-09: SELinux verification and the BUG-1
-  fix), then the before/after record and baseline documents. Do not start M3 before M2
-  is complete.
+- **Phase / milestone:** Phase 1. M0, M1 and **M2 (baseline configuration) are
+  complete**; see sections 4 and 5 and `docs/architecture/security-baseline.md`.
+- **Next task:** the owner's request for a downloadable development image for local
+  virtual-machine testing (see "Local VM image" below). M3 (sealed boot chain, P1-10 to
+  P1-12) has **not** been started and waits for the owner's go-ahead.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the end of the `build` job log: the "Collect results"
   step prints `scripts/summarize-results`, with short inventories, the differences
@@ -23,56 +23,13 @@ only if it actually ran and passed, with the commit and where it ran.
      "differences between the golden manifests and this build" block of the job log
      into `tests/golden/` in the same commit series.
 
-### Session handoff, recorded 2026-11-14T04:28Z (before a context compaction)
+### Local VM image (owner request, in progress)
 
-**Where the work stands**
-
-- M2 is **not complete**. Increments 1 to 6 are done and green (`e378b1e`, run 43554108533).
-  Increment 7 (P1-09, SELinux) is in its second iteration.
-- `ad224f0` (run 43556115948) failed in "Build disk images": `scripts/fix-install-labels`
-  looked for the root partition with `lsblk`, which reports no partition names inside a
-  container (no udev database). The installation itself had completed. Fixed in the
-  next commit: the partition is found by its GPT type with `sfdisk --dump`.
-- The previous commit `f635e02` (run 43554934333) passed 52 of 55 VM tests: the SELinux
-  policy build, module load, file contexts and the enforcement self-test all work.
-  The 3 failures were BUG-1 (install-time files still `default_t`).
-
-**Next steps, in order**
-
-1. Done: disk-build failure of run 43556115948 read and fixed (see above).
-2. Get a green build; then V-08 is verified and P1-09 and M2 can be closed: write
-   `docs/architecture/security-baseline.md` (draft exists, see below), the before/after
-   measurements, and update sections 2, 4, 5 and 7 of this file.
-3. Then the owner's follow-up request: local VM testing (see "Stashed work").
-
-**Background tasks in this session**
-
-| ID | Command | Output file | State |
-|---|---|---|---|
-| `b05590g4t` | `sleep 580; echo waited` (a timer started at about 04:20Z to wait for build run 43556115948; it does no work itself) | `/tmp/claude-0/-home-user-AEGIS-OS/ca6fec80-564a-5eee-b0bb-f1c9dc5a8c65/tasks/b05590g4t.output` | completed at about 04:30Z and prints `waited`. Nothing depends on its output: the run it was waiting for has already finished. |
-
-No other background task is running. All earlier timers (`bwfgs821u`, `bdlwlhuho`,
-`bb594qeg5`, `bm7je4dcn`, `bo7yr8u33`, `bzmk07uot`, `bjaidndj9`, `b520h0vwk`,
-`bpv62na23`, `b75o97nmb`, `bj7905ers`, `b9lsncky1`, `b3572xvqm`, `bwg3ax6qz`,
-`b2zudpz6t`, `bljmwy1ul`, `b13rmh7zz`, `br5bq05xg`) have completed. No build, VM or
-other long-running process runs in this container; all builds run in GitHub Actions.
-
-**Work that exists only in this container (not pushed)**
-
-- `git stash` entry `stash@{0}` ("WIP on ... f635e02"): the complete draft of the
-  local-VM deliverables requested by the owner. Apply with `git stash pop` once M2 is
-  green. It contains: `LOCAL_VM_GUIDE.md`, `local-vm/run-aegis-vm.sh`,
-  `local-vm/run-aegis-vm.ps1`, `scripts/export-qcow2`, `tests/vm/test_local_image.py`,
-  and changes to `.github/workflows/build.yml` (export step, artifact
-  `aegis-os-dev-qcow2` published on `workflow_dispatch` or when the head commit message
-  contains `[publish-image]`, and a `windows-launch` job), `Makefile`,
-  `scripts/run-vm-tests`, `scripts/summarize-results`, `tests/vm/conftest.py`.
-  None of it has run in CI. The stash was made on `f635e02`; `scripts/summarize-results`
-  changed again in `ad224f0`, so expect a small merge when popping.
-- Draft of `docs/architecture/security-baseline.md`:
-  `/tmp/claude-0/-home-user-AEGIS-OS/ca6fec80-564a-5eee-b0bb-f1c9dc5a8c65/scratchpad/security-baseline.md`.
-  It assumes V-08 passes; check that before committing it.
-- Local tags `p1-m0` and `p1-m1-first-boot` (tag pushes are refused with HTTP 403).
+The draft exists only in the working session as `git stash` entry `stash@{0}` (made on
+`f635e02`): `LOCAL_VM_GUIDE.md`, `local-vm/run-aegis-vm.sh`, `local-vm/run-aegis-vm.ps1`,
+`scripts/export-qcow2`, `tests/vm/test_local_image.py` and changes to the `build`
+workflow, `Makefile`, `scripts/run-vm-tests`, `scripts/summarize-results` and
+`tests/vm/conftest.py`. None of it has run in CI yet.
 
 **Design decisions for the local-VM image (so they need not be re-derived)**
 
@@ -98,7 +55,7 @@ other long-running process runs in this container; all builds run in GitHub Acti
 | P1-06 | VM harness and first boot | done | `399d421`; `build` run 43460695621 |
 | P1-07 | Variant split and golden manifests | done | `5d839d4`; `build` run 43547501384 |
 | P1-08 | Operating system baseline | done | `e378b1e`; `build` run 43554108533 (identity, services, firewall, audit, kernel arguments, sysctl, networking) |
-| P1-09 | SELinux enforcement validation | in progress | policy module, self-test and BUG-1 fix pushed |
+| P1-09 | SELinux enforcement validation | done | `c3308a8`; `build` run 43557838924 (V-08: zero denials, labels, enforcement self-test) |
 | P1-10 | Ephemeral key tooling | todo | |
 | P1-11 | Sealed image, gate G1 | todo | |
 | P1-12 | Tamper and negative boot tests | todo | |
@@ -134,6 +91,7 @@ Deviations from the approved blueprint:
 |---|---|---|
 | M0 Repository and tooling (P1-00 to P1-02) | 2026-11-13 | `lint` run 43458827403, `probe` run 43459049502 |
 | M1 First verified boot (P1-03 to P1-06) | 2026-11-13 | `build` run 43460695621 on `399d421`: 8 VM tests passed in 43.5 s under KVM; repeated on `a3a5004` (run 43461672095) |
+| M2 Baseline configuration (P1-07 to P1-09) | 2026-11-14 | `build` run 43557838924 on `c3308a8`: 14 image tests and 55 VM tests passed (both variants, KVM); `lint` run 43557838949 green on the same commit. Same result on `3514aec` (run 43557821995) |
 
 Milestone tags `p1-m0` (`cdce239`) and `p1-m1-first-boot` (`399d421`) exist only in the
 session that created them: pushing tags was refused (HTTP 403; the session may push the
@@ -188,35 +146,47 @@ still the unmodified Fedora service set, so this is expected to change in P1-08.
 | V-19 Kernel arguments, lockdown in integrity mode, 31 sysctl values equal the golden lists; reverse-path filtering never off | pass | `e378b1e` | GitHub Actions run 43554108533, KVM |
 | Audit daemon attached to the kernel, auditing enabled, log written | pass | `e378b1e` | GitHub Actions run 43554108533, KVM |
 
-Not yet run: B-05 to B-07, V-04 to V-09, V-12 to V-16, V-18 (except the parts noted above), all R tests.
+| V-08 SELinux: enforcing and not switchable off from the kernel command line; zero denials during boot (audit log and journal); install-time files carry the types `bootupd` may use; no `unlabeled_t` or `default_t` file; no service in `unconfined_service_t` or `initrc_t`; self-test domain may read what its policy allows and is refused what it does not, logged with `permissive=0` | pass | `c3308a8` | GitHub Actions run 43557838924, KVM (also run 43557821995) |
+| Whole M2 suite on one commit: 14 image tests, 55 VM tests (includes the M1 tests B-01, B-08, V-01, V-02) | pass | `c3308a8` | GitHub Actions run 43557838924, KVM (also run 43557821995) |
 
-### "Before" measurements for M2
+Not yet run: B-05 to B-07, V-04 to V-07, V-09, V-12 to V-16, V-18 (except the parts noted above), all R tests.
 
-Stock Fedora service set, `aegis-dev`, first boot, run 43546633024 (`58a46d0`; 2 vCPU,
-4 GiB, KVM). These are the numbers the M2 baseline is compared with.
+### Measurements before and after M2
 
-| Metric | Value |
-|---|---|
-| Startup, first boot | 8.9 s (0.9 kernel + 2.6 initrd + 5.4 userspace) |
-| Startup, second boot | 7.1 s |
-| Memory in use (MemTotal - MemAvailable) | 472 MiB |
-| Running services | 22 |
-| Enabled units | 63 |
-| Active timers | 6 |
-| TCP/UDP listeners | 14 (sshd on all interfaces, LLMNR 5355 and mDNS 5353 on all interfaces, DNS stub and chrony on loopback) |
-| Processes | 153 |
-| Failed units | 0 |
-| SELinux denials per boot | 3 (BUG-1) |
-| SELinux permissive domains in the policy | 31 |
-| Setuid/setgid files, files with capabilities | 17, 8 |
+`aegis-dev`, first boot unless stated, 2 vCPU, 4 GiB, KVM on a hosted runner. Before:
+stock Fedora service set, run 43546633024 (`58a46d0`). After: M2 baseline, run
+43557838924 (`c3308a8`); run 43557821995 gave 9.3 s, 7.4 s and 529 MiB. Single runs on shared runners; differences of a few tenths of
+a second or a few MiB are noise. These are observations, not the V-12 baseline (P1-17).
+
+| Metric | Before | After |
+|---|---|---|
+| Startup, first boot | 8.9 s (0.9 kernel + 2.6 initrd + 5.4 userspace) | 9.3 s (0.9 + 2.6 + 5.8) |
+| Startup, second boot | 7.1 s | 7.1 s |
+| Memory in use (MemTotal - MemAvailable) | 472 MiB | 509 MiB |
+| Running services | 22 | 22 |
+| Enabled units | 63 | 58 |
+| Active timers | 6 | 4 |
+| TCP/UDP listeners | 14 (sshd, LLMNR 5355 and mDNS 5353 on all interfaces; DNS stub and chrony on loopback) | 8 (sshd on all interfaces, development variant only; DNS stub and chrony on loopback) |
+| Processes | 153 | 150 |
+| Failed units | 0 | 0 |
+| SELinux denials per boot | 3 (BUG-1) | 0 |
+| SELinux permissive domains in the policy | 31 | 31 |
+| Setuid/setgid files, files with capabilities | 17, 8 | 17, 8 |
+
+The baseline is not lighter than stock Fedora: firewalld and auditd were added, and
+they cost about 40 to 60 MiB and up to 0.4 s of startup. The number of running services is
+the same because two were added and two (avahi, sssd-related) removed. Memory in use is
+above the blueprint's provisional 400 MiB budget for V-12; that budget is revisited in
+P1-17.
+
 Nothing has been verified on a local workstation or on physical hardware.
 
 ## 6. Known bugs
 
 | ID | Description | Impact | Plan |
 |---|---|---|---|
-| BUG-1 | Every boot logged 3 SELinux denials: `bootloader-update.service` runs `bootupctl` (domain `bootupd_t`, declared permissive by Fedora), which reads `/sysroot/.bootc-aleph.json`. That file, `/sysroot/boot/grub2` and `/sysroot/boot/bootupd-state.json` carried the catch-all type `default_t`. Cause, by elimination: Fedora's policy lets `bootupd_t` read `root_t` and manage `boot_t`, which is what these files inherit from their directories when the installer runs on an SELinux system; our disks are installed on a GitHub runner whose kernel has no SELinux, so nothing is inherited. A first attempt with file-context rules in a policy module had no effect (run 43554934333) and was removed. Not proven by a comparison install on an SELinux host. | Nothing was blocked (the domain is permissive), but V-08 requires zero denials. | `scripts/fix-install-labels`, run by `scripts/build-disk` after the installation, gives every `default_t` file outside the ostree repository the label of its parent directory. No policy change. Limits: it fixes disks built by this repository; an installer that runs on an SELinux system (Phase 6) should not need it. Upstream report to bootc still to be written by the owner. |
-| BUG-2 | The image still identifies itself as Fedora (`os-release`, hostname `fedora`). | Cosmetic. | M2 increment 3. |
+| BUG-1 | Closed for disks built by this repository (`c3308a8`, run 43557838924: zero denials). Every boot logged 3 SELinux denials: `bootloader-update.service` runs `bootupctl` (domain `bootupd_t`, declared permissive by Fedora), which reads `/sysroot/.bootc-aleph.json` and files under `/sysroot/boot`. 344 files written at the end of the installation (the whole `/boot/grub2` tree, `/boot/bootupd-state.json`, `/.bootc-aleph.json`) carried the catch-all type `default_t`. Cause: on an SELinux system they inherit `boot_t` and `root_t` from their directories, which is what Fedora's policy lets `bootupd_t` use; our disks are installed on a GitHub runner whose kernel has no SELinux, so nothing is inherited. Supported by the result (giving them the parents' labels removes every denial), not by a comparison install on an SELinux host. A first attempt with file-context rules in a policy module had no effect (run 43554934333) and was removed. | None left in our disks. A disk installed by other means on a host without SELinux would still log the denials (nothing is blocked; the domain is permissive). | `scripts/fix-install-labels`, run by `scripts/build-disk` after the installation, gives every `default_t` file outside the ostree repository the label of its parent directory. No policy change. An installer that runs on an SELinux system (Phase 6) should not need it. Worth reporting to bootc upstream (owner's decision; text can be prepared). |
+| BUG-2 | Closed (`bf592c8`). The image identified itself as Fedora; `os-release` and the hostname now say AEGIS. The initramfs part remains as BUG-5. | | |
 | BUG-3 | At power-off the console shows "Failed to unmount /run/shutdown/mounts/...: Device or resource busy" and "Not all file systems unmounted, 1 left" before "Syncing filesystems" and "Power down". Seen on `aegis-base` in run 43546633024. | None observed: the following boot shows no filesystem recovery (V-02). Looks like the physical root that backs the running deployment. | Confirm the cause; re-check after the sealed boot chain changes the mount layout (P1-11). |
 | BUG-4 | Closed. `podman build` 4.9 left an empty `/etc/hostname` in the image; the image now ships that file with the static hostname `aegis`. | | |
 | BUG-6 | `ausearch -ts boot` returns nothing on the test VM although the audit log is being written (run 43554108533). | Tests that query the audit log by "since boot" would silently see no events. | The SELinux tests read the whole audit log and the journal and filter by time themselves. Cause not yet investigated. |
@@ -224,24 +194,36 @@ Nothing has been verified on a local workstation or on physical hardware.
 
 ## 7. Security limitations
 
-- The M1 image is the stock Fedora bootc base plus identity metadata. It boots with the
-  ostree backend and GRUB, **without** Secure Boot, without a sealed root, unsigned, and
-  with no AEGIS hardening. The only demonstrated properties are: it boots, SELinux is
-  enforcing, and `/usr` is read-only.
-- `aegis-base` still has whatever services the Fedora base enables (including possibly
-  sshd); the release-shaped service set is P1-07/P1-08.
-- SELinux denials occur during boot (BUG-1); V-08 is not met.
+`docs/architecture/security-baseline.md` lists what the M2 image provides, with the test
+for each statement, and what it does not. In short:
+
+- The image boots with the ostree backend and GRUB, **without** Secure Boot, without a
+  sealed root, unsigned, unencrypted, and with no update source. Someone with access to
+  the disk can change it. Sealed boot is M3; signing and updates are M4.
+- 31 SELinux domains are permissive in Fedora's policy
+  (`tests/golden/base/selinux-permissive-domains.txt`); programs in them are logged, not
+  confined. `bootupd_t` is the one that runs at every boot. Root can switch SELinux to
+  permissive at runtime.
+- Console and SSH access can be granted from outside the image through systemd
+  credentials in the firmware's SMBIOS strings. This is how the test harness logs in and
+  is equivalent to console access; whether a release image should honour them is a
+  Phase 2 decision.
 - Reverse-path filtering is strict on every interface except the one that carries the
   default route, which is loose. Shown by experiment in run 43554108533: after forcing
   the value to strict, `nmcli device reapply` set it back to loose. NetworkManager
   relaxes it on purpose for interfaces with a default route. Filtering is never off.
-- The firewall and audit daemons cost memory: about 529 MiB in use after boot, against
-  472 MiB for the stock image.
+- The release variant (`aegis-base`) is tested from outside only (console output, power
+  button, closed SSH port, image manifests). Runtime checks that need a shell run on the
+  development variant, which differs by the recorded delta (sshd and the SELinux
+  self-test).
+- The SELinux label correction (BUG-1) applies to disks built by this repository.
 - The disk has a BIOS boot partition and a 512 MiB ESP because `bootc install to-disk`
   was run with `--generic-image`; BIOS boot support is not wanted in the final design.
+- Package goldens hold names, not versions; packages are not version-locked until P1-15.
 - Planned Phase 1 limitations (see blueprint section 11): no disk encryption, throw-away
   signing keys, no automatic rollback on failed boot, no application sandboxing, `/etc`
-  and `/var` are not integrity-protected, root can still change SELinux mode at runtime.
+  and `/var` are not integrity-protected.
+- Nothing has been tested on physical hardware.
 
 ## 8. Assumptions
 

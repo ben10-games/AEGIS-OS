@@ -57,4 +57,6 @@ virtual machine starts. Nothing else differs; see `tests/golden/dev/*.delta.txt`
 ## Measurements
 
 Before (stock Fedora service set) and after (this baseline) are recorded in
-`PROJECT_STATE.md` section 5, taken on the same CI runner type.
+`PROJECT_STATE.md` section 5, taken on the same CI runner type. In short: 5 fewer enabled
+units, 2 fewer timers, 6 fewer listeners, zero SELinux denials; about 40 to 60 MiB more
+memory in use and up to 0.4 s more startup time, both caused by firewalld and auditd.
