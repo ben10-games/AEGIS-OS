@@ -23,6 +23,15 @@ if [[ "${EUID}" -ne 0 ]]; then
   as_root=(sudo)
 fi
 
+# Fail with an explanation, not a registry error, when the pinned digest is no longer
+# served. The pin is never replaced automatically: what goes into the image is reviewed.
+if ! "${as_root[@]}" podman pull --quiet "${base_image}" >/dev/null; then
+  echo "error: the pinned base image could not be pulled: ${base_image}" >&2
+  echo "       If the registry answers 'manifest unknown', the digest is no longer served." >&2
+  echo "       Renew the pin as described in image/base.lock." >&2
+  exit 1
+fi
+
 echo "== building localhost/aegis-base from ${base_image}"
 "${as_root[@]}" podman build \
   --pull=missing \

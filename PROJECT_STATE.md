@@ -199,6 +199,7 @@ Nothing has been verified on a local workstation or on physical hardware.
 | BUG-4 | Closed. `podman build` 4.9 left an empty `/etc/hostname` in the image; the image now ships that file with the static hostname `aegis`. | | |
 | BUG-6 | `ausearch -ts boot` returns nothing on the test VM although the audit log is being written (run 43554108533). | Tests that query the audit log by "since boot" would silently see no events. | The SELinux tests read the whole audit log and the journal and filter by time themselves. Cause not yet investigated. |
 | BUG-5 | The initramfs is the one built by Fedora. It contains Fedora's `os-release`, so early boot identifies itself as Fedora and sets the hostname `fedora` until the real system applies `/etc/hostname`. | Cosmetic in M2. | The initramfs is regenerated when the UKI is built for the sealed boot chain (P1-11). |
+| BUG-7 | The base image pin does not last. quay.io stopped serving the digest resolved on 2026-11-13 by 2026-11-15 ("manifest unknown", build run 43716522192); the repository has only the moving tags `45` and `45-<arch>` (probe run 43717628014). | No commit can be rebuilt once its pin is gone, so results cannot be reproduced later (R-02) and every build fails until the pin is renewed. | Pin renewed to the digest of 2026-11-15. Lasting fix: keep a copy of the base image under the project's control (owner decision, section 9), then pin to that copy. Part of P1-15. |
 
 ## 7. Security limitations
 
@@ -246,7 +247,16 @@ for each statement, and what it does not. In short:
 
 ## 9. Outstanding tasks and open decisions for the owner
 
-Open decisions (none block current work):
+Open decisions:
+
+- **Where to keep a copy of the base image (BUG-7).** Recommended: mirror the pinned
+  `fedora-bootc` image into the repository's GitHub Container Registry
+  (`ghcr.io/ben10-games/...`) from a workflow and pin to that copy. Needs the workflow
+  permission `packages: write` and counts against the account's package storage. Until
+  decided, the pin must be renewed by hand each time it disappears, and old commits
+  cannot be rebuilt.
+- Whether the `windows-launch` job may install QEMU from the Chocolatey community
+  repository on the hosted Windows runner (test only).
 
 - Repository licence.
 - Whether the repository is public (affects CI minutes and package visibility).
@@ -273,6 +283,11 @@ GitHub Actions hosted runner (`ubuntu-24.04`), probed 2026-11-13, run 4345904950
 - Loop devices can be attached inside a privileged podman container.
 - podman 4.9.3, buildah 1.33.7, skopeo 1.13.3, Docker 28.0.4 (daemon running).
 - quay.io, registry.fedoraproject.org, Fedora mirrors, ghcr.io all reachable.
+
+`quay.io/fedora/fedora-bootc:45` on 2026-11-15 is
+`sha256:17227a17c0bb9222918881e27f254e219eb3808ceb4399e26322bbd2e77932bc` (probe run
+43717628014): same bootc, kernel, systemd, selinux-policy and openssh versions and the
+same package count (540) as below.
 
 `quay.io/fedora/fedora-bootc:45` on 2026-11-13
 (`sha256:42259b1db41a7f792a19cfd28e0c66e3e415392109a7d7095f292ad1e2a56453`):
