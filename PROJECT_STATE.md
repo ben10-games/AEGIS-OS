@@ -49,6 +49,10 @@ Verified in run 43719668136 on `aafc33a` (base image pin of 2026-11-15):
   only the image and the firmware, binds SSH to 127.0.0.1, refuses devices, directories
   and private keys.
 
+Repeated with the final guide in run 43721070020 on `cde8eb0` (both jobs passed; `lint`
+run 43721070081). That run's artifact `aegis-os-dev-qcow2` (1.24 GB, expires
+2026-11-29) is the one to download.
+
 Not verified: Windows 10/11 desktop editions, WHPX acceleration, Linux distributions
 other than Fedora, physical hardware.
 
