@@ -25,12 +25,18 @@ TCG_TIMEOUT_SCALE = 10.0
 def pytest_addoption(parser):
     parser.addoption("--disk", default="out/disk.raw", help="aegis-dev disk image")
     parser.addoption("--base-disk", default="out/disk-base.raw", help="aegis-base disk image")
+    parser.addoption("--local-image", default="", help="exported qcow2 (default: out/release)")
     parser.addoption("--workdir", default="out/vm", help="directory for logs and scratch files")
 
 
 @pytest.fixture(scope="session")
 def accel() -> str:
     return os.environ.get("AEGIS_VM_ACCEL", "kvm")
+
+
+@pytest.fixture(scope="session")
+def timeout_scale(accel) -> float:
+    return TCG_TIMEOUT_SCALE if accel == "tcg" else 1.0
 
 
 @pytest.fixture(scope="session")

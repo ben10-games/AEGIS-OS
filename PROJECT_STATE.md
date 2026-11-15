@@ -25,11 +25,19 @@ only if it actually ran and passed, with the commit and where it ran.
 
 ### Local VM image (owner request, in progress)
 
-The draft exists only in the working session as `git stash` entry `stash@{0}` (made on
-`f635e02`): `LOCAL_VM_GUIDE.md`, `local-vm/run-aegis-vm.sh`, `local-vm/run-aegis-vm.ps1`,
-`scripts/export-qcow2`, `tests/vm/test_local_image.py` and changes to the `build`
-workflow, `Makefile`, `scripts/run-vm-tests`, `scripts/summarize-results` and
-`tests/vm/conftest.py`. None of it has run in CI yet.
+Committed, **not yet verified in CI**: `LOCAL_VM_GUIDE.md`, `local-vm/run-aegis-vm.sh`,
+`local-vm/run-aegis-vm.ps1`, `scripts/export-qcow2` (`make export`),
+`tests/vm/test_local_image.py`, `tests/static/test_local_launcher.py`, and in the `build`
+workflow the export step, the publication step (artifact `aegis-os-dev-qcow2`, only on a
+manual run or when the head commit message contains `[publish-image]`, only after every
+test passed) and the job `windows-launch`.
+
+Next: read the first run, correct what fails, then record here what was verified and
+bring `LOCAL_VM_GUIDE.md` section 9 in line with it.
+
+New external host, to be confirmed by the owner: the `windows-launch` job installs QEMU
+on the hosted Windows runner with `choco install qemu` (Chocolatey community
+repository). It is a test-only job; nothing from it enters the image.
 
 **Design decisions for the local-VM image (so they need not be re-derived)**
 

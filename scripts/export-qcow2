@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Export the development disk image for local testing: a compressed QCOW2 plus its
+# checksum, the launchers and the guide, in out/release/.
+#
+#   scripts/export-qcow2 [RAW_DISK]
+#
+# The export is what gets published as a CI artifact, and what the VM test
+# tests/vm/test_local_image.py boots with the documented launcher before publication.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+raw="${1:-out/disk.raw}"
+if [[ ! -f "${raw}" ]]; then
+  echo "error: ${raw} not found; run 'make disk' first" >&2
+  exit 1
+fi
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+version="${AEGIS_VERSION:-0.1.0-dev}"
+revision="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+name="aegis-os-dev-${version}-${revision:0:7}.qcow2"
+release=out/release
+
+rm -rf "${release}"
+mkdir -p "${release}"
+
+# qemu-img comes from the builder container; nothing is needed on the host.
+"${as_root[@]}" podman run --rm --network=none \
+  --security-opt label=disable \
+  -v "${PWD}:/work" -w /work \
+  localhost/aegis-builder:latest \
+  sh -c "qemu-img convert -c -O qcow2 '${raw}' '${release}/${name}' \
+         && qemu-img check '${release}/${name}' \
+         && qemu-img info '${release}/${name}'" | tee "${release}/qemu-img.txt"
+"${as_root[@]}" chown "$(id -u):$(id -g)" "${release}/${name}"
+
+cp LOCAL_VM_GUIDE.md local-vm/run-aegis-vm.sh local-vm/run-aegis-vm.ps1 "${release}/"
+{
+  echo "image=${name}"
+  echo "variant=aegis-dev (development; not a release)"
+  echo "version=${version}"
+  echo "revision=${revision}"
+  echo "base_image=$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
+  echo "exported=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  grep -E '^(virtual size|disk size)' "${release}/qemu-img.txt" || true
+} > "${release}/IMAGE-INFO.txt"
+rm -f "${release}/qemu-img.txt"
+
+# Checksums last, over every file a user downloads.
+(cd "${release}" && sha256sum "${name}" run-aegis-vm.sh run-aegis-vm.ps1 > SHA256SUMS)
+
+cat "${release}/IMAGE-INFO.txt"
+cat "${release}/SHA256SUMS"
+ls -l "${release}"

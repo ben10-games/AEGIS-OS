@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 
-SHELL_SCRIPTS := $(shell git ls-files 'scripts/*' 'image/build/*')
+SHELL_SCRIPTS := $(shell git ls-files 'scripts/*' 'image/build/*' 'local-vm/*.sh')
 YAML_FILES := $(shell git ls-files '*.yml' '*.yaml')
 
 .PHONY: help
@@ -47,6 +47,10 @@ builder: ## Build the test container (QEMU, UEFI firmware, pytest)
 inventory: ## Record packages, units, privileged files and permissive domains of both images
 	scripts/inventory-image
 
+.PHONY: export
+export: ## Export out/disk.raw as a compressed QCOW2 with checksum, launchers and guide
+	scripts/export-qcow2
+
 .PHONY: image-test
 image-test: ## Compare the inventory with the golden manifests (B-02, B-03, B-04)
 	scripts/run-image-tests
@@ -64,4 +68,4 @@ summary: ## Print the evidence collected by the last build and VM test run
 	scripts/summarize-results
 
 .PHONY: all
-all: image builder inventory image-test disk vm-test ## Build, inventory, install, boot and test everything
+all: image builder inventory image-test disk export vm-test ## Build, inventory, install, export, boot and test everything

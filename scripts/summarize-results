@@ -149,6 +149,16 @@ else
 fi
 echo
 
+section "exported image for local testing" out/release/IMAGE-INFO.txt 12
+section "checksums of the exported files" out/release/SHA256SUMS 6
+echo "=== exported image: console of the launcher test (last lines)"
+if [[ -s "${logs}/local-image-serial.log" ]]; then
+  tail -n 8 "${logs}/local-image-serial.log" | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' | tr -d '\r'
+else
+  echo "(no data)"
+fi
+echo
+
 for report in out/junit-*.xml; do
   [[ -f "${report}" ]] || continue
   echo "=== test report ${report}"
