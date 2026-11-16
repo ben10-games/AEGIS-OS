@@ -1,0 +1,12 @@
+# Read by bootc-root-setup.service in the initramfs (bootc-setup-root-conf.toml(5)).
+# Its presence also marks the image as native to bootc's composefs storage backend,
+# which the sealed boot chain requires (ADR-0004).
+#
+# The root filesystem is the read-only composefs image whose digest is in the signed
+# kernel command line. /etc and /var are NOT covered by that digest: they are the
+# machine's own persistent state, kept per deployment on the root partition.
+[etc]
+mount = "bind"
+
+[var]
+mount = "bind"

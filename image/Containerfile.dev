@@ -1,7 +1,8 @@
-# AEGIS OS development variant: aegis-base plus SSH so automated tests can reach the VM.
-# Never a release artifact. No login key is baked in; the test harness injects one when
-# the virtual machine starts. Built from the repository root.
-ARG BASE=localhost/aegis-base:latest
+# AEGIS OS development variant: the base root filesystem plus SSH so automated tests can
+# reach the VM. Never a release artifact. No login key is baked in; the test harness
+# injects one when the virtual machine starts. Like the base, this builds an UNSEALED
+# root filesystem that image/Containerfile.seal seals. Built from the repository root.
+ARG BASE=localhost/aegis-base-rootfs:latest
 
 # Stage 1: compile the self-test SELinux module against exactly the policy version in
 # the base image. The compiler and its dependencies stay in this stage.

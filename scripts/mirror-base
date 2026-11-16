@@ -44,18 +44,10 @@ raw_digest() {
   printf 'sha256:%s' "$(sha256sum "${scratch}/manifest" | cut -d' ' -f1)"
 }
 
-echo "== upstream"
-echo "pinned:              ${upstream_repository}@${upstream_digest}"
-echo "tag ${upstream_tag} points to: $(raw_digest "docker://${upstream_repository}:${upstream_tag}" || echo unknown)"
-if ! skopeo inspect --raw "${source_ref}" > /dev/null 2> upstream-error.txt; then
-  echo "MIRROR RESULT: upstream no longer serves the pinned digest: $(tail -n 1 upstream-error.txt)" >&2
-  echo "Set UPSTREAM_DIGEST and UPSTREAM_RESOLVED in image/base.lock to the tag's current digest." >&2
-  exit 1
-fi
-
-echo "== provenance of the pinned image (recorded, not cryptographically verified)"
-skopeo inspect --raw "${source_ref}" \
-  | python3 -c '
+# Prints what is known about the upstream image. Recorded, not cryptographically verified.
+describe_upstream() {
+  echo "== provenance of the pinned image (recorded, not cryptographically verified)"
+  skopeo inspect --raw "${source_ref}" | python3 -c '
 import json, sys
 index = json.load(sys.stdin)
 print("media type:", index.get("mediaType"))
@@ -63,8 +55,7 @@ for manifest in index.get("manifests", []):
     platform = manifest.get("platform", {})
     print("  ", platform.get("architecture"), manifest.get("digest"), manifest.get("size"))
 '
-skopeo inspect "${source_ref}" \
-  | python3 -c '
+  skopeo inspect "${source_ref}" | python3 -c '
 import json, sys
 image = json.load(sys.stdin)
 print("created:", image.get("Created"))
@@ -72,11 +63,12 @@ for key, text in sorted((image.get("Labels") or {}).items()):
     if key.startswith(("org.opencontainers.image.", "containers.bootc", "ostree.bootable", "redhat.")):
         print(f"label {key}={text[:120]}")
 '
-if skopeo inspect --raw "docker://${upstream_repository}:sha256-${hex}.sig" > /dev/null 2>&1; then
-  echo "sigstore signature object: present (not verified here; see task P1-13)"
-else
-  echo "sigstore signature object: none found"
-fi
+  if skopeo inspect --raw "docker://${upstream_repository}:sha256-${hex}.sig" > /dev/null 2>&1; then
+    echo "sigstore signature object: present (not verified here; see task P1-13)"
+  else
+    echo "sigstore signature object: none found"
+  fi
+}
 
 if [[ -z "${REGISTRY_TOKEN:-}" || -z "${REGISTRY_USER:-}" ]]; then
   echo "error: REGISTRY_USER and REGISTRY_TOKEN must be set to write to ${mirror_registry}" >&2
@@ -95,6 +87,16 @@ fi
 if [[ "${existing}" == "${upstream_digest}" ]]; then
   echo "already mirrored: ${mirror_repository}:${mirror_tag}"
 else
+  echo "== upstream"
+  echo "pinned:              ${upstream_repository}@${upstream_digest}"
+  echo "tag ${upstream_tag} points to: $(raw_digest "docker://${upstream_repository}:${upstream_tag}" || echo unknown)"
+  if ! skopeo inspect --raw "${source_ref}" > /dev/null 2> upstream-error.txt; then
+    echo "MIRROR RESULT: upstream no longer serves the pinned digest: $(tail -n 1 upstream-error.txt)" >&2
+    echo "Set UPSTREAM_DIGEST and UPSTREAM_RESOLVED in image/base.lock to the tag's current digest." >&2
+    exit 1
+  fi
+
+  describe_upstream
   skopeo copy --all --preserve-digests --retry-times 3 \
     "${source_ref}" "docker://${mirror_repository}:${mirror_tag}"
 fi

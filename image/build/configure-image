@@ -50,6 +50,16 @@ set_field SUPPORT_URL '"https://github.com/ben10-games/AEGIS-OS/issues"'
 set_field BUG_REPORT_URL '"https://github.com/ben10-games/AEGIS-OS/issues"'
 sed -i -E '/^REDHAT_(BUGZILLA|SUPPORT)_PRODUCT(_VERSION)?=/d' "${os_release}"
 
+# --- storage backend --------------------------------------------------------------------
+# The image is native to bootc's composefs backend (/usr/lib/composefs/setup-root-conf.toml,
+# ADR-0004). Fedora's base ships the ostree backend's configuration; with it present,
+# 'bootc install' would choose ostree.
+if [[ "${variant}" == "base" ]]; then
+  rm -f /usr/lib/ostree/prepare-root.conf /etc/ostree/prepare-root.conf
+  test -s /usr/lib/composefs/setup-root-conf.toml
+  test -s /usr/lib/systemd/boot/efi/systemd-bootx64.efi
+fi
+
 # --- unit enablement ------------------------------------------------------------------
 # Apply the AEGIS preset files to exactly the units they name.
 units=()

@@ -31,7 +31,7 @@ probe: ## Print environment capabilities (read-only)
 # --- (for vm-test) ideally KVM. They run in GitHub Actions or on a Linux workstation.
 
 .PHONY: image
-image: ## Build the aegis-base and aegis-dev container images (B-01)
+image: ## Build the sealed aegis-base and aegis-dev container images (B-01); needs 'builder'
 	scripts/build-image
 
 .PHONY: disk
@@ -40,7 +40,7 @@ disk: ## Install both variants into image files under out/ (never a real disk)
 	scripts/build-disk localhost/aegis-base:latest out/disk-base.raw
 
 .PHONY: builder
-builder: ## Build the test container (QEMU, UEFI firmware, pytest)
+builder: ## Build the test and tools container (QEMU, firmware, pytest, signing tools)
 	scripts/build-builder
 
 .PHONY: inventory
@@ -68,4 +68,4 @@ summary: ## Print the evidence collected by the last build and VM test run
 	scripts/summarize-results
 
 .PHONY: all
-all: image builder inventory image-test disk export vm-test ## Build, inventory, install, export, boot and test everything
+all: builder image inventory image-test disk export vm-test ## Build, inventory, install, export, boot and test everything

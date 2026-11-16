@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Runs in the tools stage of image/Containerfile.seal. Builds and signs the Unified
+# Kernel Image for the root filesystem mounted at /target, with the kernel and
+# initramfs from /kernel/<version>/.
+#
+# 'bootc container ukify' computes the composefs digest of /target, takes the kernel
+# arguments from /target/usr/lib/bootc/kargs.d, and calls systemd's ukify. The result
+# is signed with the Secure Boot db key given as build secrets.
+set -euo pipefail
+
+key=/run/secrets/secureboot_key
+cert=/run/secrets/secureboot_cert
+for file in "${key}" "${cert}"; do
+  if [[ ! -s "${file}" ]]; then
+    echo "error: build secret ${file} is missing; run scripts/dev-keys and pass --secret" >&2
+    exit 1
+  fi
+done
+
+kernels=(/kernel/*)
+if [[ "${#kernels[@]}" -ne 1 || ! -f "${kernels[0]}/vmlinuz" ]]; then
+  echo "error: expected exactly one kernel under /kernel, found: ${kernels[*]}" >&2
+  exit 1
+fi
+version="$(basename "${kernels[0]}")"
+
+mkdir -p /out/uki
+uki="/out/uki/${version}.efi"
+
+bootc container ukify \
+  --rootfs /target \
+  --kernel-dir "/kernel/${version}" \
+  -- \
+  --output "${uki}" \
+  --signtool sbsign \
+  --secureboot-private-key "${key}" \
+  --secureboot-certificate "${cert}"
+
+# A UKI that does not verify against the certificate must never leave this stage.
+sbverify --cert "${cert}" "${uki}"
+
+echo "== kernel command line embedded in the UKI"
+objcopy -O binary --only-section=.cmdline "${uki}" /dev/stdout | tr -d '\0'
+echo
+if ! objcopy -O binary --only-section=.cmdline "${uki}" /dev/stdout | grep -q 'composefs'; then
+  echo "error: the UKI command line carries no composefs digest" >&2
+  exit 1
+fi
+ls -l "${uki}"

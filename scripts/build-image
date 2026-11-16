@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Build the aegis-base and aegis-dev container images from the digest-pinned base.
-# Needs podman and access to quay.io. Uses sudo when not root, because the disk
+# Build the sealed aegis-base and aegis-dev container images from the digest-pinned
+# base: root filesystem, signed boot loader, signed UKI carrying the root digest.
+# Needs podman, the tools container (scripts/build-builder) and access to the base image. Uses sudo when not root, because the disk
 # installer later reads the images from root's container storage.
 set -euo pipefail
 
@@ -32,24 +33,53 @@ if ! "${as_root[@]}" podman pull --quiet "${base_image}" >/dev/null; then
   exit 1
 fi
 
-echo "== building localhost/aegis-base from ${base_image}"
+# Throw-away Secure Boot keys (scripts/dev-keys). The db key signs the boot loader and
+# the UKI; it reaches the build as a secret mount and is never written into a layer.
+scripts/dev-keys > /dev/null
+keys=.secrets/secureboot
+secrets=(
+  --secret "id=secureboot_key,src=${keys}/db.key"
+  --secret "id=secureboot_cert,src=${keys}/db.crt"
+)
+if ! "${as_root[@]}" podman image exists localhost/aegis-builder:latest; then
+  echo "error: localhost/aegis-builder is missing; run scripts/build-builder first" >&2
+  exit 1
+fi
+
+echo "== building the base root filesystem from ${base_image}"
 "${as_root[@]}" podman build \
   --pull=missing \
+  "${secrets[@]}" \
   --build-arg "BASE_IMAGE=${base_image}" \
   --build-arg "AEGIS_VERSION=${version}" \
   --build-arg "AEGIS_REVISION=${revision}" \
-  --tag localhost/aegis-base:latest \
+  --tag localhost/aegis-base-rootfs:latest \
   --file image/Containerfile \
   .
 
-echo "== building localhost/aegis-dev"
+echo "== building the development root filesystem"
 "${as_root[@]}" podman build \
-  --build-arg "BASE=localhost/aegis-base:latest" \
+  --build-arg "BASE=localhost/aegis-base-rootfs:latest" \
   --build-arg "AEGIS_VERSION=${version}" \
   --build-arg "AEGIS_REVISION=${revision}" \
-  --tag localhost/aegis-dev:latest \
+  --tag localhost/aegis-dev-rootfs:latest \
   --file image/Containerfile.dev \
   .
+
+# Each variant has its own root filesystem, so each gets its own digest and its own UKI.
+for variant in base dev; do
+  echo "== sealing localhost/aegis-${variant}"
+  "${as_root[@]}" podman build \
+    "${secrets[@]}" \
+    --build-arg "ROOTFS=localhost/aegis-${variant}-rootfs:latest" \
+    --tag "localhost/aegis-${variant}:latest" \
+    --file image/Containerfile.seal \
+    .
+done
+
+# The public halves, for the tests that enrol them in the virtual firmware.
+mkdir -p out/secureboot
+cp "${keys}"/{PK,KEK,db,untrusted}.crt "${keys}/owner-guid.txt" out/secureboot/
 
 # B-01: both images must still be marked as bootable containers.
 for image in localhost/aegis-base:latest localhost/aegis-dev:latest; do

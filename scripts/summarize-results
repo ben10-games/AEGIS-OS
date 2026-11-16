@@ -62,8 +62,9 @@ section "preset files" "${logs}/boot1-presets.txt" 30
 section "timers" "${logs}/boot1-timers.txt" 25
 section "ssh listeners and units" "${logs}/boot1-ssh-listeners.txt" 30
 section "SELinux policy status and module store" "${logs}/boot1-selinux-store.txt" 30
-section "SELinux: label of the bootc install record (BUG-1)" "${logs}/boot1-selinux-aleph.txt" 12
-section "SELinux: who runs bootupctl (BUG-1)" "${logs}/boot1-bootupctl-origin.txt" 30
+section "boot chain: firmware, boot loader, kernel, root" "${logs}/boot1-boot-chain.txt" 110
+section "EFI system partition" "${logs}/boot1-esp.txt" 80
+section "SELinux: types of the boot directories" "${logs}/selinux-boot-directories.txt" 20
 section "SELinux: processes per domain" "${logs}/boot1-process-domains.txt" 60
 
 echo "##### 3. SHORT INVENTORIES"
@@ -115,7 +116,7 @@ section "SELinux: unlabeled_t and default_t files" "${logs}/boot1-selinux-labels
 section "audit: event types recorded since boot" "${logs}/audit-event-types.txt" 25
 section "reverse-path filter experiment" "${logs}/rp-filter-experiment.txt" 3
 echo "=== disk installation: SELinux notes and label corrections"
-grep -hiE 'selinux|relabel' out/install-*.log 2>/dev/null | sort | uniq -c | head -n 20 \
+grep -hiE 'selinux|relabel|census|physical root' out/install-*.log 2>/dev/null | sort | uniq -c | head -n 20 \
   || echo "(no install log)"
 echo
 section "SELinux: denials during boot (V-08)" "${logs}/selinux-denials-at-boot.txt" 12
@@ -139,6 +140,16 @@ for boot in boot1 boot2; do
   section "${boot}: SELinux denials" "${logs}/${boot}-avc.txt" 12
 done
 section "measurements (first boot)" "${logs}/boot1-metrics.json" 60
+
+# When a virtual machine never answers, its console is the only evidence.
+for console in "${logs}"/*-serial*.log; do
+  [[ -s "${console}" ]] || continue
+  if ! grep -qE 'login:|Power down' "${console}"; then
+    echo "=== console without a login prompt: $(basename "${console}") (last lines)"
+    tail -n 40 "${console}" | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' | tr -d '\r' | cut -c1-220
+    echo
+  fi
+done
 
 echo "=== aegis-base console (last lines of the first boot)"
 if [[ -s "${logs}/test_base_boot-serial-boot1.log" ]]; then

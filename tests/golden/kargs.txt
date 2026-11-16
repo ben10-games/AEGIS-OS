@@ -6,3 +6,5 @@ randomize_kstack_offset=on
 vsyscall=none
 audit=1
 audit_backlog_limit=8192
+console=tty0
+console=ttyS0,115200n8

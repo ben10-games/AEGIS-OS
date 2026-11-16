@@ -12,6 +12,7 @@ cd "$(dirname "$0")/.."
 image="${1:-localhost/aegis-dev:latest}"
 output="${2:-out/disk.raw}"
 size="${AEGIS_DISK_SIZE:-12G}"
+filesystem="${AEGIS_ROOT_FILESYSTEM:-btrfs}"
 
 if [[ -b "${output}" ]]; then
   echo "error: ${output} is a block device; this script only writes image files" >&2
@@ -35,9 +36,9 @@ fi
 "${as_root[@]}" rm -f "${output_dir}/${output_name}"
 truncate -s "${size}" "${output_dir}/${output_name}"
 
-echo "== installing ${image} into ${output_dir}/${output_name} (${size})"
-# The serial console arguments are install-time, machine-local settings for test VMs;
-# they are not part of the image.
+echo "== installing ${image} into ${output_dir}/${output_name} (${size}, ${filesystem})"
+# No --karg: the kernel command line of a sealed image is fixed inside its signed UKI.
+# bootc chooses the composefs backend and systemd-boot from the image itself.
 "${as_root[@]}" podman run --rm \
   --privileged \
   --pid=host \
@@ -49,10 +50,8 @@ echo "== installing ${image} into ${output_dir}/${output_name} (${size})"
   bootc install to-disk \
   --via-loopback \
   --generic-image \
-  --filesystem btrfs \
+  --filesystem "${filesystem}" \
   --skip-fetch-check \
-  --karg console=tty0 \
-  --karg console=ttyS0,115200n8 \
   "/output/${output_name}" 2>&1 | tee "${output_dir}/install-${output_name%.raw}.log"
 
 echo "== correcting SELinux labels of files created at the end of the installation"

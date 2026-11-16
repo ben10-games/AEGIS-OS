@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   probe:
@@ -60,11 +61,21 @@ jobs:
             selinux-policy-targeted firewalld audit openssh-server || true
           echo "A2 package count: $(sudo podman run --rm "${image}" rpm -qa | wc -l)"
 
+      - name: Log in to the container registry (read-only) for the mirrored base image
+        env:
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "${REGISTRY_TOKEN}" \
+            | sudo podman login --username "${REGISTRY_USER}" --password-stdin ghcr.io
+          printf '%s' "${REGISTRY_TOKEN}" \
+            | skopeo login --username "${REGISTRY_USER}" --password-stdin ghcr.io
+
       # A digest pin only helps while the registry still serves that digest.
       - name: "Base image pin: still available? Which immutable tags exist?"
         run: |
           pinned="$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
-          repository="${pinned%@*}"
+          repository="$(grep -E '^UPSTREAM_REPOSITORY=' image/base.lock | cut -d= -f2-)"
           if skopeo inspect --raw "docker://${pinned}" > /dev/null 2> pin-error.txt; then
             echo "PIN RESULT: ${pinned} is available"
           else

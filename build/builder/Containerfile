@@ -3,14 +3,24 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
+# Also the tools stage of the image build: it signs the boot loader and builds the UKI
+# (systemd-ukify, the systemd-boot stub, sbsigntools, binutils), and it prepares
+# firmware variables with Secure Boot keys and edits disk images for the tests
+# (python3-virt-firmware, mtools).
 RUN dnf -y install --setopt=install_weak_deps=False \
+      binutils \
       edk2-ovmf \
+      mtools \
       openssh-clients \
       python3-pytest \
+      python3-virt-firmware \
       qemu-img \
       qemu-system-x86-core \
+      sbsigntools \
       setools-console \
       swtpm \
+      systemd-boot-unsigned \
+      systemd-ukify \
     && dnf clean all
 
 WORKDIR /work

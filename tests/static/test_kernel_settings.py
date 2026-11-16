@@ -9,8 +9,10 @@ def golden(root, name):
 
 
 def test_kernel_arguments_match_golden(root):
-    path = root / "image/rootfs/usr/lib/bootc/kargs.d/10-aegis.toml"
-    shipped = tomllib.loads(path.read_text())["kargs"]
+    """Every kargs.d file of the release image, in file order, equals the golden list."""
+    shipped = []
+    for path in sorted((root / "image/rootfs/usr/lib/bootc/kargs.d").glob("*.toml")):
+        shipped += tomllib.loads(path.read_text())["kargs"]
     assert shipped == golden(root, "kargs.txt")
 
 

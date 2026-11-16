@@ -12,8 +12,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+# packages: read lets the job pull the mirrored base image (docs/operations/base-image.md).
 permissions:
   contents: read
+  packages: read
 
 # Runs queue instead of cancelling each other: every pushed commit keeps its evidence.
 concurrency:
@@ -43,11 +45,22 @@ jobs:
       - name: Environment
         run: scripts/probe-env
 
-      - name: Build container images (B-01)
-        run: make image
+      - name: Log in to the container registry (read-only) for the mirrored base image
+        env:
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "${REGISTRY_TOKEN}" \
+            | sudo podman login --username "${REGISTRY_USER}" --password-stdin ghcr.io
 
-      - name: Build test container
+      # Also the tools stage of the image build (signing, UKI), so it is built first.
+      - name: Build test and tools container
         run: make builder
+
+      # Throw-away Secure Boot keys are generated inside this step and exist only in
+      # this job's workspace (scripts/dev-keys).
+      - name: Build sealed container images (B-01)
+        run: make image
 
       - name: Image inventory
         run: make inventory

@@ -1,0 +1,34 @@
+# Seals an AEGIS OS root filesystem (ADR-0004), following the build pattern in bootc's
+# documentation for sealed images:
+#
+#   1. take the kernel and initramfs out of the root filesystem,
+#   2. compute the composefs digest of what is left and build a Unified Kernel Image
+#      whose command line carries that digest, signed for Secure Boot,
+#   3. add the UKI under /boot, which is not part of the digest.
+#
+# Nothing may change the root filesystem after step 2: the digest would no longer
+# match and the system would refuse to mount its root.
+ARG ROOTFS
+ARG TOOLS=localhost/aegis-builder:latest
+
+# The kernel and initramfs, for the UKI build only.
+FROM ${ROOTFS} AS kernel
+RUN mkdir /kernel && bootc container split-kernel-and-rootfs --rootfs / --output /kernel
+
+# The root filesystem without them. This stage becomes the image.
+FROM ${ROOTFS} AS split
+RUN mkdir -p /var/tmp/aegis-split \
+    && bootc container split-kernel-and-rootfs --rootfs / --output /var/tmp/aegis-split \
+    && rm -rf /var/tmp/aegis-split
+
+# The signing key is a build secret: mounted for this command, never stored in a layer.
+FROM ${TOOLS} AS sealed-uki
+COPY image/build/seal-uki /usr/local/bin/seal-uki
+RUN --mount=type=bind,from=split,target=/target \
+    --mount=type=bind,from=kernel,source=/kernel,target=/kernel \
+    --mount=type=secret,id=secureboot_key \
+    --mount=type=secret,id=secureboot_cert \
+    /usr/local/bin/seal-uki
+
+FROM split
+COPY --from=sealed-uki /out/uki/ /boot/EFI/Linux/

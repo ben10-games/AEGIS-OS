@@ -1,0 +1,8 @@
+# Consoles of AEGIS OS in Phase 1, where every system is a virtual machine.
+#
+# With a sealed image the kernel command line is part of the signed Unified Kernel
+# Image and cannot be set at installation time any more, so the serial console that
+# the automated tests and the local VM launchers read has to be named here.
+# The last console listed becomes /dev/console. On hardware without a serial port the
+# kernel ignores ttyS0. To be reviewed before any hardware release (Phase 6).
+kargs = ["console=tty0", "console=ttyS0,115200n8"]

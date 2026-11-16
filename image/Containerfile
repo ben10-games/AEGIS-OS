@@ -1,7 +1,12 @@
-# AEGIS OS base image (release-shaped): the pinned Fedora bootc base with the AEGIS
-# identity and service baseline. Built from the repository root (see scripts/build-image).
+# AEGIS OS base root filesystem (release-shaped): the pinned Fedora bootc base with the
+# AEGIS identity, service baseline and the pieces of a sealed boot chain. This file
+# builds the UNSEALED root filesystem; image/Containerfile.seal turns it into the
+# bootable image. Built from the repository root (see scripts/build-image).
 ARG BASE_IMAGE
-FROM ${BASE_IMAGE}
+ARG TOOLS=localhost/aegis-builder:latest
+
+# --- Stage 1: packages and configuration ------------------------------------------------
+FROM ${BASE_IMAGE} AS rootfs-unsigned
 
 ARG AEGIS_VERSION=0.1.0-dev
 ARG AEGIS_REVISION=unknown
@@ -9,21 +14,46 @@ ARG AEGIS_REVISION=unknown
 # Build helpers. They are removed again below and are not part of the image.
 COPY image/build/ /usr/libexec/aegis-build/
 
+# Boot chain (ADR-0004): systemd-boot and a signed UKI. bootupd would select GRUB, and
+# shim is not in the trust chain when the boot loader is signed with our own key.
 # The release image carries no remote-login daemon at all (ADR-0002).
 # firewalld is the firewall manager (ADR-0008); audit records security events.
 # Added packages are not version-locked until the RPM lockfile exists (P1-15).
-RUN dnf -y remove openssh-server \
-    && dnf -y install --setopt=install_weak_deps=False audit firewalld \
+RUN rpm -e bootupd shim-x64 \
+    && rm -rf /usr/lib/bootupd \
+    && dnf -y remove openssh-server \
+    && dnf -y install --setopt=install_weak_deps=False audit firewalld systemd-boot-unsigned \
     && /usr/libexec/aegis-build/clean-package-state
 
 # Vendor configuration lives under /usr/lib; the few files that must be under /etc
 # are listed in tests/golden/base/etc-changes.txt (ADR-0014).
 COPY image/rootfs/ /
 
-# Identity, unit enablement and firewall zone.
+# Identity, unit enablement, firewall zone, storage backend marker.
 RUN AEGIS_VARIANT=base AEGIS_VERSION="${AEGIS_VERSION}" AEGIS_REVISION="${AEGIS_REVISION}" \
       /usr/libexec/aegis-build/configure-image \
     && rm -rf /usr/libexec/aegis-build
+
+# --- Stage 2: sign the boot loader ------------------------------------------------------
+# The key is a build secret: it is mounted for this command only and never stored in
+# a layer. The signed boot loader replaces the unsigned one inside the root filesystem,
+# before the filesystem digest is computed.
+FROM ${TOOLS} AS sdboot-signed
+RUN --mount=type=bind,from=rootfs-unsigned,source=/usr/lib/systemd/boot/efi,target=/unsigned \
+    --mount=type=secret,id=secureboot_key \
+    --mount=type=secret,id=secureboot_cert \
+    mkdir /out \
+    && sbsign --key /run/secrets/secureboot_key --cert /run/secrets/secureboot_cert \
+         --output /out/systemd-bootx64.efi /unsigned/systemd-bootx64.efi \
+    && sbverify --cert /run/secrets/secureboot_cert /out/systemd-bootx64.efi
+
+# --- Stage 3: the root filesystem -------------------------------------------------------
+FROM rootfs-unsigned
+
+ARG AEGIS_VERSION=0.1.0-dev
+ARG AEGIS_REVISION=unknown
+
+COPY --from=sdboot-signed /out/systemd-bootx64.efi /usr/lib/systemd/boot/efi/systemd-bootx64.efi
 
 LABEL org.opencontainers.image.title="AEGIS OS (base)" \
       org.opencontainers.image.source="https://github.com/ben10-games/AEGIS-OS" \

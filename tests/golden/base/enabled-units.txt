@@ -4,7 +4,6 @@ NetworkManager.service
 audit-rules.service
 auditd.service
 authselect-apply-changes.service
-bootloader-update.service
 chronyd.service
 clevis-luks-askpass.path
 dbus-broker.service

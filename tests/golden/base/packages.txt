@@ -28,7 +28,6 @@ bash.x86_64
 bind-libs.x86_64
 bind-utils.x86_64
 bootc.x86_64
-bootupd.x86_64
 brcmfmac-firmware.noarch
 btrfs-progs.x86_64
 bubblewrap.x86_64
@@ -493,7 +492,6 @@ sg3_utils.x86_64
 shadow-utils-subid.x86_64
 shadow-utils.x86_64
 shared-mime-info.x86_64
-shim-x64.x86_64
 skopeo.x86_64
 slang.x86_64
 snappy.x86_64
@@ -512,6 +510,7 @@ sssd-ldap.x86_64
 sssd-nfs-idmap.x86_64
 stalld.x86_64
 sudo.x86_64
+systemd-boot-unsigned.x86_64
 systemd-libs.x86_64
 systemd-pam.x86_64
 systemd-resolved.x86_64

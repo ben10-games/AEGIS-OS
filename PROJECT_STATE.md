@@ -9,11 +9,9 @@ only if it actually ran and passed, with the commit and where it ran.
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
 - **Phase / milestone:** Phase 1. M0, M1 and **M2 (baseline configuration) are
   complete**; see sections 4 and 5 and `docs/architecture/security-baseline.md`.
-- **Next task:** none in progress. The downloadable development image for local
-  virtual-machine testing is done (see "Local VM image" below). M3 (sealed boot chain,
-  P1-10 to P1-12) has **not** been started and waits for the owner's go-ahead. Two owner
-  decisions are open in section 9; the base image pin (BUG-7) will need renewing again
-  within days until the first of them is made.
+- **Next task:** milestone M3 (sealed boot chain, P1-10 to P1-12) is **in progress**;
+  see "M3 progress" below. Nothing of M3 counts as verified until it is listed in
+  section 5.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the end of the `build` job log: the "Collect results"
   step prints `scripts/summarize-results`, with short inventories, the differences
@@ -24,6 +22,37 @@ only if it actually ran and passed, with the commit and where it ran.
   3. When an image change alters a golden manifest, copy the new entries from the
      "differences between the golden manifests and this build" block of the job log
      into `tests/golden/` in the same commit series.
+
+### M3 progress (sealed boot chain)
+
+Precondition, done: the base image is mirrored to
+`ghcr.io/ben10-games/aegis-os/fedora-bootc` with the upstream digest unchanged
+(`mirror-base` run 43851534053) and builds pin that copy; see
+`docs/operations/base-image.md`. BUG-7 is closed for commits from this point on.
+
+Facts established before the design (probe run 43851547364, bootc 1.17.1 sources and
+documentation at tag `v1.17.1`):
+
+- The base's bootc has `container ukify`, `split-kernel-and-rootfs` and
+  `compute-composefs-digest`; its initramfs already contains `bootc-root-setup.service`.
+- Fedora 45 ships `systemd-boot-unsigned`, `systemd-ukify`, `sbsigntools`,
+  `python3-virt-firmware`, and Secure Boot firmware `OVMF_CODE.secboot.fd` (needs SMM)
+  with an empty variable store `OVMF_VARS.fd`.
+- Upstream tests the composefs backend on ext4 and XFS; btrfs is "expected to work but
+  untested". AEGIS uses btrfs (ADR-0005), so this is a risk to watch.
+- systemd-stub 262 ignores a command line passed by the boot loader when Secure Boot
+  is on and the UKI has its own, but it still appends
+  `io.systemd.stub.kernel-cmdline-extra` from SMBIOS (firmware-level input).
+
+Implemented, **not yet verified**: sealed build (`image/Containerfile`,
+`image/Containerfile.seal`, `image/build/seal-uki`), throw-away Secure Boot keys
+(`scripts/dev-keys`), console arguments in the image (a sealed command line cannot be
+set at install time).
+
+Still to do: first sealed boot; Secure Boot firmware with enrolled keys in the harness;
+positive tests (B-06, V-04, V-06); negative tests (V-05, V-07, boot parameters);
+developer access review; local VM image; ADR-0004; measurements. Update and rollback
+(V-13, V-14) belong to M4, so gate G1 stays open after M3.
 
 ### Local VM image (owner request, done)
 
@@ -226,7 +255,7 @@ Nothing has been verified on a local workstation or on physical hardware.
 | BUG-4 | Closed. `podman build` 4.9 left an empty `/etc/hostname` in the image; the image now ships that file with the static hostname `aegis`. | | |
 | BUG-6 | `ausearch -ts boot` returns nothing on the test VM although the audit log is being written (run 43554108533). | Tests that query the audit log by "since boot" would silently see no events. | The SELinux tests read the whole audit log and the journal and filter by time themselves. Cause not yet investigated. |
 | BUG-5 | The initramfs is the one built by Fedora. It contains Fedora's `os-release`, so early boot identifies itself as Fedora and sets the hostname `fedora` until the real system applies `/etc/hostname`. | Cosmetic in M2. | The initramfs is regenerated when the UKI is built for the sealed boot chain (P1-11). |
-| BUG-7 | The base image pin does not last. quay.io stopped serving the digest resolved on 2026-11-13 by 2026-11-15 ("manifest unknown", build run 43716522192); the repository has only the moving tags `45` and `45-<arch>` (probe run 43717628014). | No commit can be rebuilt once its pin is gone, so results cannot be reproduced later (R-02) and every build fails until the pin is renewed. | Pin renewed to the digest of 2026-11-15. Lasting fix: keep a copy of the base image under the project's control (owner decision, section 9), then pin to that copy. Part of P1-15. |
+| BUG-7 | Closed (`mirror-base` run 43851534053). The base image pin did not last: quay.io dropped the digests of 2026-11-13 and 2026-11-15 within one to two days; the repository has only moving tags. | Commits before the mirror cannot be rebuilt from their own pin (table in `docs/operations/base-image.md`). | Every pinned base is now copied, digest unchanged, to `ghcr.io/ben10-games/aegis-os/fedora-bootc`, and builds use the copy. Added packages are still unlocked (P1-15). |
 
 ## 7. Security limitations
 
@@ -276,12 +305,9 @@ for each statement, and what it does not. In short:
 
 Open decisions:
 
-- **Where to keep a copy of the base image (BUG-7).** Recommended: mirror the pinned
-  `fedora-bootc` image into the repository's GitHub Container Registry
-  (`ghcr.io/ben10-games/...`) from a workflow and pin to that copy. Needs the workflow
-  permission `packages: write` and counts against the account's package storage. Until
-  decided, the pin must be renewed by hand each time it disappears, and old commits
-  cannot be rebuilt.
+- Base image mirror: implemented as directed (M3 precondition). The package
+  `aegis-os/fedora-bootc` is private by default; making it public in its settings on
+  GitHub lets anyone build from a clone without logging in.
 - Whether the `windows-launch` job may install QEMU from the Chocolatey community
   repository on the hosted Windows runner (test only).
 

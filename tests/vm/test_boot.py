@@ -42,15 +42,24 @@ def collect_diagnostics(vm, logdir, tag: str) -> None:
         "avc": "journalctl -b --no-pager -g 'avc:  denied' || true",
         "lsblk": "lsblk -o NAME,SIZE,FSTYPE,PARTTYPENAME,MOUNTPOINTS",
         "os-release": "cat /usr/lib/os-release; hostname",
-        # BUG-1: who reads the bootc install record, and how is that file labelled?
-        "selinux-aleph": (
-            "ls -Z /sysroot/.bootc-aleph.json;"
-            " matchpathcon /sysroot/.bootc-aleph.json /.bootc-aleph.json;"
-            " ls -dZ / /sysroot"
+        # The boot chain: what the firmware, the boot loader and the kernel report.
+        "boot-chain": (
+            'echo "command line: $(cat /proc/cmdline)";'
+            ' echo "lockdown: $(cat /sys/kernel/security/lockdown)";'
+            ' echo "SecureBoot variable: $(od -An -tu1 -j4 -N1'
+            " /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+            ' 2>/dev/null || echo absent)";'
+            " journalctl -k -b --no-pager -o cat | grep -iE 'secure ?boot|lockdown' | head -n 6;"
+            " echo; findmnt -no SOURCE,FSTYPE,OPTIONS /; findmnt -no TARGET,SOURCE,FSTYPE /sysroot"
+            " /etc /var /boot /efi 2>/dev/null;"
+            " echo; ls /sysroot; ls /sysroot/composefs /sysroot/state/deploy 2>&1 | head -n 12;"
+            " echo; bootctl status --no-pager 2>&1 | head -n 45;"
+            " echo; bootctl list --no-pager 2>&1 | head -n 30"
         ),
-        "bootupctl-origin": (
-            "journalctl -b --no-pager -o short-monotonic _COMM=bootupctl | head -n 12;"
-            " systemctl list-units --all --no-legend --plain --no-pager 'boot*' | head -n 12"
+        "esp": (
+            "esp=$(bootctl --print-esp-path 2>/dev/null);"
+            ' echo "ESP: $esp"; find "$esp" -xdev -type f 2>/dev/null | head -n 40;'
+            ' cat "$esp"/loader/loader.conf "$esp"/loader/entries/*.conf 2>/dev/null | head -n 40'
         ),
         "selinux-labels": (
             "for type in unlabeled_t default_t; do"
@@ -147,7 +156,7 @@ def test_booted_system_is_the_built_image(vm, record_property):
     status = json.loads(vm.ssh("bootc status --format json").stdout)
     booted = status["status"]["booted"]
     assert booted is not None, "bootc reports no booted deployment"
-    record_property("booted_image", booted["image"]["image"]["image"])
+    record_property("booted_image", str((booted.get("image") or {}).get("image")))
     record_property("kernel", vm.ssh("uname -r").stdout.strip())
     record_property("bootc", vm.ssh("bootc --version").stdout.strip())
 

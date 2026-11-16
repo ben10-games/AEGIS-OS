@@ -1,22 +1,21 @@
 # Pinned base image. Change only through a reviewed input bump (task P1-15).
 #
-# quay.io/fedora/fedora-bootc:45 is rebuilt often and has no dated tags; the registry
-# stops serving a digest soon after the tag moves on (the pin of 2026-11-13 was gone on
-# 2026-11-15: "manifest unknown"). Until the project keeps its own copy of the base
-# (open decision, PROJECT_STATE.md section 9), this pin has to be renewed whenever it
-# disappears: the `probe` workflow prints the current digest ("A2 base digest").
+# quay.io/fedora/fedora-bootc:45 is rebuilt daily and has no dated tags; the registry
+# stops serving a digest about a day after the tag moves on (BUG-7). Every pinned image
+# is therefore copied, digest unchanged, to the project's registry by the `mirror-base`
+# workflow, and builds use that copy. See docs/operations/base-image.md.
 #
 # History:
 #   2026-11-13  sha256:42259b1db41a7f792a19cfd28e0c66e3e415392109a7d7095f292ad1e2a56453  (probe run 43459049502; gone)
 #   2026-11-15  sha256:17227a17c0bb9222918881e27f254e219eb3808ceb4399e26322bbd2e77932bc  (probe run 43717628014; gone on 2026-11-16)
 #   2026-11-16  sha256:d70fb477a35612f651fcfa397f41e2945514374d3fdaaa64b0e75a3ca1da2bbc  (mirror-base run 43851172029)
+#   2026-11-16  mirrored as ghcr.io/ben10-games/aegis-os/fedora-bootc:45.20261116-d70fb477a356
+#               (mirror-base run 43851534053; upstream image version 45.20261115.0)
 #
-# The image is copied, with its digest unchanged, into the project's registry by the
-# `mirror-base` workflow (scripts/mirror-base); see docs/operations/base-image.md.
 # BASE_IMAGE is what builds use. Its digest must equal UPSTREAM_DIGEST.
 UPSTREAM_REPOSITORY=quay.io/fedora/fedora-bootc
 UPSTREAM_TAG=45
 UPSTREAM_DIGEST=sha256:d70fb477a35612f651fcfa397f41e2945514374d3fdaaa64b0e75a3ca1da2bbc
 UPSTREAM_RESOLVED=2026-11-16
 MIRROR_REPOSITORY=ghcr.io/ben10-games/aegis-os/fedora-bootc
-BASE_IMAGE=quay.io/fedora/fedora-bootc@sha256:d70fb477a35612f651fcfa397f41e2945514374d3fdaaa64b0e75a3ca1da2bbc
+BASE_IMAGE=ghcr.io/ben10-games/aegis-os/fedora-bootc@sha256:d70fb477a35612f651fcfa397f41e2945514374d3fdaaa64b0e75a3ca1da2bbc

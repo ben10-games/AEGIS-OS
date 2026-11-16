@@ -18,10 +18,13 @@ RUNNING_DEADLINE_S = 180
 # Files created in the physical root at the end of the installation, and the type each
 # inherits from its directory on an SELinux system. Installed from a host without
 # SELinux they were default_t, which caused BUG-1 (see scripts/fix-install-labels).
-INSTALL_TIME_FILES = {
-    "/sysroot/.bootc-aleph.json": "root_t",
-    "/sysroot/boot/grub2": "boot_t",
-    "/sysroot/boot/bootupd-state.json": "boot_t",
+# Types the policy assigns to the directories every boot depends on. With the composefs
+# backend / and /usr come from the sealed image, /etc and /var from the machine's state.
+BOOT_DIRECTORY_TYPES = {
+    "/": "root_t",
+    "/usr": "usr_t",
+    "/etc": "etc_t",
+    "/var": "var_t",
 }
 SELFTEST_FILES = {
     "/usr/libexec/aegis/selftest/cat": "aegis_selftest_exec_t",
@@ -98,10 +101,14 @@ def test_v08_no_denials_during_boot(guest, logdir):
     assert not found, f"{len(found)} SELinux denials during boot:\n" + "\n".join(found[:6])
 
 
-def test_v08_install_time_files_have_the_types_bootupd_may_use(guest):
-    """BUG-1 root cause: files written at install time are no longer default_t."""
-    actual = {path: selinux_type(guest, path) for path in INSTALL_TIME_FILES}
-    assert actual == INSTALL_TIME_FILES
+def test_v08_boot_directories_have_the_types_the_policy_assigns(guest, logdir):
+    """The sealed root and the machine's state directories are labelled as the policy says."""
+    listing = guest.ssh(
+        "ls -dZ / /usr /etc /var /boot /sysroot /sysroot/* 2>&1", check=False
+    ).stdout
+    (logdir / "selinux-boot-directories.txt").write_text(listing)
+    actual = {path: selinux_type(guest, path) for path in BOOT_DIRECTORY_TYPES}
+    assert actual == BOOT_DIRECTORY_TYPES
 
 
 def test_v08_no_unlabelled_files(guest):
