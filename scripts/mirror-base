@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# Copy the pinned upstream base image into the project's own registry, unchanged.
+#
+#   REGISTRY_USER=... REGISTRY_TOKEN=... scripts/mirror-base
+#
+# Why: quay.io/fedora/fedora-bootc has only moving tags and stops serving a digest a
+# day or two after the tag moves on (BUG-7). A copy under the project's control keeps
+# every pinned digest available, so old commits can still be rebuilt.
+#
+# Rules this script enforces:
+#   - The copy is addressed by the SAME digest as upstream (all architectures are
+#     copied with their manifests preserved), so the pin can be compared with upstream.
+#   - Nothing is overwritten: an existing tag that points to another digest is an error.
+#   - Nothing is deleted.
+#   - The registry token comes from the environment, is given to skopeo on standard
+#     input, and the login is removed again when the script ends.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+value() {
+  grep -E "^$1=" image/base.lock | cut -d= -f2-
+}
+
+upstream_repository="$(value UPSTREAM_REPOSITORY)"
+upstream_tag="$(value UPSTREAM_TAG)"
+upstream_digest="$(value UPSTREAM_DIGEST)"
+resolved="$(value UPSTREAM_RESOLVED)"
+mirror_repository="$(value MIRROR_REPOSITORY)"
+
+if [[ ! "${upstream_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+  echo "error: UPSTREAM_DIGEST in image/base.lock is not a sha256 digest" >&2
+  exit 1
+fi
+hex="${upstream_digest#sha256:}"
+mirror_tag="${upstream_tag}.${resolved//-/}-${hex:0:12}"
+source_ref="docker://${upstream_repository}@${upstream_digest}"
+mirror_registry="${mirror_repository%%/*}"
+
+# Digest of a manifest exactly as the registry serves it (byte for byte).
+scratch="$(mktemp -d)"
+raw_digest() {
+  skopeo inspect --raw "$1" > "${scratch}/manifest" 2> /dev/null || return 1
+  printf 'sha256:%s' "$(sha256sum "${scratch}/manifest" | cut -d' ' -f1)"
+}
+
+echo "== upstream"
+echo "pinned:              ${upstream_repository}@${upstream_digest}"
+echo "tag ${upstream_tag} points to: $(raw_digest "docker://${upstream_repository}:${upstream_tag}" || echo unknown)"
+if ! skopeo inspect --raw "${source_ref}" > /dev/null 2> upstream-error.txt; then
+  echo "MIRROR RESULT: upstream no longer serves the pinned digest: $(tail -n 1 upstream-error.txt)" >&2
+  echo "Set UPSTREAM_DIGEST and UPSTREAM_RESOLVED in image/base.lock to the tag's current digest." >&2
+  exit 1
+fi
+
+echo "== provenance of the pinned image (recorded, not cryptographically verified)"
+skopeo inspect --raw "${source_ref}" \
+  | python3 -c '
+import json, sys
+index = json.load(sys.stdin)
+print("media type:", index.get("mediaType"))
+for manifest in index.get("manifests", []):
+    platform = manifest.get("platform", {})
+    print("  ", platform.get("architecture"), manifest.get("digest"), manifest.get("size"))
+'
+skopeo inspect "${source_ref}" \
+  | python3 -c '
+import json, sys
+image = json.load(sys.stdin)
+print("created:", image.get("Created"))
+for key, text in sorted((image.get("Labels") or {}).items()):
+    if key.startswith(("org.opencontainers.image.", "containers.bootc", "ostree.bootable", "redhat.")):
+        print(f"label {key}={text[:120]}")
+'
+if skopeo inspect --raw "docker://${upstream_repository}:sha256-${hex}.sig" > /dev/null 2>&1; then
+  echo "sigstore signature object: present (not verified here; see task P1-13)"
+else
+  echo "sigstore signature object: none found"
+fi
+
+if [[ -z "${REGISTRY_TOKEN:-}" || -z "${REGISTRY_USER:-}" ]]; then
+  echo "error: REGISTRY_USER and REGISTRY_TOKEN must be set to write to ${mirror_registry}" >&2
+  exit 1
+fi
+trap 'skopeo logout "${mirror_registry}" > /dev/null 2>&1 || true; rm -rf "${scratch}"' EXIT
+printf '%s' "${REGISTRY_TOKEN}" \
+  | skopeo login --username "${REGISTRY_USER}" --password-stdin "${mirror_registry}"
+
+echo "== mirror"
+existing="$(raw_digest "docker://${mirror_repository}:${mirror_tag}" 2> /dev/null || true)"
+if [[ -n "${existing}" && "${existing}" != "${upstream_digest}" ]]; then
+  echo "MIRROR RESULT: tag ${mirror_tag} already exists with ${existing}; refusing to overwrite" >&2
+  exit 1
+fi
+if [[ "${existing}" == "${upstream_digest}" ]]; then
+  echo "already mirrored: ${mirror_repository}:${mirror_tag}"
+else
+  skopeo copy --all --preserve-digests --retry-times 3 \
+    "${source_ref}" "docker://${mirror_repository}:${mirror_tag}"
+fi
+
+copied="$(raw_digest "docker://${mirror_repository}@${upstream_digest}")"
+if [[ "${copied}" != "${upstream_digest}" ]]; then
+  echo "MIRROR RESULT: digest mismatch after copy: ${copied}" >&2
+  exit 1
+fi
+echo "MIRROR RESULT: ok"
+echo "BASE_IMAGE=${mirror_repository}@${upstream_digest}"
+echo "tag (never moved): ${mirror_repository}:${mirror_tag}"

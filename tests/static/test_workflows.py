@@ -51,3 +51,17 @@ def test_checkout_does_not_persist_credentials(root):
         assert text.count("actions/checkout@") == text.count("persist-credentials: false"), (
             f"{path.name}: every checkout must set 'persist-credentials: false'"
         )
+
+
+def test_only_the_mirror_workflow_may_write_packages(root):
+    """Write access to the container registry is confined to one reviewed job."""
+    for path in workflows(root):
+        text = path.read_text()
+        if path.name == "mirror-base.yml":
+            assert text.count("packages: write") == 1
+            assert "workflow_dispatch" in text
+            assert "delete" not in text.lower().replace("deleted by this workflow", "")
+        else:
+            assert "packages: write" not in text, f"{path.name}: must not write packages"
+        assert ": write-all" not in text
+        assert "contents: write" not in text, f"{path.name}: must not write to the repository"

@@ -74,6 +74,45 @@ jobs:
           skopeo list-tags "docker://${repository}" \
             | grep -oE '"45[^"]*"' | tr -d '"' | sort -V | tail -n 40 | paste -sd' ' || true
 
+      # Facts the sealed boot chain (milestone M3) is designed from.
+      - name: "M3: sealed-image support in the pinned base and in Fedora's packages"
+        run: |
+          pinned="$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
+          sudo podman run --rm "${pinned}" bash -c '
+            set -uo pipefail
+            echo "== packages"
+            rpm -q bootc systemd dracut ostree composefs bootupd shim-x64 grub2-efi-x64 \
+              grub2-tools systemd-boot-unsigned systemd-ukify sbsigntools btrfs-progs \
+              e2fsprogs fsverity-utils kernel-core
+            echo "== bootc container subcommands"
+            bootc container --help 2>&1 | sed -n "/Commands:/,/Options:/p"
+            echo "== bootc install to-disk options (composefs, bootloader, verity, uki)"
+            bootc install to-disk --help 2>&1 | grep -E -A3 -- "--(composefs|bootloader|allow-missing|uki|filesystem)"
+            echo "== dracut modules and configuration"
+            ls /usr/lib/dracut/modules.d | grep -E "bootc|composefs|ostree|systemd-pcr|tpm" || true
+            for f in /usr/lib/dracut/dracut.conf.d/*; do echo "--- ${f}"; cat "${f}"; done
+            echo "== initramfs content (bootc, composefs, ostree)"
+            lsinitrd /usr/lib/modules/*/initramfs.img 2>/dev/null \
+              | grep -E "bootc|composefs|ostree-prepare|initrd-release|os-release" | head -n 20
+            echo "== backend markers"
+            ls -l /usr/lib/ostree/prepare-root.conf /usr/lib/composefs 2>&1
+            cat /usr/lib/ostree/prepare-root.conf 2>&1
+            ls /usr/lib/bootupd/updates 2>&1 | head -n 5
+            ls /usr/lib/modules/*/ | head -n 20
+            ls -l /boot /usr/lib/systemd/boot/efi 2>&1 | head -n 20
+            echo "== available packages"
+            dnf -q list --available systemd-boot-unsigned systemd-ukify sbsigntools \
+              python3-virt-firmware fsverity-utils mokutil 2>&1 | tail -n 12
+            echo "== UEFI firmware files"
+            dnf -q -y install edk2-ovmf > /dev/null 2>&1
+            ls -l /usr/share/edk2/ovmf/
+            for f in /usr/share/qemu/firmware/*.json; do
+              echo "--- ${f}"
+              grep -E "\"(filename|mode|secure-boot|enrolled-keys|requires-smm)\"|\"machines\"" "${f}" \
+                | tr -s " " | paste -sd" "
+            done
+          '
+
       - name: Loop devices inside a privileged container
         run: |
           sudo podman run --rm --privileged quay.io/fedora/fedora-bootc:45 bash -c '

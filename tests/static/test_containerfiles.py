@@ -40,3 +40,16 @@ def test_build_arguments_for_base_images_have_no_remote_default(files):
             assert default.startswith("localhost/"), (
                 f"{path.name}: ARG {name} defaults to remote image {default}"
             )
+
+
+def test_base_pin_is_the_upstream_digest(root):
+    """The build may use the upstream registry or the project's mirror, never another image."""
+    lock = dict(
+        line.split("=", 1)
+        for line in (root / "image" / "base.lock").read_text().splitlines()
+        if "=" in line and not line.startswith("#")
+    )
+    repository, digest = lock["BASE_IMAGE"].split("@")
+    assert digest == lock["UPSTREAM_DIGEST"], "BASE_IMAGE must carry the upstream digest"
+    assert repository in (lock["UPSTREAM_REPOSITORY"], lock["MIRROR_REPOSITORY"])
+    assert lock["MIRROR_REPOSITORY"] == lock["MIRROR_REPOSITORY"].lower()

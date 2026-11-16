@@ -1,0 +1,40 @@
+name: mirror-base
+
+# Copies the pinned upstream base image into this repository's container registry
+# (ghcr.io), so the digest in image/base.lock stays available after quay.io stops
+# serving it (BUG-7). The copy keeps the upstream digest. Nothing is overwritten or
+# deleted by this workflow. See docs/operations/base-image.md.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - image/base.lock
+      - scripts/mirror-base
+      - .github/workflows/mirror-base.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-base
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: Mirror the pinned Fedora bootc base image to ghcr.io
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # The only job in the repository that may write packages.
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Copy the pinned image, keeping its digest
+        env:
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/mirror-base
