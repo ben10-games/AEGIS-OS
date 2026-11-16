@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Generate THROW-AWAY Secure Boot keys for development and CI.
+#
+#   scripts/dev-keys [DIRECTORY]        default: .secrets/secureboot
+#
+# Creates the three keys of a UEFI Secure Boot hierarchy (PK, KEK, db), each as an RSA
+# private key with a self-signed certificate, plus one more pair named "untrusted" that
+# is never enrolled anywhere: negative tests sign with it to prove that the firmware
+# rejects a validly signed binary from an unknown signer.
+#
+# These keys protect nothing. They exist so the boot chain can be tested end to end.
+# - They are generated fresh for every CI run and are gone when the runner is.
+# - The directory must be ignored by git; the script refuses anything else.
+# - Existing keys are kept, so repeated local builds stay bootable with the same
+#   firmware variables. Delete the directory to start over.
+# Real keys for real hardware are a Phase 6 decision (ADR-0012) and never live here.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+directory="${1:-.secrets/secureboot}"
+if ! git check-ignore -q "${directory}/db.key"; then
+  echo "error: ${directory} is not ignored by git; refusing to create private keys there" >&2
+  exit 1
+fi
+if ! command -v openssl >/dev/null 2>&1; then
+  echo "error: openssl not found" >&2
+  exit 1
+fi
+
+umask 077
+mkdir -p "${directory}"
+
+for name in PK KEK db untrusted; do
+  key="${directory}/${name}.key"
+  cert="${directory}/${name}.crt"
+  if [[ -s "${key}" && -s "${cert}" ]]; then
+    continue
+  fi
+  openssl req -new -x509 -newkey rsa:2048 -nodes -sha256 -days 90 \
+    -subj "/CN=AEGIS OS development ${name} (throw-away, not for real use)/" \
+    -keyout "${key}" -out "${cert}" 2>/dev/null
+done
+
+# Owner GUID under which the certificates are enrolled in the firmware.
+if [[ ! -s "${directory}/owner-guid.txt" ]]; then
+  cat /proc/sys/kernel/random/uuid > "${directory}/owner-guid.txt"
+fi
+chmod 0644 "${directory}"/*.crt "${directory}/owner-guid.txt"
+
+echo "Secure Boot development keys in ${directory} (private keys stay there):"
+for name in PK KEK db untrusted; do
+  printf '  %-9s %s\n' "${name}" \
+    "$(openssl x509 -in "${directory}/${name}.crt" -noout -fingerprint -sha256 | cut -d= -f2)"
+done
