@@ -74,6 +74,36 @@ class VmConfig:
     probe_port: int | None = None  # host-side port forwarded to guest port PROBE_GUEST_PORT
     secure_boot: bool = False  # the firmware is the Secure Boot build with enrolled keys
     smbios_strings: tuple[str, ...] = ()  # further SMBIOS type 11 strings (test inputs)
+    # Development machines only: print the journal of core services to the serial
+    # console late in boot, so a failure is visible even when SSH never answers.
+    console_diagnostics: bool = True
+
+
+DIAGNOSTIC_UNIT = """[Unit]
+Description=AEGIS test diagnostics on the serial console
+After=multi-user.target systemd-logind.service sshd.service
+[Service]
+Type=oneshot
+StandardOutput=tty
+TTYPath=/dev/ttyS0
+ExecStart=/bin/sh -c 'echo "AEGIS-DIAG BEGIN"; \\
+  systemctl --failed --no-pager --plain; \\
+  journalctl -b --no-pager -o short-monotonic \\
+    -u systemd-logind -u sshd -u dbus-broker | tail -n 80; \\
+  ls -lZd /var /var/lib /var/lib/systemd /etc /run 2>&1; \\
+  findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS / /etc /var; \\
+  echo "AEGIS-DIAG END"'
+"""
+
+
+def console_diagnostic_credentials() -> list[str]:
+    """systemd credentials that add the diagnostic unit and pull it into the boot."""
+    unit = base64.b64encode(DIAGNOSTIC_UNIT.encode()).decode()
+    dropin = base64.b64encode(b"[Unit]\nWants=aegis-diagnostics.service\n").decode()
+    return [
+        f"io.systemd.credential.binary:systemd.extra-unit.aegis-diagnostics.service={unit}",
+        f"io.systemd.credential.binary:systemd.unit-dropin.multi-user.target={dropin}",
+    ]
 
 
 def build_qemu_command(cfg: VmConfig) -> list[str]:
@@ -88,6 +118,8 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
     if cfg.authorized_key:
         credential = base64.b64encode((cfg.authorized_key.strip() + "\n").encode()).decode()
         strings.insert(0, f"io.systemd.credential.binary:ssh.authorized_keys.root={credential}")
+    if cfg.authorized_key and cfg.console_diagnostics:
+        strings += console_diagnostic_credentials()
     for text in strings:
         if "," in text:
             raise HarnessError(f"SMBIOS string contains a comma, which QEMU would split: {text}")

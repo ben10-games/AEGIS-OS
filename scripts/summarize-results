@@ -149,6 +149,16 @@ grep -haE 'FAILED|Failed to start|denied|Kernel panic|Security Violation|Access 
   | cut -c1-200 | sort | uniq -c | sort -rn | head -n 30 || echo "(none)"
 echo
 
+echo "=== diagnostics printed on the console of the first development boot"
+first="$(ls "${logs}"/test_boot-serial-boot1.log 2>/dev/null | head -n 1)"
+if [[ -n "${first}" ]]; then
+  sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' "${first}" | tr -d '\r' \
+    | sed -n '/AEGIS-DIAG BEGIN/,/AEGIS-DIAG END/p' | cut -c1-220 | head -n 120
+else
+  echo "(no console log)"
+fi
+echo
+
 # When a virtual machine never answers, its console is the only evidence.
 for console in "${logs}"/*-serial*.log; do
   [[ -s "${console}" ]] || continue
