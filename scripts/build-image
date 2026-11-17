@@ -77,6 +77,13 @@ for variant in base dev; do
     .
 done
 
+# A sealed image installs only if the digest in its UKI equals the digest of the image
+# as 'bootc install' imports it. Check both views now rather than at install time.
+for variant in base dev; do
+  echo "== composefs digest views of aegis-${variant}"
+  scripts/compare-digests "localhost/aegis-${variant}:latest" "out/digests/${variant}" || true
+done
+
 # The command line each UKI was sealed with (it contains the root digest). The VM tests
 # compare the running system's command line with it.
 mkdir -p out/sealed

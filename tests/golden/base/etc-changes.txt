@@ -7,6 +7,10 @@ A audit/audit.rules
 A audit/auditd.conf
 A audit/rules.d/audit.rules
 
+# shim is removed: systemd-boot, signed with the project's key, is the boot loader
+# (ADR-0004). Its dnf protection entry goes with it.
+D dnf/protected.d/shim.conf
+
 # The firewalld package. firewalld.conf carries the one AEGIS change: DefaultZone=aegis.
 A firewalld/firewalld-server.conf
 A firewalld/firewalld-standard.conf

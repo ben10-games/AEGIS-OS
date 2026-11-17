@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Diagnostic for the sealed build: compares the composefs digest of an image as the
+# image build sees it (a mounted filesystem, as 'bootc container ukify' reads it) with
+# the digest as 'bootc install' sees it (layers imported from container storage).
+# A sealed image installs only if both are equal.
+#
+#   scripts/compare-digests IMAGE OUTPUT_DIR
+#
+# Prints both digests and the first differences between the two dumpfiles.
+# Exits 0 when equal, 1 when they differ.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+image="$1"
+output="$2"
+mkdir -p "${output}"
+output="$(cd "${output}" && pwd)"
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+# View 1: the filesystem as mounted from the image (what the UKI build reads).
+"${as_root[@]}" podman run --rm --network=none \
+  --mount "type=image,source=${image},destination=/target" \
+  -v "${output}:/output" \
+  "${image}" \
+  bootc container compute-composefs-digest /target --write-dumpfile-to /output/mounted.dump \
+  > "${output}/mounted.digest"
+
+# View 2: the image imported from container storage (what 'bootc install' reads).
+"${as_root[@]}" podman run --rm --network=none --privileged \
+  -v /var/lib/containers:/run/host-container-storage:ro \
+  -v "${output}:/output" \
+  "${image}" \
+  bootc container compute-composefs-digest-from-storage --write-dumpfile-to /output/storage.dump \
+  > "${output}/storage.digest"
+
+echo "digest as mounted:      $(tail -n 1 "${output}/mounted.digest")"
+echo "digest from storage:    $(tail -n 1 "${output}/storage.digest")"
+if [[ "$(tail -n 1 "${output}/mounted.digest")" == "$(tail -n 1 "${output}/storage.digest")" ]]; then
+  echo "DIGEST VIEWS: equal"
+  exit 0
+fi
+echo "DIGEST VIEWS: DIFFERENT; first differences (- mounted, + storage):"
+"${as_root[@]}" diff -u "${output}/mounted.dump" "${output}/storage.dump" \
+  | grep -E '^[-+][^-+]' | cut -c1-260 | head -n 60 || true
+echo "lines that differ: $("${as_root[@]}" diff "${output}/mounted.dump" "${output}/storage.dump" | grep -c '^[<>]' || true)"
+exit 1
