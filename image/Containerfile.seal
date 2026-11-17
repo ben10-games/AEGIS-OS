@@ -22,11 +22,15 @@ RUN mkdir /kernel && bootc container split-kernel-and-rootfs --rootfs / --output
 # directories that our layers changed, while the UKI build below reads them from the
 # mounted filesystem: without this step the two digests differ and the image does not
 # install (CI run 44074603737). It also makes the digest independent of build time.
+# Mount points (/proc, /sys, files podman binds in) are not part of the image and are left alone.
 FROM ${ROOTFS} AS split
 RUN mkdir -p /var/tmp/aegis-split \
     && bootc container split-kernel-and-rootfs --rootfs / --output /var/tmp/aegis-split \
     && rm -rf /var/tmp/aegis-split \
-    && find / -xdev -exec touch -h -d @0 {} +
+    && bash -c 'set -euo pipefail; \
+         find / -xdev -print0 \
+           | grep -zvxF -f <(findmnt -rno TARGET | grep -vx /) \
+           | xargs -0 touch -h -d @0'
 
 # The signing key is a build secret: mounted for this command, never stored in a layer.
 FROM ${TOOLS} AS sealed-uki
