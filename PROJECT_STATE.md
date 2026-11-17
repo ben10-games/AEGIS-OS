@@ -9,8 +9,8 @@ only if it actually ran and passed, with the commit and where it ran.
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
 - **Phase / milestone:** Phase 1. M0, M1 and **M2 (baseline configuration) are
   complete**; see sections 4 and 5 and `docs/architecture/security-baseline.md`.
-- **Next task:** confirm BUG-8 (shutdown) is fixed in the run of the commit that wrote
-  this, then M3 is implementation-complete with gate G1 pending. M4 (signing,
+- **Next task:** BUG-8 (shutdown, see section 6). M3 is implementation-complete with
+  gate G1 pending. M4 (signing,
   registry, update and rollback tests, P1-13 and P1-14) closes G1 and needs the
   owner's go-ahead. See "M3 progress" below and section 5.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
@@ -26,12 +26,12 @@ only if it actually ran and passed, with the commit and where it ran.
 
 ### M3 progress (sealed boot chain)
 
-**State: implementation complete, verification nearly complete, gate G1 pending.**
-The sealed boot chain boots in CI under Secure Boot, and the M3 security tests pass
-(run 44100054742 on `21bb955`: 25 image tests and 76 of 77 VM tests). The one open
-failure is `/var` busy at shutdown (BUG-8), with a fix pushed in the commit that
-records this. Update and rollback (V-13, V-14) need M4, so G1 stays open and
-ADR-0004 stays Provisional.
+**State: implementation complete, gate G1 pending, one regression open (BUG-8).**
+The sealed boot chain boots in CI under Secure Boot and every M3 security test passes
+(latest: run 44107287400 on `3897c4e`, 25 image tests, 76 of 77 VM tests; `lint` run
+44107287315 green). The one failing test is the release variant's clean power-off:
+`/var` is busy at shutdown (BUG-8, open). Update and rollback (V-13, V-14) need M4,
+so G1 stays open and ADR-0004 stays Provisional.
 
 Boot chain as built: OVMF Secure Boot with only the build's throw-away keys
 → signed systemd-boot 262 → signed UKI (ukify; command line = `kargs.d` + composefs
@@ -57,6 +57,8 @@ Iterations, for the record (each a CI run on this branch):
 | 44093307831 | V-05 passes; SMBIOS `enforcing=0` made SELinux permissive | `aegis-verify-cmdline.service` |
 | 44096629031 | SMBIOS extension now stops the machine; V-07 hit a stale copy | locate the live object |
 | 44100054742 | V-07 passes; only `/var` busy at shutdown left | `var.mount` ordered before `local-fs.target` |
+| 44104092316 | all services stop first; `/var` still busy | `journalctl --relinquish-var` unit |
+| 44107287400 | unit apparently never started; BUG-8 open | recorded, not relaxed |
 
 ### Local VM image (owner request, done)
 
@@ -298,7 +300,7 @@ Nothing has been verified on a local workstation or on physical hardware.
 | BUG-6 | `ausearch -ts boot` returns nothing on the test VM although the audit log is being written (run 43554108533). | Tests that query the audit log by "since boot" would silently see no events. | The SELinux tests read the whole audit log and the journal and filter by time themselves. Cause not yet investigated. |
 | BUG-5 | The initramfs is the one built by Fedora. It contains Fedora's `os-release`, so early boot identifies itself as Fedora and sets the hostname `fedora` until the real system applies `/etc/hostname`. | Cosmetic in M2. | The initramfs is regenerated when the UKI is built for the sealed boot chain (P1-11). |
 | BUG-7 | Closed (`mirror-base` run 43851534053). The base image pin did not last: quay.io dropped the digests of 2026-11-13 and 2026-11-15 within one to two days; the repository has only moving tags. | Commits before the mirror cannot be rebuilt from their own pin (table in `docs/operations/base-image.md`). | Every pinned base is now copied, digest unchanged, to `ghcr.io/ben10-games/aegis-os/fedora-bootc`, and builds use the copy. Added packages are still unlocked (P1-15). |
-| BUG-8 | With the composefs backend, `/var` (a bind mount set up by the initramfs) could not be unmounted at shutdown: "umount: /var: target is busy" (runs 44090714344 to 44100054742). Holders at runtime include journald, auditd and firewalld. | The release-variant power-off test fails; data was synced and the next boot is clean. | `var.mount` ordered before `local-fs.target` (run 44104092316: all services now stop first, `/var` still busy; journald keeps `/var/log/journal` open), plus `aegis-journal-relinquish.service`, which runs `journalctl --relinquish-var` just before `/var` is unmounted. Open until a run passes. |
+| BUG-8 | **Open.** With the composefs backend, `/var` (a bind mount of `/state/os/default/var` set up by the initramfs) cannot be unmounted at shutdown: "umount: /var: target is busy", reported as `[FAILED] Failed unmounting var.mount` (runs 44090714344 to 44107287400). | The release variant's power-off test fails (1 of 77 VM tests). The machine still powers off, data is synced first ("Syncing filesystems and block devices"), and every following boot was clean. | Tried: auditd ordered before `/var` (no effect); `var.mount` ordered before `local-fs.target` (run 44104092316: every service now stops first, still busy); `aegis-journal-relinquish.service` statically wanted by `local-fs.target` (run 44107287400: it never appears in the shutdown log, so it apparently did not start; not yet understood). At runtime journald, auditd and firewalld hold files under `/var`. Next step: confirm whether the unit starts (`systemctl status` on a running system), and whether journald is the holder at the moment of the unmount. The test is not relaxed. |
 | BUG-9 | Closed by mitigation. systemd-stub appends `io.systemd.stub.kernel-cmdline-extra` from SMBIOS even under Secure Boot; `enforcing=0` there made SELinux permissive (run 44093307831). | Whoever controls the firmware tables could weaken the system. | `aegis-verify-cmdline.service` powers the machine off on any argument not in the sealed set (verified in run 44096629031). The initramfs still runs before the check. |
 
 ## 7. Security limitations
