@@ -143,6 +143,12 @@ for boot in boot1 boot2; do
 done
 section "measurements (first boot)" "${logs}/boot1-metrics.json" 60
 
+echo "=== failures reported on the serial consoles (all boots)"
+grep -haE 'FAILED|Failed to start|denied|Kernel panic|Security Violation|Access Denied|verification failed' \
+  "${logs}"/*-serial*.log 2>/dev/null | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/^\[ *[0-9.]+\] //' \
+  | cut -c1-200 | sort | uniq -c | sort -rn | head -n 30 || echo "(none)"
+echo
+
 # When a virtual machine never answers, its console is the only evidence.
 for console in "${logs}"/*-serial*.log; do
   [[ -s "${console}" ]] || continue

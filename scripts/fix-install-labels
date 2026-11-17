@@ -91,4 +91,24 @@ done < <(find "${mountpoint}" -xdev \
   \( -path "${mountpoint}/ostree" -o -path "${mountpoint}/composefs/objects" \) -prune -o -print0)
 
 echo "install-time label fix: ${fixed} file(s) relabelled"
+
+# composefs backend: each deployment keeps its /etc and /var under
+# /state/deploy/<digest>/. These are not children of the directories they replace at
+# runtime, so inheriting the parent's label is wrong for them (root_t instead of
+# var_t, etc_t, ...). Label them with the image's own file contexts, as the paths they
+# are mounted at: setfiles -r strips the deployment directory from each path.
+contexts=/etc/selinux/targeted/contexts/files/file_contexts
+for deployment in "${mountpoint}"/state/deploy/*/; do
+  [[ -d "${deployment}" ]] || continue
+  deployment="${deployment%/}"
+  targets=()
+  for name in etc var; do
+    [[ -d "${deployment}/${name}" ]] && targets+=("${deployment}/${name}")
+  done
+  [[ "${#targets[@]}" -gt 0 ]] || continue
+  setfiles -F -r "${deployment}" "${contexts}" "${targets[@]}"
+  for target in "${targets[@]}"; do
+    echo "labelled deployment state ${target#"${mountpoint}"}: $(label_of "${target}")"
+  done
+done
 echo "label census after: $(census)"
