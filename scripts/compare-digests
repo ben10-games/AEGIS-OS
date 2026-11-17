@@ -37,7 +37,7 @@ fi
   -v "${output}:/output" \
   "${image}" \
   bootc container compute-composefs-digest-from-storage --write-dumpfile-to /output/storage.dump \
-  "containers-storage:${image}" \
+  "${image}" \
   > "${output}/storage.digest"
 
 echo "digest as mounted:      $(tail -n 1 "${output}/mounted.digest")"
