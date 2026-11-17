@@ -51,6 +51,50 @@ def test_unknown_accelerator_is_rejected():
         build_qemu_command(config(accel="xen"))
 
 
+def test_secure_boot_needs_smm_and_protected_flash():
+    plain = build_qemu_command(config())
+    assert "q35,accel=kvm" in plain
+    assert "-global" not in plain
+    secure = build_qemu_command(config(secure_boot=True))
+    assert "q35,accel=kvm,smm=on" in secure
+    assert secure[secure.index("-global") + 1] == "driver=cfi.pflash01,property=secure,value=on"
+
+
+def test_without_a_key_no_credential_reaches_the_guest():
+    """Production-like machines get nothing from the harness but their disk."""
+    assert "-smbios" not in build_qemu_command(config(authorized_key=""))
+
+
+def test_extra_firmware_strings_are_passed_and_commas_refused():
+    command = build_qemu_command(
+        config(authorized_key="", smbios_strings=("io.systemd.stub.kernel-cmdline-extra=x=1",))
+    )
+    assert command[command.index("-smbios") + 1] == (
+        "type=11,value=io.systemd.stub.kernel-cmdline-extra=x=1"
+    )
+    with pytest.raises(HarnessError):
+        build_qemu_command(config(smbios_strings=("a,b",)))
+
+
+def test_keys_are_enrolled_without_vendor_keys(tmp_path):
+    from harness.firmware import SecureBootKeys, enrol_command
+
+    for name in ("PK.crt", "KEK.crt", "db.crt"):
+        (tmp_path / name).touch()
+    (tmp_path / "owner-guid.txt").write_text("11111111-2222-3333-4444-555555555555\n")
+    keys = SecureBootKeys.from_directory(tmp_path)
+    command = enrol_command(Path("/fw/OVMF_VARS.fd"), Path("/scratch/vars.fd"), keys)
+    assert command[0] == "virt-fw-vars"
+    assert "--secure-boot" in command
+    assert command[command.index("--set-pk") + 1 :][:2] == [
+        keys.owner_guid,
+        str(tmp_path / "PK.crt"),
+    ]
+    assert command[command.index("--add-db") + 2] == str(tmp_path / "db.crt")
+    options = {arg for arg in command if arg.startswith("--")}
+    assert options == {"--input", "--output", "--set-pk", "--add-kek", "--add-db", "--secure-boot"}
+
+
 def test_ssh_key_is_passed_as_a_systemd_credential_not_written_to_disk():
     command = build_qemu_command(config())
     smbios = command[command.index("-smbios") + 1]

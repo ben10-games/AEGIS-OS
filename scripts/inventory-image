@@ -95,6 +95,17 @@ for variant in base dev; do
     echo "note: ${builder} not built; SELinux permissive domains not listed"
   fi
 
+  # B-06: structure of the sealed boot chain, checked offline with the public certificates.
+  if "${as_root[@]}" podman image exists "${builder}" && [[ -d out/secureboot ]]; then
+    "${as_root[@]}" podman run --rm --network=none \
+      --mount "type=image,source=${image},destination=/target" \
+      -v "${PWD}/out/secureboot:/certs:ro" \
+      -v "${PWD}/scripts/inventory-sealed:/usr/local/bin/inventory-sealed:ro" \
+      "${builder}" /usr/local/bin/inventory-sealed > "${dir}/sealed.txt"
+  else
+    echo "note: ${builder} or out/secureboot missing; sealed structure not recorded"
+  fi
+
   etc_manifest "${image}" > "${dir}/etc.tsv"
   etc_changes "${out}/upstream-etc.tsv" "${dir}/etc.tsv" > "${dir}/etc-changes.txt"
 

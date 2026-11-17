@@ -15,6 +15,7 @@ import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from harness.firmware import SECURE_BOOT_GLOBALS, SECURE_BOOT_MACHINE_OPTIONS
 from harness.qmp import QmpClient
 
 # (code, variables-template) pairs, in order of preference.
@@ -64,12 +65,15 @@ class VmConfig:
     firmware_vars: Path  # writable copy of the firmware variable store
     ssh_port: int  # host-side port forwarded to guest port 22
     serial_log: Path
-    authorized_key: str  # public key granted root login for this run only
+    # Public key granted root login for this run only; empty for no developer access.
+    authorized_key: str = ""
     accel: str = "kvm"
     cpus: int = 2
     memory_mib: int = 4096
     qmp_socket: Path | None = None  # control socket, used to press the power button
     probe_port: int | None = None  # host-side port forwarded to guest port PROBE_GUEST_PORT
+    secure_boot: bool = False  # the firmware is the Secure Boot build with enrolled keys
+    smbios_strings: tuple[str, ...] = ()  # further SMBIOS type 11 strings (test inputs)
 
 
 def build_qemu_command(cfg: VmConfig) -> list[str]:
@@ -77,9 +81,20 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
     if cfg.accel not in ACCELERATORS:
         raise HarnessError(f"unknown accelerator '{cfg.accel}'; expected one of {ACCELERATORS}")
 
-    # The key reaches the guest as a systemd credential in a firmware table. Nothing is
-    # written into the image or the disk. Base64 avoids QEMU's comma-separated parsing.
-    credential = base64.b64encode((cfg.authorized_key.strip() + "\n").encode()).decode()
+    # Developer access: the key reaches the guest as a systemd credential in a firmware
+    # table. Nothing is written into the image or the disk. Base64 avoids QEMU's
+    # comma-separated parsing. Production-like tests pass no key and get no credential.
+    strings = list(cfg.smbios_strings)
+    if cfg.authorized_key:
+        credential = base64.b64encode((cfg.authorized_key.strip() + "\n").encode()).decode()
+        strings.insert(0, f"io.systemd.credential.binary:ssh.authorized_keys.root={credential}")
+    for text in strings:
+        if "," in text:
+            raise HarnessError(f"SMBIOS string contains a comma, which QEMU would split: {text}")
+
+    machine = f"q35,accel={cfg.accel}"
+    if cfg.secure_boot:
+        machine += f",{SECURE_BOOT_MACHINE_OPTIONS}"
 
     forwards = f"hostfwd=tcp:127.0.0.1:{cfg.ssh_port}-:22"
     if cfg.probe_port is not None:
@@ -88,7 +103,7 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
     command = [
         "qemu-system-x86_64",
         "-machine",
-        f"q35,accel={cfg.accel}",
+        machine,
         "-cpu",
         "host" if cfg.accel == "kvm" else "max",
         "-smp",
@@ -108,8 +123,6 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
         "virtio-net-pci,netdev=net0",
         "-device",
         "virtio-rng-pci",
-        "-smbios",
-        f"type=11,value=io.systemd.credential.binary:ssh.authorized_keys.root={credential}",
         "-serial",
         f"file:{cfg.serial_log}",
         "-display",
@@ -118,6 +131,11 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
         "none",
         "-nodefaults",
     ]
+    for text in strings:
+        command += ["-smbios", f"type=11,value={text}"]
+    if cfg.secure_boot:
+        for setting in SECURE_BOOT_GLOBALS:
+            command += ["-global", setting]
     if cfg.qmp_socket is not None:
         command += ["-qmp", f"unix:{cfg.qmp_socket},server=on,wait=off"]
     return command

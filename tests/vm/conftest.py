@@ -9,6 +9,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from harness.firmware import SecureBootKeys, enrol_keys, find_secure_boot_firmware
 from harness.qemu import (
     Vm,
     VmConfig,
@@ -27,6 +28,11 @@ def pytest_addoption(parser):
     parser.addoption("--base-disk", default="out/disk-base.raw", help="aegis-base disk image")
     parser.addoption("--local-image", default="", help="exported qcow2 (default: out/release)")
     parser.addoption("--workdir", default="out/vm", help="directory for logs and scratch files")
+    parser.addoption(
+        "--secureboot-dir",
+        default="out/secureboot",
+        help="public Secure Boot certificates written by the image build",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -53,9 +59,42 @@ def logdir(workdir) -> Path:
     return path
 
 
+@pytest.fixture(scope="session")
+def secure_boot_firmware(request, workdir, logdir) -> tuple[Path, Path]:
+    """Secure Boot firmware and a variable store with this build's keys enrolled.
+
+    Every virtual machine gets a private copy of the store, so no test can change the
+    keys another test boots with.
+    """
+    keys = SecureBootKeys.from_directory(
+        Path(request.config.getoption("--secureboot-dir")).resolve()
+    )
+    code, empty_store = find_secure_boot_firmware()
+    enrolled = workdir / "secureboot-vars-enrolled.fd"
+    report = enrol_keys(empty_store, enrolled, keys)
+    (logdir / "secureboot-enrolment.txt").write_text(
+        f"firmware code: {code}\nempty variable store: {empty_store}\n{report}"
+    )
+    return code, enrolled
+
+
 @contextlib.contextmanager
-def machine(disk: Path, name: str, workdir: Path, logdir: Path, accel: str):
-    """A virtual machine on a fresh copy-on-write disk. Tests start and stop it themselves."""
+def machine(
+    disk: Path,
+    name: str,
+    workdir: Path,
+    logdir: Path,
+    accel: str,
+    firmware: tuple[Path, Path] | None = None,
+    developer_access: bool = True,
+):
+    """A virtual machine on a fresh copy-on-write disk. Tests start and stop it themselves.
+
+    firmware: (code, variable store) of Secure Boot firmware with enrolled keys; None
+    boots with plain firmware, without Secure Boot.
+    developer_access: pass an SSH key to the guest through the firmware. Tests of the
+    release variant switch this off: nothing but the disk reaches such a machine.
+    """
     if not disk.is_file():
         pytest.fail(f"disk image {disk} not found; build it with 'make disk'")
 
@@ -67,7 +106,7 @@ def machine(disk: Path, name: str, workdir: Path, logdir: Path, accel: str):
     overlay = scratch / "disk.qcow2"
     create_overlay(disk, overlay)
 
-    code, vars_template = find_firmware()
+    code, vars_template = firmware if firmware is not None else find_firmware()
     firmware_vars = scratch / f"vars{vars_template.suffix}"
     shutil.copyfile(vars_template, firmware_vars)
 
@@ -77,10 +116,11 @@ def machine(disk: Path, name: str, workdir: Path, logdir: Path, accel: str):
         firmware_vars=firmware_vars,
         ssh_port=free_local_port(),
         serial_log=logdir / f"{name}-serial.log",
-        authorized_key=public_key,
+        authorized_key=public_key if developer_access else "",
         accel=accel,
         qmp_socket=scratch / "qmp.sock",
         probe_port=free_local_port(),
+        secure_boot=firmware is not None,
     )
     vm = Vm(cfg, key, timeout_scale=TCG_TIMEOUT_SCALE if accel == "tcg" else 1.0)
     try:
@@ -91,17 +131,30 @@ def machine(disk: Path, name: str, workdir: Path, logdir: Path, accel: str):
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+@pytest.fixture(scope="session")
+def dev_disk(request) -> Path:
+    return Path(request.config.getoption("--disk")).resolve()
+
+
+@pytest.fixture(scope="session")
+def base_disk(request) -> Path:
+    return Path(request.config.getoption("--base-disk")).resolve()
+
+
 @pytest.fixture(scope="module")
-def vm(request, workdir, logdir, accel):
-    """The development variant: reachable over SSH with a key injected for this run."""
-    disk = Path(request.config.getoption("--disk")).resolve()
-    with machine(disk, request.module.__name__, workdir, logdir, accel) as instance:
+def vm(request, dev_disk, workdir, logdir, accel, secure_boot_firmware):
+    """The development variant under Secure Boot, reachable over SSH with a key for this run."""
+    name = request.module.__name__
+    with machine(dev_disk, name, workdir, logdir, accel, secure_boot_firmware) as instance:
         yield instance
 
 
 @pytest.fixture(scope="module")
-def base_vm(request, workdir, logdir, accel):
-    """The release variant: no remote login, observed through the serial console only."""
-    disk = Path(request.config.getoption("--base-disk")).resolve()
-    with machine(disk, request.module.__name__, workdir, logdir, accel) as instance:
+def base_vm(request, base_disk, workdir, logdir, accel, secure_boot_firmware):
+    """The release variant under Secure Boot. No key, no credential, no extra firmware
+    string reaches it: it is observed through its serial console and power button only."""
+    name = request.module.__name__
+    with machine(
+        base_disk, name, workdir, logdir, accel, secure_boot_firmware, developer_access=False
+    ) as instance:
         yield instance

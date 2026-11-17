@@ -68,6 +68,8 @@ section "SELinux: types of the boot directories" "${logs}/selinux-boot-directori
 section "SELinux: processes per domain" "${logs}/boot1-process-domains.txt" 60
 
 echo "##### 3. SHORT INVENTORIES"
+section "sealed structure of aegis-base (B-06)" "${inventory}/base/sealed.txt" 20
+section "sealed structure of aegis-dev (B-06)" "${inventory}/dev/sealed.txt" 20
 wrapped "golden:base/masked-units.txt" "${inventory}/base/masked-units.txt"
 section "golden:base/setuid-files.txt" "${inventory}/base/setuid-files.txt" 80
 section "golden:base/file-capabilities.txt" "${inventory}/base/file-capabilities.txt" 40

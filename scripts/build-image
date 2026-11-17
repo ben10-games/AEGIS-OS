@@ -77,6 +77,18 @@ for variant in base dev; do
     .
 done
 
+# The command line each UKI was sealed with (it contains the root digest). The VM tests
+# compare the running system's command line with it.
+mkdir -p out/sealed
+for variant in base dev; do
+  "${as_root[@]}" podman run --rm --network=none \
+    --mount "type=image,source=localhost/aegis-${variant}:latest,destination=/target" \
+    localhost/aegis-builder:latest \
+    bash -c 'objcopy -O binary --only-section=.cmdline /target/boot/EFI/Linux/*.efi /dev/stdout' \
+    | tr -d '\0' > "out/sealed/${variant}-cmdline.txt"
+  echo "sealed command line of aegis-${variant}: $(cat "out/sealed/${variant}-cmdline.txt")"
+done
+
 # The public halves, for the tests that enrol them in the virtual firmware.
 mkdir -p out/secureboot
 cp "${keys}"/{PK,KEK,db,untrusted}.crt "${keys}/owner-guid.txt" out/secureboot/

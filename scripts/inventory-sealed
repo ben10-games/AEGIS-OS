@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Runs inside the tools container, with a sealed image mounted read-only at /target and
+# the public Secure Boot certificates at /certs (see scripts/inventory-image).
+# Prints the facts test B-06 checks, as key=value lines. Nothing in the image runs.
+set -euo pipefail
+
+target=/target
+certs=/certs
+
+verifies() {
+  if sbverify --cert "$1" "$2" > /dev/null 2>&1; then echo yes; else echo no; fi
+}
+present() {
+  if [[ -e "$1" ]]; then echo yes; else echo no; fi
+}
+
+mapfile -t ukis < <(find "${target}/boot/EFI/Linux" -maxdepth 1 -type f -name '*.efi' 2> /dev/null | sort)
+echo "uki_count=${#ukis[@]}"
+uki="${ukis[0]:-/nonexistent}"
+echo "uki_name=$(basename "${uki}")"
+echo "uki_signed_by_db=$(verifies "${certs}/db.crt" "${uki}")"
+echo "uki_signed_by_untrusted=$(verifies "${certs}/untrusted.crt" "${uki}")"
+
+loader="${target}/usr/lib/systemd/boot/efi/systemd-bootx64.efi"
+echo "boot_loader_signed_by_db=$(verifies "${certs}/db.crt" "${loader}")"
+echo "boot_loader_signed_by_untrusted=$(verifies "${certs}/untrusted.crt" "${loader}")"
+
+echo "kernel_files_outside_uki=$(find "${target}/usr/lib/modules" -maxdepth 2 \
+  \( -name vmlinuz -o -name initramfs.img \) | wc -l)"
+echo "bootupd_present=$(present "${target}/usr/bin/bootupctl")"
+echo "ostree_prepare_root_conf_present=$(present "${target}/usr/lib/ostree/prepare-root.conf")"
+echo "composefs_setup_root_conf_present=$(present "${target}/usr/lib/composefs/setup-root-conf.toml")"
+
+cmdline="$(objcopy -O binary --only-section=.cmdline "${uki}" /dev/stdout 2> /dev/null | tr -d '\0' || true)"
+echo "cmdline=${cmdline}"
+
+# The digest of the image as it is now. It must be the one the UKI was sealed with:
+# any change to the root filesystem after sealing would show up here.
+echo "digest_recomputed=$(bootc container compute-composefs-digest "${target}" 2>&1 | tail -n 1)"
