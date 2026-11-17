@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Refuse to run with a kernel command line other than the sealed one.
+#
+# The command line of AEGIS OS is signed inside its UKI. Under Secure Boot systemd-stub
+# ignores a command line passed by the boot loader, but it still appends one string
+# from the firmware's SMBIOS tables (io.systemd.stub.kernel-cmdline-extra). Whoever
+# controls those tables (a hypervisor, the platform firmware) could add, for example,
+# enforcing=0 (CI run 44093307831). Without a measured-boot policy nothing else would
+# notice, so this check runs in the sealed root filesystem before sysinit.target and
+# stops the machine if the running command line contains anything else.
+#
+# Allowed, and required: every argument in /usr/lib/bootc/kargs.d/*.toml (part of the
+# sealed root), and exactly one composefs.digest= and one composefs= argument.
+set -euo pipefail
+
+expected=()
+for file in /usr/lib/bootc/kargs.d/*.toml; do
+  [[ -e "${file}" ]] || continue
+  while IFS= read -r argument; do
+    expected+=("${argument}")
+  done < <(sed -e 's/[[:space:]]#.*$//' -e '/^[[:space:]]*#/d' "${file}" | tr '\n' ' ' \
+    | grep -oE 'kargs[[:space:]]*=[[:space:]]*\[[^]]*\]' | grep -oE '"[^"]*"' | tr -d '"')
+done
+
+read -r -a running < /proc/cmdline
+
+problems=()
+v1=0
+v2=0
+for argument in "${running[@]}"; do
+  if [[ "${argument}" =~ ^composefs\.digest=v1-sha512-12:[0-9a-f]{128}$ ]]; then
+    v1=$((v1 + 1))
+    continue
+  fi
+  if [[ "${argument}" =~ ^composefs=[0-9a-f]{128}$ ]]; then
+    v2=$((v2 + 1))
+    continue
+  fi
+  allowed=no
+  for wanted in "${expected[@]}"; do
+    [[ "${argument}" == "${wanted}" ]] && allowed=yes && break
+  done
+  [[ "${allowed}" == yes ]] || problems+=("unexpected argument: ${argument}")
+done
+for wanted in "${expected[@]}"; do
+  found=no
+  for argument in "${running[@]}"; do
+    [[ "${argument}" == "${wanted}" ]] && found=yes && break
+  done
+  [[ "${found}" == yes ]] || problems+=("missing argument: ${wanted}")
+done
+[[ "${v1}" -eq 1 ]] || problems+=("expected one composefs.digest= argument, found ${v1}")
+[[ "${v2}" -eq 1 ]] || problems+=("expected one composefs= argument, found ${v2}")
+
+if [[ "${#problems[@]}" -gt 0 ]]; then
+  echo "AEGIS: the kernel command line differs from the sealed one; stopping the machine."
+  printf 'AEGIS:   %s\n' "${problems[@]}"
+  exit 1
+fi
+echo "AEGIS: kernel command line is the sealed one (${#running[@]} arguments)"

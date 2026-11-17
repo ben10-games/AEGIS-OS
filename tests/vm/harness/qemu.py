@@ -96,12 +96,32 @@ ExecStart=/bin/sh -c 'echo "AEGIS-DIAG BEGIN"; \\
 """
 
 
+SHUTDOWN_DIAGNOSTIC_UNIT = """[Unit]
+Description=AEGIS test diagnostics: what still holds /var at shutdown
+After=var.mount
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+StandardOutput=tty
+TTYPath=/dev/ttyS0
+ExecStop=/bin/sh -c 'echo "AEGIS-SHUTDOWN-DIAG BEGIN"; \\
+  lsof -n -w /var 2>/dev/null | head -n 40; \\
+  echo "AEGIS-SHUTDOWN-DIAG END"'
+"""
+
+
 def console_diagnostic_credentials() -> list[str]:
     """systemd credentials that add the diagnostic unit and pull it into the boot."""
     unit = base64.b64encode(DIAGNOSTIC_UNIT.encode()).decode()
-    dropin = base64.b64encode(b"[Unit]\nWants=aegis-diagnostics.service\n").decode()
+    shutdown = base64.b64encode(SHUTDOWN_DIAGNOSTIC_UNIT.encode()).decode()
+    dropin = base64.b64encode(
+        b"[Unit]\nWants=aegis-diagnostics.service aegis-shutdown-diagnostics.service\n"
+    ).decode()
     return [
         f"io.systemd.credential.binary:systemd.extra-unit.aegis-diagnostics.service={unit}",
+        "io.systemd.credential.binary:systemd.extra-unit.aegis-shutdown-diagnostics.service="
+        + shutdown,
         f"io.systemd.credential.binary:systemd.unit-dropin.multi-user.target={dropin}",
     ]
 

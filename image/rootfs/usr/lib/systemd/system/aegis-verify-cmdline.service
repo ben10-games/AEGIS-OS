@@ -1,0 +1,15 @@
+# See /usr/libexec/aegis/verify-cmdline. Enabled statically (a link under /usr/lib in
+# sysinit.target.wants), so it cannot be switched off through /etc presets.
+[Unit]
+Description=AEGIS: refuse a kernel command line other than the sealed one
+DefaultDependencies=no
+Before=sysinit.target shutdown.target
+Conflicts=shutdown.target
+FailureAction=poweroff-force
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/aegis/verify-cmdline
+StandardOutput=journal+console
+StandardError=journal+console

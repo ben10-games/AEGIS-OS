@@ -133,6 +133,12 @@ def test_v07_offline_change_to_a_root_file_is_never_returned(
         vm.start()
         vm.wait_for_ssh(SSH_DEADLINE_S)
         read = vm.ssh(f"cat {CANARY}", check=False)
+        where = vm.ssh(
+            "grep -rlF 'the QUICK' /sysroot 2>/dev/null | head -n 5;"
+            " echo ---; grep -rlF 'canary line 63: the quick' /sysroot 2>/dev/null | head -n 5",
+            timeout=600,
+            check=False,
+        ).stdout
         kernel = vm.ssh(
             "journalctl -k -b --no-pager -o cat | grep -iE 'verity|csum|checksum|integrity'"
             " | tail -n 20",
@@ -140,10 +146,14 @@ def test_v07_offline_change_to_a_root_file_is_never_returned(
         ).stdout
         (logdir / "v07-root-object.txt").write_text(
             f"places changed on disk: {changed}\nread exit status: {read.returncode}\n"
-            f"read error: {read.stderr}\nkernel messages:\n{kernel}"
+            f"read error: {read.stderr}\nkernel messages:\n{kernel}\n"
+            f"files with the changed bytes / the original bytes:\n{where}"
         )
     assert "QUICK" not in read.stdout, "modified content of a sealed file was returned"
-    assert read.returncode != 0, "reading the modified file did not fail"
+    assert read.returncode != 0, (
+        f"reading the modified file did not fail; {changed} place(s) changed on disk;"
+        f" files with changed / original bytes:\n{where}"
+    )
     assert "Input/output error" in read.stderr
 
 
@@ -172,23 +182,21 @@ def test_boot_loader_options_cannot_change_the_command_line(
     assert mode == "Enforcing"
 
 
-def test_firmware_supplied_command_line_extension_is_reported(
-    dev_disk, scratch, workdir, logdir, accel, secure_boot_firmware
+def test_firmware_supplied_command_line_extension_stops_the_machine(
+    base_disk, scratch, workdir, logdir, accel, secure_boot_firmware
 ):
-    """systemd-stub appends io.systemd.stub.kernel-cmdline-extra from SMBIOS even under
-    Secure Boot. Whoever controls the firmware tables (the hypervisor, or the platform
-    firmware) can therefore add kernel arguments. This test records what happens, and
-    requires that SELinux at least stays enforcing (see security-baseline.md)."""
-    disk = private_copy(dev_disk, scratch / "disk.raw")
+    """systemd-stub appends io.systemd.stub.kernel-cmdline-extra from the firmware's
+    SMBIOS tables even under Secure Boot; run 44093307831 showed that 'enforcing=0'
+    there switched SELinux to permissive. aegis-verify-cmdline.service (sealed root)
+    must therefore stop the machine before sysinit.target, and say why."""
+    disk = private_copy(base_disk, scratch / "disk.raw")
     extra = ("io.systemd.stub.kernel-cmdline-extra=enforcing=0 aegis.smbios=1",)
     with machine(disk, "integrity-smbios-cmdline", workdir, logdir, accel, secure_boot_firmware,
-                 smbios_strings=extra) as vm:  # fmt: skip
+                 developer_access=False, smbios_strings=extra) as vm:  # fmt: skip
         vm.start()
-        vm.wait_for_ssh(SSH_DEADLINE_S)
-        command_line = vm.ssh("cat /proc/cmdline").stdout
-        mode = vm.ssh("getenforce").stdout.strip()
-    appended = "aegis.smbios=1" in command_line
-    (logdir / "boot-parameters-smbios.txt").write_text(
-        f"appended: {appended}\ncommand line: {command_line}\nSELinux: {mode}\n"
-    )
-    assert mode == "Enforcing"
+        status = vm.wait_for_exit(180)
+        console = vm.serial_text()
+    (logdir / "boot-parameters-smbios.txt").write_text(console[-3000:])
+    assert "unexpected argument: enforcing=0" in console, console[-1500:]
+    assert not LOGIN_PROMPT.search(console), "the machine reached a login prompt"
+    assert status == 0, "the machine did not power itself off"

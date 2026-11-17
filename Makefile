@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 
-SHELL_SCRIPTS := $(shell git ls-files 'scripts/*' 'image/build/*' 'local-vm/*.sh')
+SHELL_SCRIPTS := $(shell git ls-files 'scripts/*' 'image/build/*' 'local-vm/*.sh' 'image/rootfs/usr/libexec/aegis/*')
 YAML_FILES := $(shell git ls-files '*.yml' '*.yaml')
 
 .PHONY: help

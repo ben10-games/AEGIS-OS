@@ -99,9 +99,20 @@ def test_v06_root_file_objects_are_protected_by_fs_verity(guest, logdir):
 
 
 def test_v06_etc_and_var_are_outside_the_sealed_root(guest):
-    """Documented boundary: /etc and /var are the machine's state and are writable."""
-    for path in ("/etc", "/var"):
+    """Documented boundary: /etc and /var are the machine's state and are writable.
+
+    Also proves the sealed command-line check ran and accepted this boot."""
+    # /etc belongs to the deployment; /var is shared by all deployments of the OS.
+    expected = {"/etc": "/state/deploy/", "/var": "/state/os/"}
+    for path, prefix in expected.items():
         source = guest.ssh(f"findmnt -no SOURCE {path}").stdout.strip()
-        assert "/state/deploy/" in source, f"{path} comes from {source}"
+        assert prefix in source, f"{path} comes from {source}"
     guest.ssh("touch /etc/aegis-state-probe /var/aegis-state-probe")
     guest.ssh("rm -f /etc/aegis-state-probe /var/aegis-state-probe")
+
+
+def test_sealed_command_line_check_accepted_this_boot(guest):
+    """aegis-verify-cmdline.service ran before sysinit.target and found nothing to object to."""
+    assert guest.ssh("systemctl is-active aegis-verify-cmdline.service").stdout.strip() == "active"
+    log = guest.ssh("journalctl -b -u aegis-verify-cmdline.service --no-pager -o cat").stdout
+    assert "kernel command line is the sealed one" in log
