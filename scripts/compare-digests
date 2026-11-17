@@ -31,11 +31,13 @@ fi
   > "${output}/mounted.digest"
 
 # View 2: the image imported from container storage (what 'bootc install' reads).
+# The same way 'scripts/build-disk' gives the installer the host's storage.
 "${as_root[@]}" podman run --rm --network=none --privileged \
-  -v /var/lib/containers:/run/host-container-storage:ro \
+  -v /var/lib/containers:/var/lib/containers \
   -v "${output}:/output" \
   "${image}" \
   bootc container compute-composefs-digest-from-storage --write-dumpfile-to /output/storage.dump \
+  "containers-storage:${image}" \
   > "${output}/storage.digest"
 
 echo "digest as mounted:      $(tail -n 1 "${output}/mounted.digest")"
