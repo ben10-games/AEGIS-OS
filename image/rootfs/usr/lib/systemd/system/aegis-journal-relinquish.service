@@ -1,0 +1,16 @@
+# BUG-8: with bootc's composefs backend /var is its own mount, and at shutdown it could
+# not be unmounted ("target is busy") although every service had stopped: journald
+# still had /var/log/journal open. This unit stops right before /var is unmounted and
+# asks journald to move to /run (journalctl --relinquish-var). Enabled statically.
+[Unit]
+Description=AEGIS: make journald release /var before it is unmounted
+DefaultDependencies=no
+RequiresMountsFor=/var/log/journal
+After=var.mount systemd-journald.service
+Before=local-fs.target shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+ExecStop=/usr/bin/journalctl --relinquish-var

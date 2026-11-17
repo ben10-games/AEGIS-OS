@@ -66,7 +66,7 @@ census() {
     | tr '\0' '\n' | awk -F: 'NF >= 3 {count[$3]++} END {for (t in count) print count[t], t}' \
     | sort -rn | head -n 12 | paste -sd' ' || true
 }
-echo "physical root: $(ls -A "${mountpoint}" | paste -sd' ')"
+echo "physical root: $(find "${mountpoint}" -mindepth 1 -maxdepth 1 -printf '%f ')"
 echo "files without any SELinux label: $(find "${mountpoint}" -xdev \
   \( -path "${mountpoint}/ostree/repo" -o -path "${mountpoint}/composefs/objects" \) -prune -o -print0 \
   | while IFS= read -r -d '' path; do [[ -n "$(label_of "${path}")" ]] || echo "${path}"; done | wc -l)"
