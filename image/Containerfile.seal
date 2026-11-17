@@ -16,10 +16,17 @@ FROM ${ROOTFS} AS kernel
 RUN mkdir /kernel && bootc container split-kernel-and-rootfs --rootfs / --output /kernel
 
 # The root filesystem without them. This stage becomes the image.
+#
+# Timestamps are reset to the epoch, as Fedora's base image has them. 'bootc install'
+# imports the image from container storage and does not see the build-time mtimes of
+# directories that our layers changed, while the UKI build below reads them from the
+# mounted filesystem: without this step the two digests differ and the image does not
+# install (CI run 44074603737). It also makes the digest independent of build time.
 FROM ${ROOTFS} AS split
 RUN mkdir -p /var/tmp/aegis-split \
     && bootc container split-kernel-and-rootfs --rootfs / --output /var/tmp/aegis-split \
-    && rm -rf /var/tmp/aegis-split
+    && rm -rf /var/tmp/aegis-split \
+    && find / -xdev -exec touch -h -d @0 {} +
 
 # The signing key is a build secret: mounted for this command, never stored in a layer.
 FROM ${TOOLS} AS sealed-uki

@@ -47,7 +47,7 @@ if [[ "$(tail -n 1 "${output}/mounted.digest")" == "$(tail -n 1 "${output}/stora
   exit 0
 fi
 echo "DIGEST VIEWS: DIFFERENT; first differences (- mounted, + storage):"
-"${as_root[@]}" diff -u "${output}/mounted.dump" "${output}/storage.dump" \
-  | grep -E '^[-+][^-+]' | cut -c1-260 | head -n 60 || true
+"${as_root[@]}" diff -u "${output}/mounted.dump" "${output}/storage.dump" > "${output}/dump.diff" || true
+grep -E '^[-+][^-+]' "${output}/dump.diff" | head -n 60 | cut -c1-260
 echo "lines that differ: $("${as_root[@]}" diff "${output}/mounted.dump" "${output}/storage.dump" | grep -c '^[<>]' || true)"
 exit 1
