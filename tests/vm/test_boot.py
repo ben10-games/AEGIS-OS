@@ -56,6 +56,11 @@ def collect_diagnostics(vm, logdir, tag: str) -> None:
             " echo; bootctl status --no-pager 2>&1 | head -n 45;"
             " echo; bootctl list --no-pager 2>&1 | head -n 30"
         ),
+        # Candidates for "/var busy at shutdown": what has files open under /var.
+        "var-holders": (
+            "findmnt -R /var; echo; lsof -n -w /var 2>/dev/null"
+            " | awk 'NR > 1 {print $1, $2, $9}' | sort -u | head -n 60"
+        ),
         # On the second boot: what the previous shutdown logged about unmounting.
         "previous-shutdown": (
             "journalctl -b -1 -o short-monotonic --no-pager 2>/dev/null"

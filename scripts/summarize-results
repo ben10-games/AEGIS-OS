@@ -64,6 +64,7 @@ section "ssh listeners and units" "${logs}/boot1-ssh-listeners.txt" 30
 section "SELinux policy status and module store" "${logs}/boot1-selinux-store.txt" 30
 section "boot chain: firmware, boot loader, kernel, root" "${logs}/boot1-boot-chain.txt" 110
 section "EFI system partition" "${logs}/boot1-esp.txt" 80
+section "processes with files open under /var (running system)" "${logs}/boot1-var-holders.txt" 60
 section "previous shutdown, seen from the second boot" "${logs}/boot2-previous-shutdown.txt" 60
 section "SELinux: types of the boot directories" "${logs}/selinux-boot-directories.txt" 20
 section "SELinux: processes per domain" "${logs}/boot1-process-domains.txt" 60

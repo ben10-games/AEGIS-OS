@@ -115,3 +115,15 @@ def replace_bytes(image: Path, old: bytes, new: bytes) -> int:
                 start = found + 1
             position += chunk
     return changed
+
+
+def corrupt(image: Path, offset: int, length: int = 64) -> bytes:
+    """Invert `length` bytes at `offset` of a raw disk image file. Returns the old bytes."""
+    with image.open("r+b") as handle:
+        handle.seek(offset)
+        old = handle.read(length)
+        if len(old) != length:
+            raise DiskError(f"offset {offset} is beyond the end of {image}")
+        handle.seek(offset)
+        handle.write(bytes(b ^ 0xFF for b in old))
+    return old

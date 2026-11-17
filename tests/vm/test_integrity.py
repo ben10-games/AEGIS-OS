@@ -12,13 +12,14 @@ from __future__ import annotations
 
 import contextlib
 import re
+import shlex
 import subprocess
 import tempfile
 from pathlib import Path
 
 import pytest
 from conftest import machine
-from harness.disk import Esp, private_copy, replace_bytes
+from harness.disk import Esp, corrupt, private_copy
 
 KERNEL_STARTED = re.compile(r"Linux version \d")
 LOGIN_PROMPT = re.compile(r"aegis login:")
@@ -121,39 +122,61 @@ def test_v05_unsigned_boot_loader_is_rejected(base_disk, scratch, workdir, logdi
     (logdir / "v05-unsigned-loader.txt").write_text(f"rejected with: {message}\n")
 
 
+LOCATE_OBJECT = r"""
+set -eu
+object="$(grep -rlF 'AEGIS OS integrity canary.' /sysroot/composefs/objects | head -n 1)"
+device="$(findmnt -no SOURCE /sysroot | sed 's/\[.*//')"
+block="$(stat -f -c %S "$object")"
+extent="$(filefrag -v "$object" | awk '$1 == "0:" {print $4}' | tr -d '.')"
+logical=$((extent * block))
+physical="$(btrfs-map-logical -l "$logical" "$device" | awk '/mirror 1/ {print $6; exit}')"
+start="$(cat /sys/class/block/$(basename "$device")/start)"
+echo "object=$object"
+echo "device=$device"
+echo "filefrag=$(filefrag -v "$object" | sed -n '4p')"
+echo "logical=$logical"
+echo "physical=$physical"
+echo "offset=$((start * 512 + physical))"
+"""
+
+
 def test_v07_offline_change_to_a_root_file_is_never_returned(
     dev_disk, scratch, workdir, logdir, accel, secure_boot_firmware
 ):
-    """V-07: change the stored bytes of a sealed root file on the disk; it must not be served."""
+    """V-07: change the stored bytes of a sealed root file on the disk; they must never be
+    served. The running system names the disk location of the file's object (btrfs
+    extent mapped to a device offset); the bytes there are then changed offline."""
     disk = private_copy(dev_disk, scratch / "disk.raw")
-    changed = replace_bytes(disk, b"canary line 63: the quick", b"canary line 63: the QUICK")
-    assert changed >= 1, "the canary's bytes were not found on the disk"
+    with machine(disk, "integrity-root-object-locate", workdir, logdir, accel,
+                 secure_boot_firmware) as vm:  # fmt: skip
+        vm.start()
+        vm.wait_for_ssh(SSH_DEADLINE_S)
+        located = vm.ssh(f"sh -c {shlex.quote(LOCATE_OBJECT)}", timeout=600).stdout
+        original = vm.ssh(f"cat {CANARY}").stdout
+    facts = dict(line.split("=", 1) for line in located.splitlines() if "=" in line)
+    offset = int(facts["offset"])
+    # The first machine ran on a copy-on-write overlay; the raw copy is still exactly
+    # as installed, so the offset is valid for it.
+    old = corrupt(disk, offset)
     with machine(disk, "integrity-root-object", workdir, logdir, accel,
                  secure_boot_firmware) as vm:  # fmt: skip
         vm.start()
         vm.wait_for_ssh(SSH_DEADLINE_S)
         read = vm.ssh(f"cat {CANARY}", check=False)
-        where = vm.ssh(
-            "grep -rlF 'the QUICK' /sysroot 2>/dev/null | head -n 5;"
-            " echo ---; grep -rlF 'canary line 63: the quick' /sysroot 2>/dev/null | head -n 5",
-            timeout=600,
-            check=False,
-        ).stdout
         kernel = vm.ssh(
             "journalctl -k -b --no-pager -o cat | grep -iE 'verity|csum|checksum|integrity'"
             " | tail -n 20",
             check=False,
         ).stdout
-        (logdir / "v07-root-object.txt").write_text(
-            f"places changed on disk: {changed}\nread exit status: {read.returncode}\n"
-            f"read error: {read.stderr}\nkernel messages:\n{kernel}\n"
-            f"files with the changed bytes / the original bytes:\n{where}"
-        )
-    assert "QUICK" not in read.stdout, "modified content of a sealed file was returned"
-    assert read.returncode != 0, (
-        f"reading the modified file did not fail; {changed} place(s) changed on disk;"
-        f" files with changed / original bytes:\n{where}"
+    (logdir / "v07-root-object.txt").write_text(
+        f"{located}\nbytes changed at disk offset {offset}: {old[:32]!r}...\n"
+        f"read exit status: {read.returncode}\nread error: {read.stderr}\n"
+        f"kernel messages:\n{kernel}"
     )
+    assert original.startswith("AEGIS OS integrity canary."), "control read failed"
+    assert old != bytes(len(old)), f"offset {offset} held only zeros; wrong location?"
+    assert read.stdout != original, "the original content was served from a changed disk"
+    assert read.returncode != 0, "reading the changed file did not fail"
     assert "Input/output error" in read.stderr
 
 
