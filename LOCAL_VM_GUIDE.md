@@ -22,7 +22,7 @@ everything.
 | Memory for the VM | 4 GiB | 2 GiB |
 | Free disk space | 8 GiB | 5 GiB |
 | Firmware for the VM | UEFI (OVMF). Legacy BIOS boot is not supported. | |
-| Secure Boot in the VM | off (not tested yet; arrives with milestone M3) | |
+| Secure Boot in the VM | off. The image is sealed (signed UKI, verified root), but the launchers use firmware without the project's keys, so the firmware does not verify the boot chain. Secure Boot is tested in CI with keys that exist only for one run. | |
 | TPM in the VM | none needed | |
 
 The image has a virtual size of 12 GiB and grows as the guest writes to it.
@@ -276,7 +276,9 @@ any physical hardware.
 
 - Development variant: it includes an SSH server and a self-test SELinux module that a
   release image does not have.
-- No disk encryption, no Secure Boot verification, no signed updates yet.
+- No disk encryption and no signed updates yet. The root filesystem is verified (composefs
+  with fs-verity), but in these launchers nothing verifies the UKI, because the firmware
+  has no keys enrolled.
 - No graphical desktop.
 - Each build is signed by nothing; trust comes from the checksum and from the GitHub
   run that produced it.

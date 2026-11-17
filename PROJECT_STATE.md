@@ -9,9 +9,10 @@ only if it actually ran and passed, with the commit and where it ran.
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
 - **Phase / milestone:** Phase 1. M0, M1 and **M2 (baseline configuration) are
   complete**; see sections 4 and 5 and `docs/architecture/security-baseline.md`.
-- **Next task:** milestone M3 (sealed boot chain, P1-10 to P1-12) is **in progress**;
-  see "M3 progress" below. Nothing of M3 counts as verified until it is listed in
-  section 5.
+- **Next task:** confirm BUG-8 (shutdown) is fixed in the run of the commit that wrote
+  this, then M3 is implementation-complete with gate G1 pending. M4 (signing,
+  registry, update and rollback tests, P1-13 and P1-14) closes G1 and needs the
+  owner's go-ahead. See "M3 progress" below and section 5.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the end of the `build` job log: the "Collect results"
   step prints `scripts/summarize-results`, with short inventories, the differences
@@ -25,34 +26,37 @@ only if it actually ran and passed, with the commit and where it ran.
 
 ### M3 progress (sealed boot chain)
 
-Precondition, done: the base image is mirrored to
+**State: implementation complete, verification nearly complete, gate G1 pending.**
+The sealed boot chain boots in CI under Secure Boot, and the M3 security tests pass
+(run 44100054742 on `21bb955`: 25 image tests and 76 of 77 VM tests). The one open
+failure is `/var` busy at shutdown (BUG-8), with a fix pushed in the commit that
+records this. Update and rollback (V-13, V-14) need M4, so G1 stays open and
+ADR-0004 stays Provisional.
+
+Boot chain as built: OVMF Secure Boot with only the build's throw-away keys
+→ signed systemd-boot 262 → signed UKI (ukify; command line = `kargs.d` + composefs
+digests) → composefs root with fs-verity → SELinux enforcing →
+`aegis-verify-cmdline.service`. Details and the four deviations from bootc's
+documented pattern are in ADR-0004.
+
+Precondition done: the base image is mirrored to
 `ghcr.io/ben10-games/aegis-os/fedora-bootc` with the upstream digest unchanged
-(`mirror-base` run 43851534053) and builds pin that copy; see
-`docs/operations/base-image.md`. BUG-7 is closed for commits from this point on.
+(`mirror-base` run 43851534053), builds pin that copy
+(`docs/operations/base-image.md`).
 
-Facts established before the design (probe run 43851547364, bootc 1.17.1 sources and
-documentation at tag `v1.17.1`):
+Iterations, for the record (each a CI run on this branch):
 
-- The base's bootc has `container ukify`, `split-kernel-and-rootfs` and
-  `compute-composefs-digest`; its initramfs already contains `bootc-root-setup.service`.
-- Fedora 45 ships `systemd-boot-unsigned`, `systemd-ukify`, `sbsigntools`,
-  `python3-virt-firmware`, and Secure Boot firmware `OVMF_CODE.secboot.fd` (needs SMM)
-  with an empty variable store `OVMF_VARS.fd`.
-- Upstream tests the composefs backend on ext4 and XFS; btrfs is "expected to work but
-  untested". AEGIS uses btrfs (ADR-0005), so this is a risk to watch.
-- systemd-stub 262 ignores a command line passed by the boot loader when Secure Boot
-  is on and the UKI has its own, but it still appends
-  `io.systemd.stub.kernel-cmdline-extra` from SMBIOS (firmware-level input).
-
-Implemented, **not yet verified**: sealed build (`image/Containerfile`,
-`image/Containerfile.seal`, `image/build/seal-uki`), throw-away Secure Boot keys
-(`scripts/dev-keys`), console arguments in the image (a sealed command line cannot be
-set at install time).
-
-Still to do: first sealed boot; Secure Boot firmware with enrolled keys in the harness;
-positive tests (B-06, V-04, V-06); negative tests (V-05, V-07, boot parameters);
-developer access review; local VM image; ADR-0004; measurements. Update and rollback
-(V-13, V-14) belong to M4, so gate G1 stays open after M3.
+| Run | Finding | Fix |
+|---|---|---|
+| 43852846119 | UKIs signed, but install rejected the digest | diagnose |
+| 44074603737 | digest views differ in directory mtimes | reset timestamps (did not help) |
+| 44076988380 | lower-layer metadata wins on install; mtime-only changes are dropped | seal the from-storage digest (ADR-0004, deviation 1) |
+| 44078774510 | installs and boots under Secure Boot; logind fails | label deployment state |
+| 44086672654 | `/var` read-only (console diagnostics) | `rw` in `kargs.d` |
+| 44090714344 | 60 of 62 VM tests pass | shutdown and label fixes, M3 tests added |
+| 44093307831 | V-05 passes; SMBIOS `enforcing=0` made SELinux permissive | `aegis-verify-cmdline.service` |
+| 44096629031 | SMBIOS extension now stops the machine; V-07 hit a stale copy | locate the live object |
+| 44100054742 | V-07 passes; only `/var` busy at shutdown left | `var.mount` ordered before `local-fs.target` |
 
 ### Local VM image (owner request, done)
 
@@ -116,9 +120,9 @@ image.
 | P1-07 | Variant split and golden manifests | done | `5d839d4`; `build` run 43547501384 |
 | P1-08 | Operating system baseline | done | `e378b1e`; `build` run 43554108533 (identity, services, firewall, audit, kernel arguments, sysctl, networking) |
 | P1-09 | SELinux enforcement validation | done | `c3308a8`; `build` run 43557838924 (V-08: zero denials, labels, enforcement self-test) |
-| P1-10 | Ephemeral key tooling | todo | |
-| P1-11 | Sealed image, gate G1 | todo | |
-| P1-12 | Tamper and negative boot tests | todo | |
+| P1-10 | Ephemeral key tooling | done | `scripts/dev-keys`; keys generated per CI run, private keys only in the job workspace |
+| P1-11 | Sealed image, gate G1 | in progress | implemented; G1 pending (V-13/V-14 need M4);  `21bb955`; `build` run 44100054742 |
+| P1-12 | Tamper and negative boot tests | done | `21bb955`; `build` run 44100054742 |
 | P1-13 | Signing and signature policy | todo | |
 | P1-14 | Update and rollback tests | todo | |
 | P1-15 | Input pinning | todo | |
@@ -213,7 +217,45 @@ still the unmodified Fedora service set, so this is expected to change in P1-08.
 | Local VM image: exported QCOW2 started with the published Linux launcher; console autologin, SSH, health, SELinux enforcing, power-off, unchanged checksum (7 tests) | pass | `aafc33a` | GitHub Actions run 43719668136, KVM |
 | Local VM image: published artifact started with the PowerShell launcher; checksums, console autologin, SSH, SELinux enforcing, power-off | pass | `aafc33a` | GitHub Actions run 43719668136, job `windows-launch`, Windows Server 2025, software emulation |
 
-Not yet run: B-05 to B-07, V-04 to V-07, V-09, V-12 to V-16, V-18 (except the parts noted above), all R tests.
+### M3 tests (sealed boot chain)
+
+All in GitHub Actions run 44100054742 on `21bb955`, KVM, OVMF Secure Boot firmware with
+only that run's throw-away keys enrolled (`virt-fw-vars`).
+
+| Test | Result | Evidence |
+|---|---|---|
+| B-06 Sealed structure, both variants: one UKI, no kernel outside it, no bootupd, composefs backend selected; UKI and boot loader verify against the db certificate and not against an unrelated one; UKI command line carries the image's storage digest (no `?`) and every golden argument | pass | `tests/image/test_sealed.py` |
+| V-04 Secure Boot: `SecureBoot`=1, `SetupMode`=0, `bootctl`: "enabled (user)"; kernel "Secure boot enabled", lockdown `[integrity]`; booted by systemd-boot then systemd-stub | pass | `tests/vm/test_secure_boot.py` |
+| V-06 Sealed root: `/proc/cmdline` equals the signed command line; `/` is a read-only composefs overlay of the deployed digest; the stored object of a root file has the fs-verity flag; `/usr` not writable | pass | as above. The write attempt on the object failed with "Read-only file system" (the physical root is read-only at runtime); it does not by itself demonstrate fs-verity |
+| `/etc` (per deployment) and `/var` (`/state/os/default/var`) are writable state outside the sealed root | pass | as above |
+| V-05 Unsigned UKI rejected (systemd-boot: "Error loading") | pass | `tests/vm/test_integrity.py` |
+| V-05 UKI with one byte of its signed command line changed (`audit=1`→`audit=0`) rejected ("Error loading") | pass | as above |
+| V-05 Unsigned boot loader rejected (firmware: "Access Denied -- rejected probably by Secure Boot") | pass | as above |
+| Control: the unchanged disk boots with the same firmware and keys | pass | as above |
+| V-07 64 bytes of the live object of a sealed root file inverted on the disk (offset located with filefrag and btrfs-map-logical): reading the file fails with "Input/output error", the content is never served | pass | as above. Which layer refused the data (btrfs checksums or fs-verity) was not logged; both would |
+| Boot-entry `options enforcing=0 aegis.tamper=1` added on the ESP: ignored, SELinux enforcing | pass | as above |
+| `io.systemd.stub.kernel-cmdline-extra=enforcing=0` in SMBIOS: the machine powers itself off before `sysinit.target` with "unexpected argument: enforcing=0" | pass (after the fix; failed in run 44093307831) | as above |
+| All M1/M2 tests on the sealed images under Secure Boot | pass except the release variant's clean power-off (BUG-8) | 76 of 77 |
+
+### Measurements after M3
+
+`aegis-dev`, first boot, run 44100054742, same runner type as M2. Startup time is
+measured by systemd and excludes firmware and boot loader.
+
+| Metric | M2 (run 43557838924) | M3 |
+|---|---|---|
+| Startup, first boot | 9.3 s | 9.7 s (0.9 + 2.8 + 6.0) |
+| Startup, second boot | 7.4 s | 8.4 s |
+| Memory in use | 509–529 MiB | 488 MiB |
+| Running services | 22 | 21 (bootloader-update gone) |
+| Enabled units | 58 | 57 |
+| SELinux denials | 0 | 0 |
+| Exported QCOW2 | 1.15 GiB | 1.53 GiB |
+| `build` workflow duration | 17 min | 19 min (15 more tests, 7 extra boots) |
+
+Single runs on shared runners; differences under a second are not significant.
+
+Not yet run: B-05, B-07, V-09, V-12 to V-16 (V-13/V-14 are G1 criteria, M4), V-18, all R tests.
 
 ### Measurements before and after M2
 
@@ -256,15 +298,27 @@ Nothing has been verified on a local workstation or on physical hardware.
 | BUG-6 | `ausearch -ts boot` returns nothing on the test VM although the audit log is being written (run 43554108533). | Tests that query the audit log by "since boot" would silently see no events. | The SELinux tests read the whole audit log and the journal and filter by time themselves. Cause not yet investigated. |
 | BUG-5 | The initramfs is the one built by Fedora. It contains Fedora's `os-release`, so early boot identifies itself as Fedora and sets the hostname `fedora` until the real system applies `/etc/hostname`. | Cosmetic in M2. | The initramfs is regenerated when the UKI is built for the sealed boot chain (P1-11). |
 | BUG-7 | Closed (`mirror-base` run 43851534053). The base image pin did not last: quay.io dropped the digests of 2026-11-13 and 2026-11-15 within one to two days; the repository has only moving tags. | Commits before the mirror cannot be rebuilt from their own pin (table in `docs/operations/base-image.md`). | Every pinned base is now copied, digest unchanged, to `ghcr.io/ben10-games/aegis-os/fedora-bootc`, and builds use the copy. Added packages are still unlocked (P1-15). |
+| BUG-8 | With the composefs backend, `/var` (a bind mount set up by the initramfs) could not be unmounted at shutdown: "umount: /var: target is busy" (runs 44090714344 to 44100054742). Holders at runtime include journald, auditd and firewalld. | The release-variant power-off test fails; data was synced and the next boot is clean. | `var.mount` ordered before `local-fs.target` (drop-in in the image), so services stop before it is unmounted. Verified only once the next run passes. |
+| BUG-9 | Closed by mitigation. systemd-stub appends `io.systemd.stub.kernel-cmdline-extra` from SMBIOS even under Secure Boot; `enforcing=0` there made SELinux permissive (run 44093307831). | Whoever controls the firmware tables could weaken the system. | `aegis-verify-cmdline.service` powers the machine off on any argument not in the sealed set (verified in run 44096629031). The initramfs still runs before the check. |
 
 ## 7. Security limitations
 
 `docs/architecture/security-baseline.md` lists what the M2 image provides, with the test
 for each statement, and what it does not. In short:
 
-- The image boots with the ostree backend and GRUB, **without** Secure Boot, without a
-  sealed root, unsigned, unencrypted, and with no update source. Someone with access to
-  the disk can change it. Sealed boot is M3; signing and updates are M4.
+- The boot chain is verified only in virtual machines with the build's throw-away keys.
+  Keys for real hardware (own keys or shim) are an open decision (ADR-0012). The keys
+  change with every CI run, so images from different runs need different firmware
+  variables.
+- `/etc` and `/var` are writable state outside the sealed root and not
+  integrity-protected; a program that gains root can persist there. The ESP and the
+  UKI are protected only by Secure Boot signatures; the disk is not encrypted.
+- The initramfs runs before `aegis-verify-cmdline.service`, so a firmware-supplied
+  kernel argument is in effect until that check stops the machine (BUG-9). Measured
+  boot with a TPM policy is not implemented.
+- No updates, no rollback test, no boot counting yet (M4, Phase 2).
+- The local VM launchers boot the sealed image with plain firmware, without Secure Boot:
+  fs-verity still checks the root, but nothing verifies the UKI (`LOCAL_VM_GUIDE.md`).
 - 31 SELinux domains are permissive in Fedora's policy
   (`tests/golden/base/selinux-permissive-domains.txt`); programs in them are logged, not
   confined. `bootupd_t` is the one that runs at every boot. Root can switch SELinux to

@@ -1,4 +1,4 @@
-# Security baseline after milestone M2
+# Security baseline after milestones M2 and M3
 
 What the AEGIS OS image demonstrably provides at the end of M2, what it does not, and
 where each statement is tested. "Tested" means a test in this repository passed in
@@ -9,7 +9,7 @@ Nothing here has been checked on physical hardware.
 
 | Property | How | Test |
 |---|---|---|
-| The operating-system tree cannot be changed at runtime | `/usr` is read-only (bootc, ostree backend) | `test_usr_is_read_only` |
+| The operating-system tree cannot be changed at runtime | `/usr` is read-only (bootc, composefs backend since M3) | `test_usr_is_read_only` |
 | Mandatory access control is on | SELinux enforcing, Fedora's targeted policy, unchanged in the release image | V-08 |
 | The policy is really enforced, not just loaded | A confined test domain is refused an access its policy does not grant; the refusal is logged with `permissive=0` (development variant) | V-08 self-test |
 | Nothing is denied during a normal boot | Zero AVC records between power-on and the end of boot | V-08 |
@@ -23,12 +23,17 @@ Nothing here has been checked on physical hardware.
 | No unattended traffic to third parties | usage counter and connectivity check off; mDNS and LLMNR off | service baseline tests, V-10 |
 | Security events are recorded from the first process on | `audit=1`, auditd | `test_audit_daemon_is_running` |
 | What is in the image is what was reviewed | packages, enabled and masked units, setuid files, file capabilities, permissive SELinux domains and `/etc` changes are compared with golden manifests | B-02, B-03, B-04 |
+| The firmware runs only boot code signed with the project's key (M3) | UEFI Secure Boot with own PK/KEK/db; systemd-boot and the UKI are signed; an unsigned or modified UKI or boot loader is refused | V-04, V-05 (VM, throw-away keys) |
+| The kernel command line is the signed one | It is inside the signed UKI; boot-entry options are ignored; any other argument (e.g. from firmware SMBIOS strings) makes the system power off | V-06, boot-parameter tests |
+| The operating system tree is exactly the built image | composefs root whose digest is in the signed command line; stored objects carry fs-verity; offline changes to a file's stored bytes make reads fail, never return the changed content | B-06, V-06, V-07 |
 
 ## Not provided yet
 
 | Gap | Consequence | Planned |
 |---|---|---|
-| No Secure Boot verification, no sealed root | Someone with access to the disk can replace the kernel or system files and the system will boot them | M3 (P1-11, P1-12) |
+| Boot chain tested only in VMs with throw-away keys | Nothing is known yet about real firmware; keys for hardware are undecided | Phase 6 (ADR-0012) |
+| No measured boot (TPM) | A firmware-supplied kernel argument is in effect during the initramfs until the command-line check stops the machine | Phase 2 |
+| Updates and rollback of sealed images not tested | Gate G1 open | M4 (V-13, V-14) |
 | No disk encryption | Everything on the disk is readable by anyone who has it | Phase 2 |
 | Updates are not signed or verified | An update source must be trusted blindly; none is configured | M4 (P1-13, P1-14) |
 | `/etc` and `/var` are not integrity-protected | A program that gains root can persist there | Phase 2 |
