@@ -56,6 +56,11 @@ def collect_diagnostics(vm, logdir, tag: str) -> None:
             " echo; bootctl status --no-pager 2>&1 | head -n 45;"
             " echo; bootctl list --no-pager 2>&1 | head -n 30"
         ),
+        # On the second boot: what the previous shutdown logged about unmounting.
+        "previous-shutdown": (
+            "journalctl -b -1 -o short-monotonic --no-pager 2>/dev/null"
+            " | grep -iE 'var.mount|unmount|busy|auditd|Stopping|Stopped' | tail -n 60"
+        ),
         "esp": (
             "esp=$(bootctl --print-esp-path 2>/dev/null);"
             ' echo "ESP: $esp"; find "$esp" -xdev -type f 2>/dev/null | head -n 40;'

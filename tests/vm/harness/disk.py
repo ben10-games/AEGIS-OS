@@ -80,3 +80,38 @@ class Esp:
         _run(["mcopy", "-o", "-i", self._target, "-", f"::/{path}"], data)
         if self.read(path) != data:
             raise DiskError(f"{path} was not written correctly")
+
+
+def replace_bytes(image: Path, old: bytes, new: bytes) -> int:
+    """Replace every occurrence of `old` in a raw disk image file, in place.
+
+    Reads only the allocated parts of a sparse file. Returns the number of places
+    changed. `old` and `new` must have the same length, so no offset moves.
+    """
+    if len(old) != len(new):
+        raise DiskError("replacement must have the same length")
+    changed = 0
+    chunk = 64 * 1024 * 1024
+    overlap = len(old) - 1
+    with image.open("r+b") as handle:
+        size = image.stat().st_size
+        position = 0
+        hole_seek = getattr(os, "SEEK_DATA", None)
+        while position < size:
+            if hole_seek is not None:
+                try:
+                    position = os.lseek(handle.fileno(), position, os.SEEK_DATA)
+                except OSError:
+                    break  # no more data
+            handle.seek(position)
+            block = handle.read(chunk + overlap)
+            if not block:
+                break
+            start = 0
+            while (found := block.find(old, start)) != -1:
+                handle.seek(position + found)
+                handle.write(new)
+                changed += 1
+                start = found + 1
+            position += chunk
+    return changed

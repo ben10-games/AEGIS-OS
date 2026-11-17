@@ -61,14 +61,14 @@ mount "${root_part}" "${mountpoint}"
 # carry which SELinux type (content-addressed object stores excluded).
 census() {
   find "${mountpoint}" -xdev \
-    \( -path "${mountpoint}/ostree" -o -path "${mountpoint}/composefs/objects" \) -prune -o -print0 \
+    \( -path "${mountpoint}/ostree/repo" -o -path "${mountpoint}/composefs/objects" \) -prune -o -print0 \
     | xargs -0 -r getfattr --absolute-names -h -n security.selinux --only-values 2>/dev/null \
     | tr '\0' '\n' | awk -F: 'NF >= 3 {count[$3]++} END {for (t in count) print count[t], t}' \
     | sort -rn | head -n 12 | paste -sd' ' || true
 }
 echo "physical root: $(ls -A "${mountpoint}" | paste -sd' ')"
 echo "files without any SELinux label: $(find "${mountpoint}" -xdev \
-  \( -path "${mountpoint}/ostree" -o -path "${mountpoint}/composefs/objects" \) -prune -o -print0 \
+  \( -path "${mountpoint}/ostree/repo" -o -path "${mountpoint}/composefs/objects" \) -prune -o -print0 \
   | while IFS= read -r -d '' path; do [[ -n "$(label_of "${path}")" ]] || echo "${path}"; done | wc -l)"
 echo "label census before: $(census)"
 
@@ -88,7 +88,7 @@ while IFS= read -r -d '' path; do
     fixed=$((fixed + 1))
   fi
 done < <(find "${mountpoint}" -xdev \
-  \( -path "${mountpoint}/ostree" -o -path "${mountpoint}/composefs/objects" \) -prune -o -print0)
+  \( -path "${mountpoint}/ostree/repo" -o -path "${mountpoint}/composefs/objects" \) -prune -o -print0)
 
 echo "install-time label fix: ${fixed} file(s) relabelled"
 

@@ -87,6 +87,7 @@ def machine(
     accel: str,
     firmware: tuple[Path, Path] | None = None,
     developer_access: bool = True,
+    smbios_strings: tuple[str, ...] = (),
 ):
     """A virtual machine on a fresh copy-on-write disk. Tests start and stop it themselves.
 
@@ -121,6 +122,7 @@ def machine(
         qmp_socket=scratch / "qmp.sock",
         probe_port=free_local_port(),
         secure_boot=firmware is not None,
+        smbios_strings=smbios_strings,
     )
     vm = Vm(cfg, key, timeout_scale=TCG_TIMEOUT_SCALE if accel == "tcg" else 1.0)
     try:
