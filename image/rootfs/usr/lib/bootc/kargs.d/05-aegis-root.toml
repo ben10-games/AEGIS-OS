@@ -1,0 +1,11 @@
+# Mount the physical root partition read-write. It holds the machine's state: each
+# deployment's /etc and /var (bootc's composefs backend, ADR-0004).
+#
+# 'bootc install' normally adds this argument at installation time, but the command
+# line of a sealed image is fixed inside its signed UKI, so it has to be here.
+# Without it the initramfs mounts the partition read-only and /etc and /var stay
+# read-only (CI run 44086672654: systemd-logind could not create /var/lib/systemd).
+#
+# The operating system itself is not affected: it is the composefs image whose digest
+# is in the signed command line, and it is always mounted read-only.
+kargs = ["rw"]

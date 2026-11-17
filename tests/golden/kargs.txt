@@ -1,3 +1,4 @@
+rw
 lockdown=integrity
 slab_nomerge
 init_on_alloc=1
