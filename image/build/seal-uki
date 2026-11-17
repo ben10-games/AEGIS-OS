@@ -3,9 +3,10 @@
 # Kernel Image for the root filesystem mounted at /target, with the kernel and
 # initramfs from /kernel/<version>/.
 #
-# 'bootc container ukify' computes the composefs digest of /target, takes the kernel
-# arguments from /target/usr/lib/bootc/kargs.d, and calls systemd's ukify. The result
-# is signed with the Secure Boot db key given as build secrets.
+# The command line is what 'bootc container ukify' would build: the kernel arguments
+# from /target/usr/lib/bootc/kargs.d in file order, then the composefs digest in the
+# EROFS V1 form, then the V2 form as a fallback. The digests come from the caller,
+# computed from container storage (see image/Containerfile.seal).
 set -euo pipefail
 
 key=/run/secrets/secureboot_key
@@ -13,6 +14,12 @@ cert=/run/secrets/secureboot_cert
 for file in "${key}" "${cert}"; do
   if [[ ! -s "${file}" ]]; then
     echo "error: build secret ${file} is missing; run scripts/dev-keys and pass --secret" >&2
+    exit 1
+  fi
+done
+for name in COMPOSEFS_DIGEST_V1 COMPOSEFS_DIGEST_V2; do
+  if [[ ! "${!name:-}" =~ ^[0-9a-f]{128}$ ]]; then
+    echo "error: ${name} must be a 128-digit hexadecimal SHA-512 digest" >&2
     exit 1
   fi
 done
@@ -24,26 +31,41 @@ if [[ "${#kernels[@]}" -ne 1 || ! -f "${kernels[0]}/vmlinuz" ]]; then
 fi
 version="$(basename "${kernels[0]}")"
 
+kargs="$(python3 - <<'PYTHON'
+import pathlib, platform, tomllib
+arguments = []
+for path in sorted(pathlib.Path("/target/usr/lib/bootc/kargs.d").glob("*.toml")):
+    data = tomllib.loads(path.read_text())
+    machines = data.get("match-architectures")
+    if machines and platform.machine() not in machines:
+        continue
+    arguments += data["kargs"]
+print(" ".join(arguments))
+PYTHON
+)"
+cmdline="${kargs} composefs.digest=v1-sha512-12:${COMPOSEFS_DIGEST_V1} composefs=${COMPOSEFS_DIGEST_V2}"
+
 mkdir -p /out/uki
 uki="/out/uki/${version}.efi"
-
-bootc container ukify \
-  --rootfs /target \
-  --kernel-dir "/kernel/${version}" \
-  -- \
-  --output "${uki}" \
+ukify build \
+  --linux "${kernels[0]}/vmlinuz" \
+  --initrd "${kernels[0]}/initramfs.img" \
+  --uname "${version}" \
+  --cmdline "${cmdline}" \
+  --os-release @/target/usr/lib/os-release \
   --signtool sbsign \
   --secureboot-private-key "${key}" \
-  --secureboot-certificate "${cert}"
+  --secureboot-certificate "${cert}" \
+  --output "${uki}"
 
 # A UKI that does not verify against the certificate must never leave this stage.
 sbverify --cert "${cert}" "${uki}"
 
+embedded="$(objcopy -O binary --only-section=.cmdline "${uki}" /dev/stdout | tr -d '\0')"
 echo "== kernel command line embedded in the UKI"
-objcopy -O binary --only-section=.cmdline "${uki}" /dev/stdout | tr -d '\0'
-echo
-if ! objcopy -O binary --only-section=.cmdline "${uki}" /dev/stdout | grep -q 'composefs'; then
-  echo "error: the UKI command line carries no composefs digest" >&2
+echo "${embedded}"
+if [[ "${embedded}" != "${cmdline}" ]]; then
+  echo "error: the UKI does not carry the intended command line" >&2
   exit 1
 fi
 ls -l "${uki}"

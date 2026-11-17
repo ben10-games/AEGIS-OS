@@ -34,6 +34,3 @@ echo "composefs_setup_root_conf_present=$(present "${target}/usr/lib/composefs/s
 cmdline="$(objcopy -O binary --only-section=.cmdline "${uki}" /dev/stdout 2> /dev/null | tr -d '\0' || true)"
 echo "cmdline=${cmdline}"
 
-# The digest of the image as it is now. It must be the one the UKI was sealed with:
-# any change to the root filesystem after sealing would show up here.
-echo "digest_recomputed=$(bootc container compute-composefs-digest "${target}" 2>&1 | tail -n 1)"

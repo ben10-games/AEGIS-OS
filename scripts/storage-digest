@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Print the composefs digest of a container image as 'bootc install' computes it: from
+# the image's layers in container storage (not from a mounted filesystem, which can
+# show different directory metadata when several layers define the same directory).
+#
+#   scripts/storage-digest IMAGE v1|v2 [DUMPFILE]
+set -euo pipefail
+
+image="$1"
+version="$2"
+dump="${3:-}"
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+dump_args=()
+mounts=()
+if [[ -n "${dump}" ]]; then
+  mkdir -p "$(dirname "${dump}")"
+  dump_dir="$(cd "$(dirname "${dump}")" && pwd)"
+  mounts=(-v "${dump_dir}:/output")
+  dump_args=(--write-dumpfile-to "/output/$(basename "${dump}")")
+fi
+
+"${as_root[@]}" podman run --rm --network=none --privileged \
+  -v /var/lib/containers:/var/lib/containers \
+  "${mounts[@]}" \
+  "${image}" \
+  bootc container compute-composefs-digest-from-storage \
+  --erofs-version "${version}" "${dump_args[@]}" "${image}" \
+  | tail -n 1

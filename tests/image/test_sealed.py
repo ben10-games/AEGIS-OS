@@ -24,6 +24,14 @@ def facts(variant: str) -> dict[str, str]:
     return dict(line.split("=", 1) for line in path.read_text().splitlines() if "=" in line)
 
 
+def storage_digest(variant: str) -> str:
+    """Digest of the finished image as 'bootc install' computes it (scripts/build-image)."""
+    path = ROOT / "out" / "digests" / f"{variant}.v1"
+    if not path.is_file():
+        pytest.fail(f"{path} not found; it is written by 'make image'")
+    return path.read_text().strip()
+
+
 def golden_kernel_arguments() -> list[str]:
     lines = (GOLDEN / "kargs.txt").read_text().splitlines()
     return [line.strip() for line in lines if line.strip() and not line.startswith("#")]
@@ -61,12 +69,11 @@ def test_b06_image_selects_the_composefs_backend_and_systemd_boot(variant):
 def test_b06_uki_carries_the_digest_of_this_root_filesystem(variant):
     """The digest in the signed command line is the digest of the image as shipped."""
     found = facts(variant)
-    digest = found["digest_recomputed"]
+    digest = storage_digest(variant)
     assert re.fullmatch(r"[0-9a-f]{128}", digest), f"digest computation failed: {digest}"
     arguments = found["cmdline"].split()
     sealed = [arg for arg in arguments if arg.startswith("composefs")]
-    assert sealed, f"no composefs argument in: {found['cmdline']}"
-    assert any(digest in arg for arg in sealed), "the UKI was sealed for another filesystem"
+    assert f"composefs.digest=v1-sha512-12:{digest}" in sealed, "sealed for another filesystem"
     # A '?' would make fs-verity optional (bootc's --allow-missing-verity).
     assert not [arg for arg in sealed if "?" in arg]
 
@@ -84,4 +91,4 @@ def test_b06_signed_command_line_has_the_reviewed_arguments(variant):
 
 def test_b06_each_variant_is_sealed_separately():
     """Different root filesystems must not share a digest."""
-    assert facts("base")["digest_recomputed"] != facts("dev")["digest_recomputed"]
+    assert storage_digest("base") != storage_digest("dev")

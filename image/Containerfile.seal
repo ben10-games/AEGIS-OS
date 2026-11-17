@@ -1,13 +1,16 @@
-# Seals an AEGIS OS root filesystem (ADR-0004), following the build pattern in bootc's
-# documentation for sealed images:
+# Seals an AEGIS OS root filesystem (ADR-0004):
 #
-#   1. take the kernel and initramfs out of the root filesystem,
-#   2. compute the composefs digest of what is left and build a Unified Kernel Image
-#      whose command line carries that digest, signed for Secure Boot,
+#   1. take the kernel and initramfs out of the root filesystem (stage 'split'),
+#   2. build a Unified Kernel Image whose command line carries the composefs digest of
+#      that root filesystem, signed for Secure Boot (stage 'sealed-uki'),
 #   3. add the UKI under /boot, which is not part of the digest.
 #
-# Nothing may change the root filesystem after step 2: the digest would no longer
-# match and the system would refuse to mount its root.
+# The digest is computed by scripts/build-image from the 'split' image in container
+# storage, exactly as 'bootc install' computes it, and passed in as build arguments.
+# (bootc's own 'container ukify' reads a mounted filesystem instead; with our layered
+# build that view differs in directory metadata and the image would not install:
+# CI runs 44074603737 and 44076988380.) After the build, scripts/build-image checks
+# that the finished image still has the sealed digest.
 ARG ROOTFS
 ARG TOOLS=localhost/aegis-builder:latest
 
@@ -16,29 +19,21 @@ FROM ${ROOTFS} AS kernel
 RUN mkdir /kernel && bootc container split-kernel-and-rootfs --rootfs / --output /kernel
 
 # The root filesystem without them. This stage becomes the image.
-#
-# Timestamps are reset to the epoch, as Fedora's base image has them. 'bootc install'
-# imports the image from container storage and does not see the build-time mtimes of
-# directories that our layers changed, while the UKI build below reads them from the
-# mounted filesystem: without this step the two digests differ and the image does not
-# install (CI run 44074603737). It also makes the digest independent of build time.
-# Mount points (/proc, /sys, files podman binds in) are not part of the image and are left alone.
 FROM ${ROOTFS} AS split
 RUN mkdir -p /var/tmp/aegis-split \
     && bootc container split-kernel-and-rootfs --rootfs / --output /var/tmp/aegis-split \
-    && rm -rf /var/tmp/aegis-split \
-    && bash -c 'set -euo pipefail; \
-         find / -xdev -print0 \
-           | grep -zvxF -f <(findmnt -rno TARGET | grep -vx /) \
-           | xargs -0 touch -h -d @0'
+    && rm -rf /var/tmp/aegis-split
 
 # The signing key is a build secret: mounted for this command, never stored in a layer.
 FROM ${TOOLS} AS sealed-uki
+ARG COMPOSEFS_DIGEST_V1
+ARG COMPOSEFS_DIGEST_V2
 COPY image/build/seal-uki /usr/local/bin/seal-uki
 RUN --mount=type=bind,from=split,target=/target \
     --mount=type=bind,from=kernel,source=/kernel,target=/kernel \
     --mount=type=secret,id=secureboot_key \
     --mount=type=secret,id=secureboot_cert \
+    COMPOSEFS_DIGEST_V1="${COMPOSEFS_DIGEST_V1}" COMPOSEFS_DIGEST_V2="${COMPOSEFS_DIGEST_V2}" \
     /usr/local/bin/seal-uki
 
 FROM split
