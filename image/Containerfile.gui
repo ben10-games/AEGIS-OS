@@ -12,14 +12,16 @@ COPY image/build/ /usr/libexec/aegis-build/
 # portals, Qt Quick / Kirigami, and software rendering for virtual machines.
 # Fedora 45's KDE edition uses plasma-login-manager; AEGIS uses SDDM for now, whose
 # configuration is documented and stable (decision in gui-architecture.md).
-RUN dnf -y install --setopt=install_weak_deps=False \
+RUN /usr/libexec/aegis-build/var-to-tmpfiles snapshot \
+    && dnf -y install --setopt=install_weak_deps=False \
       plasma-desktop plasma-workspace kwin plasma-breeze breeze-icon-theme \
       sddm sddm-wayland-plasma \
       konsole dolphin plasma-systemsettings kinfocenter kscreen \
       plasma-nm plasma-pa pipewire wireplumber pipewire-pulseaudio \
       xdg-desktop-portal-kde qt6-qtdeclarative qt6-qtwayland kf6-kirigami \
       mesa-dri-drivers google-noto-sans-fonts \
-    && /usr/libexec/aegis-build/clean-package-state
+    && /usr/libexec/aegis-build/clean-package-state \
+    && /usr/libexec/aegis-build/var-to-tmpfiles finish aegis-gui
 
 # AEGIS identity: look-and-feel package, colour scheme, wallpaper (under /usr/share),
 # the display manager preset (under /usr/lib).
