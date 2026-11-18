@@ -1,7 +1,8 @@
 # AEGIS OS graphical desktop: architecture (M4-GUI foundation)
 
 Status: first functional graphical image on branch `claude/aegis-os-gui-foundation`
-(CI run 44312306345: 16 of 17 GUI tests and 8 of 8 Secure Boot tests on the GUI image). The
+(CI run 44315378122 on `aa805e4`: 9 of 9 GUI tests and 8 of 8 Secure Boot tests on the
+GUI image). The
 security milestone M4 (signed updates, manual rollback, gate G1) is **not** complete and
 is not affected by this track. Results are recorded in `PROJECT_STATE.md` only once a CI
 run has shown them.
@@ -90,7 +91,7 @@ Screenshots are taken through QMP and printed, half size, into the job log.
 The M3 Secure Boot and sealed-root tests (`tests/vm/test_secure_boot.py`) also run
 against the GUI image in the same job.
 
-## Results of the first image (CI run 44312306345, commit `163334e`)
+## Results of the first image (CI runs 44312306345 and 44315378122)
 
 Rendered under Secure Boot in a KVM virtual machine (virtio-vga, software rendering,
 1280x800), screenshots taken through QMP and inspected:
@@ -100,6 +101,8 @@ Rendered under Secure Boot in a KVM virtual machine (virtio-vga, software render
 | ![AEGIS desktop](gui-screenshots/m4-gui-desktop.png) | ![Konsole](gui-screenshots/m4-gui-konsole.png) |
 | **Dolphin** | **System Settings (AEGIS Dark colours)** |
 | ![Dolphin](gui-screenshots/m4-gui-dolphin.png) | ![System Settings](gui-screenshots/m4-gui-systemsettings.png) |
+| **Right click on the desktop (pointer test)** | |
+| ![Desktop context menu](gui-screenshots/m4-gui-pointer-menu.png) | |
 
 Observed: AEGIS wallpaper and colour scheme applied; floating, centred, content-sized
 panel with launcher, pinned Files/Terminal/Settings, tray and clock; legible text, no
@@ -121,7 +124,7 @@ clipping, no error dialogs. Measurements are in `PROJECT_STATE.md`.
 
 ## Next GUI tasks, in order
 
-1. Verify the pointer test (key name fixed) and add golden manifests for `aegis-gui`.
+1. Golden manifests for `aegis-gui` (packages, units, `/etc`), like base and dev.
 2. Remove or disable the on-screen keyboard; measure memory again.
 3. AEGIS mark for the launcher button and the SDDM theme; hide the composefs root in
    Dolphin's Places.

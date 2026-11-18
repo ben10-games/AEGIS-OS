@@ -31,13 +31,14 @@ Authorised by the owner as a parallel foundation track. **The security milestone
 main development branch and is not affected by this branch. This branch starts from
 `fef77c4` (all M3 tests verified).
 
-State: first functional graphical image. `build` run 44312306345 on `163334e`, job
-"Graphical development image (M4-GUI)", KVM, Secure Boot with enrolled throw-away keys:
-16 of 17 tests passed; the main job (all M1-M3 tests on base and dev) passed in the same
-run. The one failure was a test bug (QEMU key name `meta` instead of `meta_l`), fixed in
-the commit that records this; verified only once the next run passes.
+State: **first functional graphical image, all GUI tests pass.** `build` run
+44315378122 on `aa805e4`, job "Graphical development image (M4-GUI)", KVM, Secure Boot
+with enrolled throw-away keys: 17 of 17 tests (9 GUI, 8 M3 Secure Boot / sealed root
+against the GUI image); the main job (all M1-M3 tests on base and dev) passed in the
+same run. First run with 16 of 17: 44312306345 on `163334e` (pointer test used the QEMU
+key `meta` instead of `meta_l`).
 
-Verified in that run (`tests/vm/test_gui.py`, plus `tests/vm/test_secure_boot.py`
+Verified in run 44315378122 (`tests/vm/test_gui.py`, plus `tests/vm/test_secure_boot.py`
 against the GUI image):
 
 | Check | Result |
@@ -49,15 +50,16 @@ against the GUI image):
 | Networking connected; PipeWire offers the virtual sound card ("Built-in Audio Analog Stereo") | pass |
 | Restart returns to the desktop; power-off exits QEMU 0 with no failed unit | pass |
 | M3 tests on the GUI image: V-04 (3), V-06 (4), sealed command-line check | pass (8 of 8) |
-| Pointer (right click changes the screen) | not yet verified (test bug above) |
+| Pointer: a right click on the desktop opens Plasma's context menu at the pointer (323,339 bytes of the screen change; screenshot inspected) | pass |
 
 Screenshots (rendered in CI, recovered from the job log and inspected):
-`docs/architecture/gui-screenshots/m4-gui-{desktop,konsole,dolphin,systemsettings}.png`.
+`docs/architecture/gui-screenshots/m4-gui-{desktop,konsole,dolphin,systemsettings,pointer-menu}.png`.
 
-Measurements (same run, 4 GiB VM, software rendering, Konsole, Dolphin and System
-Settings open): memory in use 1250 MiB (development image without GUI: 498 MiB),
-201 processes (47 of the user), systemd startup 10.1 s. Largest: plasmashell 410 MB RSS,
-System Settings 300 MB, KWin 275 MB, plasma-keyboard (on-screen keyboard) 266 MB.
+Measurements (4 GiB VM, software rendering, Konsole, Dolphin and System Settings open),
+run 44312306345 / run 44315378122: memory in use 1250 / 1267 MiB (development image
+without GUI: 498 MiB), 201 / 200 processes, systemd startup 10.1 / 13.5 s (userspace
+6.2 / 9.3 s; shared-runner variation). Largest: plasmashell about 415 MB RSS, System
+Settings 300 MB, KWin 277 MB, plasma-keyboard (on-screen keyboard, not needed) 266 MB.
 
 Details, decisions and next tasks: `docs/architecture/gui-architecture.md`.
 
