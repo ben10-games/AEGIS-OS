@@ -6,7 +6,8 @@ FROM ${BASE_IMAGE}
 # Also the tools stage of the image build: it signs the boot loader and builds the UKI
 # (systemd-ukify, the systemd-boot stub, sbsigntools, binutils), and it prepares
 # firmware variables with Secure Boot keys and edits disk images for the tests
-# (python3-virt-firmware, mtools).
+# (python3-virt-firmware, mtools). Fedora ships QEMU's virtio display devices as
+# separate modules; the graphical tests (M4-GUI) need them.
 RUN dnf -y install --setopt=install_weak_deps=False \
       binutils \
       edk2-ovmf \
@@ -15,6 +16,8 @@ RUN dnf -y install --setopt=install_weak_deps=False \
       python3-pytest \
       python3-virt-firmware \
       qemu-img \
+      qemu-device-display-virtio-gpu \
+      qemu-device-display-virtio-vga \
       qemu-system-x86-core \
       sbsigntools \
       setools-console \

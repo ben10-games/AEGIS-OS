@@ -19,6 +19,10 @@ for name in session resources audio pointer selinux-denials; do
 done
 section "gui: Secure Boot status (bootctl)" "${logs}/secure-boot-bootctl-status.txt" 12
 
+for qemu_log in "${logs}"/*qemu.log; do
+  [[ -s "${qemu_log}" ]] || continue
+  section "QEMU messages: $(basename "${qemu_log}")" "${qemu_log}" 20
+done
 echo "=== gui: console failures"
 grep -haE 'FAILED|Failed to start|denied' "${logs}"/*serial*.log 2>/dev/null \
   | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/^\[ *[0-9.]+\] //' | cut -c1-200 \
