@@ -124,6 +124,30 @@ jobs:
             done
           '
 
+      # Facts the first graphical image (M4-GUI) is designed from.
+      - name: "M4-GUI: Plasma 6 packages, display manager, transaction size"
+        run: |
+          pinned="$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
+          sudo podman run --rm "${pinned}" bash -c '
+            set -uo pipefail
+            echo "== availability"
+            dnf -q list --available sddm sddm-wayland-plasma plasma-login-manager \
+              plasma-desktop plasma-workspace plasma-workspace-wayland kwin kwin-wayland \
+              konsole dolphin systemsettings plasma-nm plasma-pa plasma-systemsettings \
+              pipewire wireplumber pipewire-pulseaudio kf6-kirigami qt6-qtdeclarative \
+              breeze-icon-theme plasma-breeze xdg-desktop-portal-kde mesa-dri-drivers \
+              google-noto-sans-fonts kde-settings-plasma kscreen kinfocenter \
+              qt6-qtwayland plasma-lookandfeel-fedora f45-backgrounds-kde 2>&1 | sort | head -n 60
+            echo "== comps group kde-desktop (mandatory and default)"
+            dnf -q group info kde-desktop 2>&1 | head -n 80
+            echo "== transaction for a minimal Plasma set (no weak deps)"
+            dnf install --assumeno --setopt=install_weak_deps=False \
+              plasma-desktop plasma-workspace kwin konsole dolphin systemsettings plasma-nm \
+              plasma-pa pipewire wireplumber pipewire-pulseaudio kf6-kirigami sddm \
+              sddm-wayland-plasma xdg-desktop-portal-kde mesa-dri-drivers google-noto-sans-fonts \
+              2>&1 | tail -n 8
+          '
+
       - name: Loop devices inside a privileged container
         run: |
           sudo podman run --rm --privileged quay.io/fedora/fedora-bootc:45 bash -c '
