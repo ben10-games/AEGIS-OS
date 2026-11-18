@@ -1,0 +1,2 @@
+# M4-GUI (aegis-gui): the display manager. Read before the base and development presets.
+enable sddm.service

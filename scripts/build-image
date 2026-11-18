@@ -66,51 +66,22 @@ echo "== building the development root filesystem"
   --file image/Containerfile.dev \
   .
 
-# Each variant has its own root filesystem, so each gets its own digest and its own UKI.
-# The digest is computed from the root filesystem image in container storage, the way
-# 'bootc install' computes it (see image/Containerfile.seal).
-mkdir -p out/digests
-for variant in base dev; do
-  echo "== sealing localhost/aegis-${variant}"
+# M4-GUI: the graphical development image, built only when asked for
+# (AEGIS_WITH_GUI=1), from the development root filesystem.
+variants=(base dev)
+if [[ "${AEGIS_WITH_GUI:-0}" == "1" ]]; then
+  echo "== building the graphical development root filesystem (M4-GUI)"
   "${as_root[@]}" podman build \
-    --target split \
-    --build-arg "ROOTFS=localhost/aegis-${variant}-rootfs:latest" \
-    --tag "localhost/aegis-${variant}-split:latest" \
-    --file image/Containerfile.seal \
+    --build-arg "BASE=localhost/aegis-dev-rootfs:latest" \
+    --tag localhost/aegis-gui-rootfs:latest \
+    --file image/Containerfile.gui \
     .
-  v1="$(scripts/storage-digest "localhost/aegis-${variant}-split:latest" v1)"
-  v2="$(scripts/storage-digest "localhost/aegis-${variant}-split:latest" v2)"
-  echo "composefs digest of aegis-${variant} (V1): ${v1}"
-  echo "composefs digest of aegis-${variant} (V2): ${v2}"
-  "${as_root[@]}" podman build \
-    "${secrets[@]}" \
-    --build-arg "ROOTFS=localhost/aegis-${variant}-rootfs:latest" \
-    --build-arg "COMPOSEFS_DIGEST_V1=${v1}" \
-    --build-arg "COMPOSEFS_DIGEST_V2=${v2}" \
-    --tag "localhost/aegis-${variant}:latest" \
-    --file image/Containerfile.seal \
-    .
-  # Adding the UKI under /boot must not change the digest of the finished image.
-  final="$(scripts/storage-digest "localhost/aegis-${variant}:latest" v1 \
-    "out/digests/${variant}-final.dump")"
-  if [[ "${final}" != "${v1}" ]]; then
-    echo "error: aegis-${variant} has digest ${final}, but its UKI was sealed for ${v1}" >&2
-    exit 1
-  fi
-  echo "ok: aegis-${variant} carries the digest its UKI was sealed for"
-  echo "${v1}" > "out/digests/${variant}.v1"
-done
+  variants+=(gui)
+fi
 
-# The command line each UKI was sealed with (it contains the root digest). The VM tests
-# compare the running system's command line with it.
-mkdir -p out/sealed
-for variant in base dev; do
-  "${as_root[@]}" podman run --rm --network=none \
-    --mount "type=image,source=localhost/aegis-${variant}:latest,destination=/target" \
-    localhost/aegis-builder:latest \
-    bash -c 'objcopy -O binary --only-section=.cmdline /target/boot/EFI/Linux/*.efi /dev/stdout' \
-    | tr -d '\0' > "out/sealed/${variant}-cmdline.txt"
-  echo "sealed command line of aegis-${variant}: $(cat "out/sealed/${variant}-cmdline.txt")"
+# Each variant has its own root filesystem, so each gets its own digest and its own UKI.
+for variant in "${variants[@]}"; do
+  scripts/seal-image "${variant}"
 done
 
 # The public halves, for the tests that enrol them in the virtual firmware.

@@ -32,6 +32,14 @@ ACCELERATORS = ("kvm", "tcg")
 # probed from outside through a forwarded host port.
 PROBE_GUEST_PORT = 8080
 
+# QEMU key codes for typing plain ASCII on a US keyboard layout.
+QCODES: dict[str, str] = {
+    **{c: c for c in "abcdefghijklmnopqrstuvwxyz0123456789"},
+    **{c.upper(): f"shift-{c}" for c in "abcdefghijklmnopqrstuvwxyz"},
+    " ": "spc", "-": "minus", "_": "shift-minus", ".": "dot", "/": "slash",
+    ">": "shift-dot", "=": "equal", "\n": "ret", ":": "shift-semicolon",
+}  # fmt: skip
+
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 
@@ -74,6 +82,9 @@ class VmConfig:
     probe_port: int | None = None  # host-side port forwarded to guest port PROBE_GUEST_PORT
     secure_boot: bool = False  # the firmware is the Secure Boot build with enrolled keys
     smbios_strings: tuple[str, ...] = ()  # further SMBIOS type 11 strings (test inputs)
+    # Graphical machine (M4-GUI): virtio GPU, USB keyboard and tablet, HDA sound card
+    # with a null audio backend. Screenshots and input go through QMP.
+    graphics: bool = False
     # Development machines only: print the journal of core services to the serial
     # console late in boot, so a failure is visible even when SSH never answers.
     console_diagnostics: bool = True
@@ -212,6 +223,16 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
     ]
     for text in strings:
         command += ["-smbios", f"type=11,value={text}"]
+    if cfg.graphics:
+        command += [
+            "-device", "virtio-vga",
+            "-device", "qemu-xhci",
+            "-device", "usb-kbd",
+            "-device", "usb-tablet",
+            "-audiodev", "none,id=snd0",
+            "-device", "ich9-intel-hda",
+            "-device", "hda-duplex,audiodev=snd0",
+        ]  # fmt: skip
     if cfg.secure_boot:
         for setting in SECURE_BOOT_GLOBALS:
             command += ["-global", setting]
@@ -323,6 +344,46 @@ class Vm:
             f"'{pattern.pattern}' did not appear on the serial console within "
             f"{timeout * self.timeout_scale:.0f}s; see {self.serial_log}"
         )
+
+    def screenshot(self, path: Path, fmt: str = "ppm") -> Path:
+        """Save the guest's display (graphical machines only) as PPM or PNG."""
+        if self.cfg.qmp_socket is None:
+            raise HarnessError("this virtual machine was started without a control socket")
+        with QmpClient(self.cfg.qmp_socket) as qmp:
+            qmp.command("screendump", filename=str(path), format=fmt)
+        return path
+
+    def send_keys(self, *combos: str, delay: float = 0.15) -> None:
+        """Press key combinations on the virtual keyboard, e.g. "ctrl-alt-t", "a", "ret"."""
+        if self.cfg.qmp_socket is None:
+            raise HarnessError("this virtual machine was started without a control socket")
+        with QmpClient(self.cfg.qmp_socket) as qmp:
+            for combo in combos:
+                keys = [{"type": "qcode", "data": key} for key in combo.split("-")]
+                qmp.command("send-key", keys=keys)
+                time.sleep(delay)
+
+    def type_text(self, text: str) -> None:
+        """Type ASCII text on the virtual keyboard (US layout)."""
+        self.send_keys(*(QCODES[char] for char in text), delay=0.05)
+
+    def click(self, x: float, y: float, button: str = "left") -> None:
+        """Move the tablet pointer to (x, y) as fractions of the screen and click."""
+        if self.cfg.qmp_socket is None:
+            raise HarnessError("this virtual machine was started without a control socket")
+        position = [
+            {"type": "abs", "data": {"axis": "x", "value": int(x * 32767)}},
+            {"type": "abs", "data": {"axis": "y", "value": int(y * 32767)}},
+        ]
+        with QmpClient(self.cfg.qmp_socket) as qmp:
+            qmp.command("input-send-event", events=position)
+            time.sleep(0.2)
+            for down in (True, False):
+                qmp.command(
+                    "input-send-event",
+                    events=[{"type": "btn", "data": {"down": down, "button": button}}],
+                )
+                time.sleep(0.1)
 
     def press_power_button(self) -> None:
         """Send the ACPI power-button event, as a person pressing the button would."""

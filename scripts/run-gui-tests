@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# M4-GUI: boot the graphical development image under Secure Boot and run the GUI tests
+# and the M3 Secure Boot / sealed-root tests against it. Offline, like run-vm-tests.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+disk="${1:-out/disk-gui.raw}"
+if [[ ! -f "${disk}" ]]; then
+  echo "error: ${disk} not found; run 'make disk-gui' first" >&2
+  exit 1
+fi
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+kvm_args=()
+accel=tcg
+if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+  accel=kvm
+  kvm_args=(--device /dev/kvm)
+fi
+
+mkdir -p out/vm-gui
+"${as_root[@]}" podman run --rm \
+  "${kvm_args[@]}" \
+  --network=none \
+  --security-opt label=disable \
+  -v "${PWD}:/work" \
+  -w /work \
+  -e "AEGIS_VM_ACCEL=${accel}" \
+  localhost/aegis-builder:latest \
+  python3 -m pytest tests/vm/test_gui.py tests/vm/test_secure_boot.py \
+  -p no:cacheprovider \
+  -v \
+  --disk "${disk}" \
+  --gui-disk "${disk}" \
+  --sealed-variant gui \
+  --workdir out/vm-gui \
+  --junitxml out/junit-gui.xml \
+  "$@"

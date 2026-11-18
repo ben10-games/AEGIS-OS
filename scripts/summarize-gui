@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Print the evidence of the M4-GUI test run (scripts/run-gui-tests) to the job log.
+# Screenshots are converted from PPM to half-size PNG and printed as base64 between
+# markers, so they can be recovered from the log where artifacts cannot be downloaded:
+#   sed -n '/^AEGIS-SCREENSHOT BEGIN NAME$/,/^AEGIS-SCREENSHOT END/p' log | sed '1d;$d' | base64 -d
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+logs=out/vm-gui/logs
+
+section() {
+  echo "=== $1"
+  if [[ -s "$2" ]]; then head -n "${3:-40}" "$2"; else echo "(not recorded: $2)"; fi
+  echo
+}
+
+for name in session resources audio pointer selinux-denials; do
+  section "gui: ${name}" "${logs}/gui-${name}.txt" 60
+done
+section "gui: Secure Boot status (bootctl)" "${logs}/secure-boot-bootctl-status.txt" 12
+
+echo "=== gui: console failures"
+grep -haE 'FAILED|Failed to start|denied' "${logs}"/*serial*.log 2>/dev/null \
+  | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/^\[ *[0-9.]+\] //' | cut -c1-200 \
+  | sort | uniq -c | sort -rn | head -n 20 || echo "(none)"
+echo
+
+python3 - "${logs}" <<'PYTHON'
+import base64, struct, sys, zlib
+from pathlib import Path
+
+def read_ppm(path):
+    data = path.read_bytes()
+    fields, position = [], 0
+    while len(fields) < 4:
+        while data[position:position + 1].isspace():
+            position += 1
+        if data[position:position + 1] == b"#":
+            position = data.index(b"\n", position) + 1
+            continue
+        end = position
+        while not data[end:end + 1].isspace():
+            end += 1
+        fields.append(data[position:end])
+        position = end
+    width, height = int(fields[1]), int(fields[2])
+    return width, height, data[position + 1:]
+
+def half_png(width, height, pixels):
+    w, h = width // 2, height // 2
+    rows = bytearray()
+    for y in range(h):
+        rows.append(0)
+        top = (2 * y) * width * 3
+        bottom = top + width * 3
+        for x in range(w):
+            i = 6 * x
+            for c in range(3):
+                rows.append((pixels[top + i + c] + pixels[top + i + 3 + c]
+                             + pixels[bottom + i + c] + pixels[bottom + i + 3 + c]) // 4)
+    def chunk(kind, body):
+        return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(bytes(rows), 9)) + chunk(b"IEND", b""))
+
+for path in sorted(Path(sys.argv[1]).glob("gui-*.ppm")):
+    if path.stem in ("gui-before-click",):
+        continue
+    try:
+        png = half_png(*read_ppm(path))
+    except Exception as error:  # evidence only; never fail the summary
+        print(f"=== screenshot {path.name}: could not convert: {error}")
+        continue
+    name = path.stem.removeprefix("gui-")
+    print(f"=== screenshot {name}: {len(png)} bytes (half size)")
+    print(f"AEGIS-SCREENSHOT BEGIN {name}")
+    encoded = base64.b64encode(png).decode()
+    for start in range(0, len(encoded), 120):
+        print(encoded[start:start + 120])
+    print(f"AEGIS-SCREENSHOT END {name}")
+PYTHON
+
+for report in out/junit-gui.xml; do
+  [[ -f "${report}" ]] || continue
+  echo "=== test report ${report}"
+  grep -o 'errors="[0-9]*" failures="[0-9]*" skipped="[0-9]*" tests="[0-9]*" time="[0-9.]*"' \
+    "${report}" | head -n 1
+  python3 - "${report}" <<'PYTHON'
+import sys, xml.etree.ElementTree as ET
+for case in ET.parse(sys.argv[1]).iter("testcase"):
+    problem = case.find("failure") if case.find("failure") is not None else case.find("error")
+    state = "ran" if problem is None else "FAILED"
+    message = "" if problem is None else ": " + (problem.get("message") or "")[:300].replace("\n", " | ")
+    print(f"  {state}: {case.get('name')}{message}")
+PYTHON
+done

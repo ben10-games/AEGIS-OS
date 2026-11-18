@@ -1,0 +1,12 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "X-Plasma-APIVersion": "2",
+    "KPlugin": {
+        "Id": "org.aegisos.desktop",
+        "Name": "AEGIS OS",
+        "Description": "AEGIS OS development desktop: dark theme, AEGIS colours and wallpaper, floating dock-style panel",
+        "Authors": [{"Name": "AEGIS OS"}],
+        "License": "GPL-2.0-or-later",
+        "Version": "0.1"
+    }
+}

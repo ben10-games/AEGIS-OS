@@ -1,0 +1,8 @@
+{
+    "KPlugin": {
+        "Id": "AEGIS",
+        "Name": "AEGIS",
+        "Authors": [{"Name": "AEGIS OS"}],
+        "License": "CC-BY-SA-4.0"
+    }
+}

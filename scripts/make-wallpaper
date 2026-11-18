@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Regenerate the AEGIS wallpaper (deterministic, pure Python, no image libraries).
+#
+#   scripts/make-wallpaper
+#
+# Writes image/rootfs-gui/usr/share/wallpapers/AEGIS/contents/images/1920x1080.png:
+# a deep blue-black gradient with a soft cyan glow and the outline of a shield.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+python3 - <<'PYTHON'
+import math, struct, zlib
+from pathlib import Path
+
+W, H = 1920, 1080
+out = Path("image/rootfs-gui/usr/share/wallpapers/AEGIS/contents/images/1920x1080.png")
+
+def shield_distance(x, y):
+    """Distance of (x, y) from the outline of a shield centred in the image."""
+    cx, top, width, height = W / 2, H * 0.30, H * 0.30, H * 0.40
+    u = (x - cx) / (width / 2)          # -1 .. 1 across
+    v = (y - top) / height              # 0 .. 1 down
+    # top edge: a gentle arc between the two upper corners
+    arc = top - 0.04 * height * (1 - u * u)
+    top_edge = abs(y - arc) if abs(u) <= 1 else 1e9
+    if v < -0.06 or v > 1:
+        return top_edge
+    # half-width of the shield at height v: straight sides, then a curve to the point
+    half = 1.0 if v < 0.45 else math.cos((v - 0.45) / 0.55 * math.pi / 2) ** 0.8
+    side = abs(abs(u) - half) * (width / 2) if v >= 0 else 1e9
+    return min(side, top_edge)
+
+rows = []
+for y in range(H):
+    row = bytearray([0])
+    for x in range(W):
+        t = y / H
+        r, g, b = 8 + 6 * t, 12 + 10 * t, 24 + 22 * t                # base gradient
+        dx, dy = (x - W * 0.5) / W, (y - H * 0.42) / H
+        glow = math.exp(-(dx * dx + dy * dy) * 9.0)                  # central glow
+        r, g, b = r + 10 * glow, g + 60 * glow, b + 90 * glow
+        d = shield_distance(x, y)
+        line = math.exp(-(d / 2.2) ** 2) * 0.55                      # thin outline
+        r, g, b = r + (80 - r) * line, g + (220 - g) * line, b + (255 - b) * line
+        row += bytes((min(255, int(r)), min(255, int(g)), min(255, int(b))))
+    rows.append(bytes(row))
+
+def chunk(kind, data):
+    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", W, H, 8, 2, 0, 0, 0))
+png += chunk(b"IDAT", zlib.compress(b"".join(rows), 9)) + chunk(b"IEND", b"")
+out.write_bytes(png)
+print(out, len(png), "bytes")
+PYTHON

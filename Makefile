@@ -39,6 +39,18 @@ disk: ## Install both variants into image files under out/ (never a real disk)
 	scripts/build-disk localhost/aegis-dev:latest out/disk.raw
 	scripts/build-disk localhost/aegis-base:latest out/disk-base.raw
 
+.PHONY: image-gui
+image-gui: ## M4-GUI: build and seal the base, development and graphical images
+	AEGIS_WITH_GUI=1 scripts/build-image
+
+.PHONY: disk-gui
+disk-gui: ## M4-GUI: install the graphical image into out/disk-gui.raw
+	AEGIS_DISK_SIZE=20G scripts/build-disk localhost/aegis-gui:latest out/disk-gui.raw
+
+.PHONY: gui-test
+gui-test: ## M4-GUI: boot the graphical image under Secure Boot and run the GUI tests
+	scripts/run-gui-tests
+
 .PHONY: builder
 builder: ## Build the test and tools container (QEMU, firmware, pytest, signing tools)
 	scripts/build-builder

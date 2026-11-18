@@ -28,6 +28,10 @@ def pytest_addoption(parser):
     parser.addoption("--base-disk", default="out/disk-base.raw", help="aegis-base disk image")
     parser.addoption("--local-image", default="", help="exported qcow2 (default: out/release)")
     parser.addoption("--workdir", default="out/vm", help="directory for logs and scratch files")
+    parser.addoption("--gui-disk", default="out/disk-gui.raw", help="aegis-gui disk image")
+    parser.addoption(
+        "--sealed-variant", default="dev", help="variant whose sealed command line --disk carries"
+    )
     parser.addoption(
         "--secureboot-dir",
         default="out/secureboot",
@@ -88,6 +92,8 @@ def machine(
     firmware: tuple[Path, Path] | None = None,
     developer_access: bool = True,
     smbios_strings: tuple[str, ...] = (),
+    graphics: bool = False,
+    memory_mib: int = 4096,
 ):
     """A virtual machine on a fresh copy-on-write disk. Tests start and stop it themselves.
 
@@ -123,6 +129,8 @@ def machine(
         probe_port=free_local_port(),
         secure_boot=firmware is not None,
         smbios_strings=smbios_strings,
+        graphics=graphics,
+        memory_mib=memory_mib,
     )
     vm = Vm(cfg, key, timeout_scale=TCG_TIMEOUT_SCALE if accel == "tcg" else 1.0)
     try:
