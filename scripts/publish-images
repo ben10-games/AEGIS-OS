@@ -88,7 +88,10 @@ if tools skopeo --policy /work/verify-untrusted.json --registries.d /work/regist
 fi
 echo "VERIFY untrusted key: rejected ($(tail -n 1 "${work}/untrusted.log" | cut -c1-160))" \
   | tee -a out/published.txt
+# The policy is checked against the source before anything is copied; the local copy
+# cannot hold sigstore signatures, so they are not written to it.
 tools skopeo --policy /work/verify-aegis-os.json --registries.d /work/registries.d \
-  copy --authfile /auth.json "docker://${reference}" "oci:/work/verify:x" > /dev/null
+  copy --authfile /auth.json --remove-signatures "docker://${reference}" "oci:/work/verify:x" \
+  > /dev/null
 echo "VERIFY run key: accepted" | tee -a out/published.txt
 cp "${work}/aegis-os.pub" out/aegis-os-signing.pub
