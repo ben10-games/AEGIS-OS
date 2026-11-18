@@ -6,8 +6,8 @@ the update image of this build under three tags:
 - v2: signed with this build's AEGIS signing key (the key whose public half is sealed
   into the image),
 - v3: the same image content under a different manifest, unsigned,
-- v4: the same image content with gzip-compressed layers (a different manifest),
-  signed with a key nobody trusts.
+- v4: the same image in a separate repository (aegis-dev-untrusted), signed only with
+  a key nobody trusts.
 
 The guest is told only one thing at test time: that ghcr.io/ben10-games/aegis-os has a
 mirror at the test registry (registries.conf drop-in). The image's own signature policy
@@ -32,6 +32,7 @@ from harness.registry import Registry
 
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = "ghcr.io/ben10-games/aegis-os/aegis-dev"
+UNTRUSTED_REPOSITORY = "ghcr.io/ben10-games/aegis-os/aegis-dev-untrusted"
 SIGNING = ROOT / ".secrets" / "signing"
 UPDATE_ARCHIVE = ROOT / "out" / "images" / "aegis-dev-v2.oci.tar"
 SSH_DEADLINE_S = 180
@@ -44,7 +45,9 @@ def sealed_digest(variant: str) -> str:
     return (ROOT / "out" / "digests" / f"{variant}.v1").read_text().strip()
 
 
-def skopeo_push(registry: Registry, workdir: Path, tag: str, extra: list[str]) -> str:
+def skopeo_push(
+    registry: Registry, workdir: Path, tag: str, extra: list[str], repository: str = "aegis-dev"
+) -> str:
     """Push the update image to the test registry; return the manifest digest."""
     registries_d = workdir / "registries.d"
     registries_d.mkdir(exist_ok=True)
@@ -53,7 +56,7 @@ def skopeo_push(registry: Registry, workdir: Path, tag: str, extra: list[str]) -
     )
     policy = workdir / "push-policy.json"
     policy.write_text(json.dumps({"default": [{"type": "insecureAcceptAnything"}]}))
-    destination = f"docker://127.0.0.1:{registry.port}/aegis-os/aegis-dev:{tag}"
+    destination = f"docker://127.0.0.1:{registry.port}/aegis-os/{repository}:{tag}"
     digest_file = workdir / f"{tag}.digest"
     subprocess.run(
         ["skopeo", "--policy", str(policy), "--registries.d", str(registries_d), "copy",
@@ -64,11 +67,11 @@ def skopeo_push(registry: Registry, workdir: Path, tag: str, extra: list[str]) -
     return digest_file.read_text().strip()
 
 
-def signed_by(key: str, tag: str) -> list[str]:
+def signed_by(key: str, reference: str) -> list[str]:
     return [
         "--sign-by-sigstore-private-key", str(SIGNING / f"{key}.private"),
         "--sign-passphrase-file", str(SIGNING / "passphrase"),
-        "--sign-identity", f"{REPOSITORY}:{tag}",
+        "--sign-identity", reference,
     ]  # fmt: skip
 
 
@@ -79,23 +82,22 @@ def registry(workdir, logdir):
         pytest.fail(f"{UPDATE_ARCHIVE} not found; it is written by 'make image'")
     root = workdir / "registry"
     with Registry(root / "data") as running:
+        # skopeo reuses blobs the registry already has, so the same image content
+        # cannot be given a third distinct manifest by recompression. v4 is therefore
+        # the v2 image in a repository of its own, where its only signature is by the
+        # untrusted key (sigstore attachments are stored per repository). The
+        # repository is under the AEGIS prefix, so the image's policy applies to it.
         digests = {
-            "v2": skopeo_push(running, root, "v2", signed_by("aegis-os", "v2")),
+            "v2": skopeo_push(running, root, "v2", signed_by("aegis-os", f"{REPOSITORY}:v2")),
             "v3": skopeo_push(running, root, "v3", ["--format", "v2s2"]),
             "v4": skopeo_push(
-                running,
-                root,
-                "v4",
-                [
-                    "--dest-compress",
-                    "--dest-compress-format",
-                    "gzip",
-                    *signed_by("untrusted", "v4"),
-                ],
+                running, root, "v4",
+                signed_by("untrusted", f"{UNTRUSTED_REPOSITORY}:v4"),
+                repository="aegis-dev-untrusted",
             ),
-        }
+        }  # fmt: skip
         (logdir / "update-registry.txt").write_text(json.dumps(digests, indent=2) + "\n")
-        assert len(set(digests.values())) == 3, f"tags must be different manifests: {digests}"
+        assert digests["v2"] != digests["v3"], f"v3 must be a different manifest: {digests}"
         yield running, digests
 
 
@@ -167,12 +169,13 @@ def guest(vm, registry, logdir):
     vm.wait_for_exit(120)
 
 
-def assert_refused(guest, tag: str, logdir: Path) -> str:
-    result = guest.ssh(f"bootc switch {REPOSITORY}:{tag}", check=False, timeout=SWITCH_TIMEOUT_S)
+def assert_refused(guest, reference: str, logdir: Path) -> str:
+    tag = reference.rsplit(":", 1)[1]
+    result = guest.ssh(f"bootc switch {reference}", check=False, timeout=SWITCH_TIMEOUT_S)
     (logdir / f"v15-{tag}.txt").write_text(
         f"exit status: {result.returncode}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
-    assert result.returncode != 0, f"bootc accepted {tag}:\n{result.stdout}"
+    assert result.returncode != 0, f"bootc accepted {reference}:\n{result.stdout}"
     message = result.stdout + result.stderr
     assert re.search(r"signature|policy|[Rr]ejected", message), message[-1500:]
     assert bootc_status(guest)["status"].get("staged") is None, "something was staged"
@@ -182,12 +185,12 @@ def assert_refused(guest, tag: str, logdir: Path) -> str:
 def test_v15_unsigned_update_is_refused(guest, logdir):
     """V-15: an image without a signature is refused; nothing is staged."""
     assert_security_properties(guest)
-    assert_refused(guest, "v3", logdir)
+    assert_refused(guest, f"{REPOSITORY}:v3", logdir)
 
 
 def test_v15_update_signed_by_an_unknown_key_is_refused(guest, logdir):
     """V-15: a valid signature by a key the image does not trust is refused."""
-    assert_refused(guest, "v4", logdir)
+    assert_refused(guest, f"{UNTRUSTED_REPOSITORY}:v4", logdir)
     assert running_digest(guest) == sealed_digest("dev")
 
 
