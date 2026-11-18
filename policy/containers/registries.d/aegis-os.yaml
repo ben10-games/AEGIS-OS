@@ -1,0 +1,5 @@
+# Signatures of AEGIS OS images are sigstore attachments stored next to the image in
+# the registry (the format cosign uses). See /etc/containers/policy.json.
+docker:
+  ghcr.io/ben10-games/aegis-os:
+    use-sigstore-attachments: true

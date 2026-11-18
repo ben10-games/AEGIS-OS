@@ -175,6 +175,10 @@ for evidence in v05-unsigned-uki v05-tampered-uki v05-unsigned-loader v07-root-o
   boot-parameters-loader-options fs-verity-object sealed-root-mount; do
   section "evidence: ${evidence}" "${logs}/${evidence}.txt" 25
 done
+for evidence in update-registry v15-v3 v15-v4 v13-switch v13-status v14-rollback v14-status \
+  update-final-status; do
+  section "evidence (updates): ${evidence}" "${logs}/${evidence}.txt" 30
+done
 section "evidence: firmware-supplied command line (console, last lines)" \
   "${logs}/boot-parameters-smbios.txt" 25
 

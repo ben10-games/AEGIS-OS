@@ -1,0 +1,17 @@
+{
+    "default": [{"type": "reject"}],
+    "transports": {
+        "docker": {
+            "ghcr.io/ben10-games/aegis-os": [
+                {
+                    "type": "sigstoreSigned",
+                    "keyPath": "/usr/share/aegis/keys/aegis-os-signing.pub",
+                    "signedIdentity": {"type": "matchRepository"}
+                }
+            ]
+        },
+        "containers-storage": {
+            "": [{"type": "insecureAcceptAnything"}]
+        }
+    }
+}

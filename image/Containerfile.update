@@ -1,0 +1,9 @@
+# The "v2" development image for the update and rollback tests (task P1-14): the
+# development root filesystem plus a visible change. It is sealed and signed like any
+# other image (image/Containerfile.seal) and is never released.
+ARG BASE=localhost/aegis-dev-rootfs:latest
+FROM ${BASE}
+ARG AEGIS_UPDATE_VERSION=0.1.0-dev.update
+RUN sed -i "s/^IMAGE_VERSION=.*/IMAGE_VERSION=${AEGIS_UPDATE_VERSION}/" /usr/lib/os-release \
+    && echo "${AEGIS_UPDATE_VERSION}" > /usr/share/aegis/update-marker \
+    && bootc container lint --fatal-warnings

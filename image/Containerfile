@@ -29,6 +29,17 @@ RUN rpm -e bootupd shim-x64 \
 # are listed in tests/golden/base/etc-changes.txt (ADR-0014).
 COPY image/rootfs/ /
 
+# Signed updates (task P1-13, policy/containers/README.md): only images signed by the
+# AEGIS key are accepted from the AEGIS registry; everything else is rejected. The
+# public key goes into the sealed root filesystem; it is generated per CI run.
+ARG AEGIS_SIGNING_PUBKEY
+COPY policy/containers/policy.json /etc/containers/policy.json
+COPY policy/containers/registries.d/aegis-os.yaml /etc/containers/registries.d/aegis-os.yaml
+RUN install -d -m 0755 /usr/share/aegis/keys \
+    && printf '%s' "${AEGIS_SIGNING_PUBKEY}" | base64 -d > /usr/share/aegis/keys/aegis-os-signing.pub \
+    && grep -q 'BEGIN PUBLIC KEY' /usr/share/aegis/keys/aegis-os-signing.pub \
+    && ! grep -q 'PRIVATE' /usr/share/aegis/keys/aegis-os-signing.pub
+
 # Identity, unit enablement, firewall zone, storage backend marker.
 RUN AEGIS_VARIANT=base AEGIS_VERSION="${AEGIS_VERSION}" AEGIS_REVISION="${AEGIS_REVISION}" \
       /usr/libexec/aegis-build/configure-image \

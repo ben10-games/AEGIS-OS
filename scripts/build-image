@@ -46,6 +46,11 @@ if ! "${as_root[@]}" podman image exists localhost/aegis-builder:latest; then
   exit 1
 fi
 
+# Throw-away image signing keys (scripts/signing-keys). Only the public key goes into
+# the image, as a build argument.
+scripts/signing-keys > /dev/null
+signing_pubkey="$("${as_root[@]}" base64 -w0 .secrets/signing/aegis-os.pub)"
+
 echo "== building the base root filesystem from ${base_image}"
 "${as_root[@]}" podman build \
   --pull=missing \
@@ -53,6 +58,7 @@ echo "== building the base root filesystem from ${base_image}"
   --build-arg "BASE_IMAGE=${base_image}" \
   --build-arg "AEGIS_VERSION=${version}" \
   --build-arg "AEGIS_REVISION=${revision}" \
+  --build-arg "AEGIS_SIGNING_PUBKEY=${signing_pubkey}" \
   --tag localhost/aegis-base-rootfs:latest \
   --file image/Containerfile \
   .
@@ -66,11 +72,18 @@ echo "== building the development root filesystem"
   --file image/Containerfile.dev \
   .
 
+echo "== building the update test root filesystem (v2, never released)"
+"${as_root[@]}" podman build \
+  --build-arg "BASE=localhost/aegis-dev-rootfs:latest" \
+  --tag localhost/aegis-dev-v2-rootfs:latest \
+  --file image/Containerfile.update \
+  .
+
 # Each variant has its own root filesystem, so each gets its own digest and its own UKI.
 # The digest is computed from the root filesystem image in container storage, the way
 # 'bootc install' computes it (see image/Containerfile.seal).
 mkdir -p out/digests
-for variant in base dev; do
+for variant in base dev dev-v2; do
   echo "== sealing localhost/aegis-${variant}"
   "${as_root[@]}" podman build \
     --target split \
@@ -101,10 +114,18 @@ for variant in base dev; do
   echo "${v1}" > "out/digests/${variant}.v1"
 done
 
+# The update image, for the update tests: they push it, signed, to a test registry.
+mkdir -p out/images
+"${as_root[@]}" rm -f out/images/aegis-dev-v2.oci.tar
+"${as_root[@]}" podman save --format oci-archive -o out/images/aegis-dev-v2.oci.tar \
+  localhost/aegis-dev-v2:latest
+"${as_root[@]}" chown -R "$(id -u):$(id -g)" out/images
+ls -l out/images
+
 # The command line each UKI was sealed with (it contains the root digest). The VM tests
 # compare the running system's command line with it.
 mkdir -p out/sealed
-for variant in base dev; do
+for variant in base dev dev-v2; do
   "${as_root[@]}" podman run --rm --network=none \
     --mount "type=image,source=localhost/aegis-${variant}:latest,destination=/target" \
     localhost/aegis-builder:latest \
