@@ -1,7 +1,7 @@
 # ADR-0004: Sealed images on the bootc composefs backend
 
-Status: Provisional
-Date: 2026-11-13 (implemented in M3, 2026-11-17)
+Status: Accepted
+Date: 2026-11-13 (implemented in M3, 2026-11-17; gate G1 passed 2026-11-18)
 
 ## Context
 
@@ -62,11 +62,13 @@ command line contains anything else.
   requirements may need the same care.
 - The image is built as root filesystem, split image and sealed image; two extra
   container-storage passes per variant compute the digests.
-- Updates (V-13) and rollback (V-14) need a registry and signed images (M4); until they
-  pass, G1 is open and this ADR stays Provisional.
+- Updates are whole signed images: `bootc switch`/`upgrade` verifies the sigstore
+  signature against the key sealed into the image (`/etc/containers/policy.json`, default
+  reject); the new UKI is then verified by Secure Boot at boot.
 
 ## Verification
 
-Done in M3 (CI, KVM, Secure Boot firmware with enrolled keys; `build` run 44300954850 on
-`3a07962`, all 77 VM tests pass): B-06, V-04, V-05, V-06, V-07, boot-parameter tests;
-see `PROJECT_STATE.md` section 5. Open: V-13, V-14 (M4).
+Gate G1 passed: `build` run 44319072870 on `a7cd392` (CI, KVM, Secure Boot firmware with
+enrolled keys), all 83 VM tests: B-06, V-04, V-05, V-06, V-07, boot-parameter tests, and
+V-13 (signed update), V-14 (rollback), V-15 (unsigned and untrusted updates refused);
+see `PROJECT_STATE.md` section 5. M3 evidence: run 44300954850 on `3a07962`.

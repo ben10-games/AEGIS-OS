@@ -9,10 +9,10 @@ only if it actually ran and passed, with the commit and where it ran.
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
 - **Phase / milestone:** Phase 1. M0, M1 and **M2 (baseline configuration) are
   complete**; see sections 4 and 5 and `docs/architecture/security-baseline.md`.
-- **Next task:** M4 (signing and registry, update and rollback tests: P1-13, P1-14),
-  which closes gate G1. Waits for the owner's go-ahead. M3 is complete except G1. M4 (signing,
-  registry, update and rollback tests, P1-13 and P1-14) closes G1 and needs the
-  owner's go-ahead. See "M3 progress" below and section 5.
+- **Next task:** M4 (signed updates). Update, refusal and rollback tests pass and gate
+  G1's criteria are met (see "M4 progress"); signed publishing to GHCR is implemented
+  and verified only once a `[publish-image]` run on this branch has passed. The GUI
+  foundation (M4-GUI) is on branch `claude/aegis-os-gui-foundation`, not here.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the end of the `build` job log: the "Collect results"
   step prints `scripts/summarize-results`, with short inventories, the differences
@@ -23,6 +23,41 @@ only if it actually ran and passed, with the commit and where it ran.
   3. When an image change alters a golden manifest, copy the new entries from the
      "differences between the golden manifests and this build" block of the job log
      into `tests/golden/` in the same commit series.
+
+### M4 progress (signed updates and rollback)
+
+Verified in `build` run 44319072870 on `a7cd392` (KVM, Secure Boot with the run's
+throw-away keys): 25 image tests and 83 of 83 VM tests, including:
+
+| Test | Evidence |
+|---|---|
+| V-15 unsigned update refused, nothing staged | `bootc switch ...aegis-dev:v3`: "A signature was required, but no signature exists" |
+| V-15 update signed by an unknown key refused, nothing staged | `bootc switch ...aegis-dev-untrusted:v4`: "cryptographic signature verification failed: invalid signature" |
+| V-13 signed v2 staged; after reboot the running command line carries v2's sealed digest, v2's marker exists, Secure Boot, SELinux enforcing, command-line check active, no failed unit | `bootc status`: booted `ghcr.io/ben10-games/aegis-os/aegis-dev:v2`, `imageDigest sha256:8226608d…` |
+| V-14 `bootc rollback` and reboot: v1's sealed digest again, marker gone, same security checks | `bootc status`: booted `localhost/aegis-dev:latest` |
+| V-09 sentinels in `/etc` and `/var` survive update and rollback | |
+
+How it works: `/etc/containers/policy.json` (from `policy/containers/`) rejects every
+image by default and accepts `ghcr.io/ben10-games/aegis-os` only with a sigstore
+signature by the AEGIS key, whose public half is sealed into
+`/usr/share/aegis/keys/`. Keys are generated per run (`scripts/signing-keys`). The test
+registry (`tests/vm/harness/registry.py`) runs offline in the test container; the guest
+uses it only as a registries.conf mirror of the real repository name, so the image's own
+policy is exercised unchanged. Assumption A5 (policy enforced on the composefs backend)
+is confirmed.
+
+Gate G1: install, Secure Boot, upgrade, rollback and tamper rejection all passed in VMs
+of the same run (V-04 to V-07, V-13 to V-15). ADR-0004 is Accepted.
+
+Signed publishing (P1-13): `scripts/publish-images` pushes `aegis-base` and `aegis-dev`
+to `ghcr.io/ben10-games/aegis-os/aegis-{base,dev}:git-<commit>` signed with the run's key,
+refuses to overwrite a tag, and verifies the published signature with the run's public
+key (must pass) and the untrusted key (must fail). Runs only on the default branch, on
+request, after every test passed. **Not yet verified.**
+
+Iterations: run 44306277370 (golden `/etc` entry, v4 = v2), 44312412759 and
+44315892051 (skopeo reuses existing blobs, so recompression never changed v4's
+manifest), 44319072870 (v4 in its own repository: all pass).
 
 ### M3 progress (sealed boot chain)
 
@@ -125,8 +160,8 @@ image.
 | P1-10 | Ephemeral key tooling | done | `scripts/dev-keys`; keys generated per CI run, private keys only in the job workspace |
 | P1-11 | Sealed image, gate G1 | in progress | implemented and verified (`3a07962`, `build` run 44300954850); G1 pending: V-13/V-14 need M4 |
 | P1-12 | Tamper and negative boot tests | done | `3a07962`; `build` run 44300954850 |
-| P1-13 | Signing and signature policy | todo | |
-| P1-14 | Update and rollback tests | todo | |
+| P1-13 | Signing and signature policy | in progress | policy, keys and signing verified (run 44319072870); GHCR publishing implemented, not yet verified |
+| P1-14 | Update and rollback tests | done | `a7cd392`; `build` run 44319072870 (V-09, V-13, V-14, V-15) |
 | P1-15 | Input pinning | todo | |
 | P1-16 | Reproducibility, SBOM, vulnerability report | todo | |
 | P1-17 | Metrics baseline | todo | |
@@ -262,7 +297,12 @@ Single runs on shared runners; differences under a second are not significant. T
 image is about 0.35 GiB larger: the UKI (135 MB, kernel and initramfs) on the ESP and
 the composefs object store.
 
-Not yet run: B-05, B-07, V-09, V-12 to V-16 (V-13/V-14 are G1 criteria, M4), V-18, all R tests.
+| V-13 Signed update staged and booted under Secure Boot | pass | `a7cd392` | GitHub Actions run 44319072870, KVM |
+| V-14 Rollback to v1 under Secure Boot | pass | `a7cd392` | GitHub Actions run 44319072870, KVM |
+| V-15 Unsigned and untrusted-signed updates refused by the signature policy, nothing staged | pass | `a7cd392` | GitHub Actions run 44319072870, KVM |
+| V-09 `/etc` and `/var` state survives update and rollback | pass | `a7cd392` | GitHub Actions run 44319072870, KVM |
+
+Not yet run: B-05, B-07, V-12, V-16, V-18, all R tests.
 
 ### Measurements before and after M2
 
@@ -359,7 +399,7 @@ for each statement, and what it does not. In short:
 | A2 | `fedora-bootc:45` ships bootc 1.16 or newer | **confirmed** (bootc 1.17.1, probe run 43459049502) |
 | A3 | `bootc install to-disk` supports btrfs with the composefs backend | partly confirmed: btrfs works with the ostree backend (run 43460695621); composefs backend still open (P1-11) |
 | A4 | Fedora's updates-archive repository is usable for locked RPMs | open (P1-15) |
-| A5 | Container signature policy is enforced on the composefs backend | open (P1-14, test V-15) |
+| A5 | Container signature policy is enforced on the composefs backend | **confirmed** (run 44319072870, V-15: unsigned and wrongly signed images refused by the policy) |
 | A6 | SSH key injection through a systemd credential on the QEMU command line works | **confirmed** (run 43460695621) |
 
 ## 9. Outstanding tasks and open decisions for the owner

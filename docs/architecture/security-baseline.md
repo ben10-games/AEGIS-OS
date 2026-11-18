@@ -1,7 +1,7 @@
 # Security baseline after milestones M2 and M3
 
-What the AEGIS OS image demonstrably provides at the end of M3 (sealed boot chain; gate
-G1 still open), what it does not, and where each statement is tested. "Tested" means a test in this repository passed in
+What the AEGIS OS image demonstrably provides after M3 and the update tests of M4
+(sealed boot chain; gate G1 passed), what it does not, and where each statement is tested. "Tested" means a test in this repository passed in
 GitHub Actions on a KVM virtual machine; the run is recorded in `PROJECT_STATE.md`.
 Nothing here has been checked on physical hardware.
 
@@ -27,6 +27,8 @@ Nothing here has been checked on physical hardware.
 | The kernel command line is the signed one | It is inside the signed UKI; boot-entry options are ignored; any other argument (e.g. from firmware SMBIOS strings) makes the system power off | V-06, boot-parameter tests |
 | The operating system tree is exactly the built image | composefs root whose digest is in the signed command line; stored objects carry fs-verity; offline changes to a file's stored bytes make reads fail, never return the changed content | B-06, V-06, V-07 |
 | The sealed system shuts down cleanly | `/etc` and `/var` are released before unmounting; both variants power off without failed units | release-variant power-off test (BUG-8 fixed) |
+| Only signed updates are accepted (M4) | `/etc/containers/policy.json` rejects everything by default; AEGIS images need a sigstore signature by the key sealed into `/usr/share/aegis/keys/`. Unsigned and wrongly signed images are refused, nothing is staged | V-15 |
+| An update can be undone | `bootc rollback` returns to the previous sealed image; `/etc` and `/var` state is kept | V-13, V-14, V-09 |
 
 ## Not provided yet
 
@@ -34,10 +36,9 @@ Nothing here has been checked on physical hardware.
 |---|---|---|
 | Boot chain tested only in VMs with throw-away keys | Nothing is known yet about real firmware; keys for hardware are undecided | Phase 6 (ADR-0012) |
 | No measured boot (TPM) | A firmware-supplied kernel argument is in effect during the initramfs until the command-line check stops the machine | Phase 2 |
-| Updates and rollback of sealed images not tested | Gate G1 open | M4 (V-13, V-14) |
 | No disk encryption | Everything on the disk is readable by anyone who has it | Phase 2 |
-| Updates are not signed or verified | An update source must be trusted blindly; none is configured | M4 (P1-13, P1-14) |
-| `/etc` and `/var` are not integrity-protected | A program that gains root can persist there | Phase 2 |
+| Update keys are per CI run | An image accepts updates only from the run that built it; there is no update channel yet | Phase 2 (key hierarchy) |
+| `/etc` and `/var` are not integrity-protected | A program that gains root can persist there, including in `/etc/containers/policy.json`, which decides which updates are accepted | Phase 2 |
 | Root can switch SELinux to permissive at runtime | Enforcement protects against confined programs, not against root | Phase 2 |
 | 31 SELinux domains are permissive in Fedora's policy | Programs in those domains are logged, not confined. Listed in `tests/golden/base/selinux-permissive-domains.txt`; `bootupd_t` is the one that runs at every boot | Phase 2: confine or remove; `bootupd` goes with the sealed boot chain |
 | No application sandboxing | Any program a user runs has that user's full access | Phase 3 |

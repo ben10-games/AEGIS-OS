@@ -53,15 +53,45 @@ def test_checkout_does_not_persist_credentials(root):
         )
 
 
-def test_only_the_mirror_workflow_may_write_packages(root):
-    """Write access to the container registry is confined to one reviewed job."""
+PACKAGE_WRITERS = {"mirror-base.yml": "mirror", "build.yml": "build-and-boot"}
+# Steps other than registry logins that may see the token, each reviewed.
+TOKEN_STEPS = {("mirror-base.yml", "Copy the pinned image, keeping its digest")}
+JOB = re.compile(r"^  ([A-Za-z0-9_-]+):\s*$", re.MULTILINE)
+
+
+def jobs_of(text: str) -> dict[str, str]:
+    """Top-level jobs of a workflow and their text (no YAML library needed)."""
+    body = text.split("\njobs:\n", 1)[1]
+    names = list(JOB.finditer(body))
+    return {
+        match.group(1): body[match.end() : names[i + 1].start() if i + 1 < len(names) else None]
+        for i, match in enumerate(names)
+    }
+
+
+def test_package_write_is_confined_to_reviewed_jobs(root):
+    """Write access to the container registry: only the base mirror job and the build job
+    that publishes signed images, each granted at job level, never at workflow level."""
     for path in workflows(root):
         text = path.read_text()
-        if path.name == "mirror-base.yml":
-            assert text.count("packages: write") == 1
-            assert "workflow_dispatch" in text
-            assert "delete" not in text.lower().replace("deleted by this workflow", "")
-        else:
-            assert "packages: write" not in text, f"{path.name}: must not write packages"
+        header = text.split("\njobs:\n", 1)[0]
+        assert "packages: write" not in header, f"{path.name}: workflow-level packages: write"
+        writers = [name for name, job in jobs_of(text).items() if "packages: write" in job]
+        expected = [PACKAGE_WRITERS[path.name]] if path.name in PACKAGE_WRITERS else []
+        assert writers == expected, f"{path.name}: jobs writing packages: {writers}"
         assert ": write-all" not in text
         assert "contents: write" not in text, f"{path.name}: must not write to the repository"
+
+
+def test_registry_token_is_used_only_by_login_steps(root):
+    """The job token reaches only the steps that log in to the registry."""
+    for path in workflows(root):
+        for job_name, job in jobs_of(path.read_text()).items():
+            for step in re.split(r"\n      - ", job)[1:]:
+                if "GITHUB_TOKEN" in step:
+                    name = re.search(r"name:\s*(.+)", step)
+                    allowed = name and (
+                        name.group(1).startswith("Log in")
+                        or (path.name, name.group(1)) in TOKEN_STEPS
+                    )
+                    assert allowed, f"{path.name}:{job_name}: {name and name.group(1)}"

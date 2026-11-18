@@ -27,6 +27,11 @@ jobs:
     name: Build images, check manifests, boot both variants in a VM
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    # packages: write only for "Publish signed images" (default branch, on request); the
+    # token is referenced only by the registry login step (enforced by a static test).
+    permissions:
+      contents: read
+      packages: write
     outputs:
       published: ${{ steps.publish.outcome == 'success' }}
     steps:
@@ -123,6 +128,28 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+
+      # P1-13: signed images to GHCR. Default branch only, on request, after every test
+      # in this job passed. Tags are never overwritten; signatures are verified after
+      # the push with this run's public key (published as an artifact).
+      - name: Publish signed images to GHCR
+        id: publish-signed
+        if: >-
+          ${{ success() && github.ref_name == github.event.repository.default_branch
+          && (github.event_name == 'workflow_dispatch'
+          || contains(github.event.head_commit.message, '[publish-image]')) }}
+        run: scripts/publish-images "git-${GITHUB_SHA::12}"
+
+      - name: Upload the signing public key and published references
+        if: ${{ steps.publish-signed.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aegis-os-signed-images
+          path: |
+            out/published.txt
+            out/aegis-os-signing.pub
+          if-no-files-found: error
+          retention-days: 90
 
   windows-launch:
     name: Start the published image on Windows with the documented launcher
