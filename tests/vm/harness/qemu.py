@@ -96,18 +96,39 @@ ExecStart=/bin/sh -c 'echo "AEGIS-DIAG BEGIN"; \\
 """
 
 
+# BUG-8: which processes still have a working directory, root or open file under /var
+# right before /var is unmounted at shutdown. The unit is ordered like a local file
+# system user (After=var.mount, Before=local-fs.target), so it stops after every
+# ordinary service and immediately before var.mount. Findings go to /dev/kmsg, which
+# the kernel prints on the serial console even this late in shutdown.
 SHUTDOWN_DIAGNOSTIC_UNIT = """[Unit]
 Description=AEGIS test diagnostics: what still holds /var at shutdown
-After=var.mount
+DefaultDependencies=no
+After=var.mount systemd-journald.service
+Before=local-fs.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/true
-StandardOutput=tty
-TTYPath=/dev/ttyS0
-ExecStop=/bin/sh -c 'echo "AEGIS-SHUTDOWN-DIAG BEGIN"; \\
-  lsof -n -w /var 2>/dev/null | head -n 40; \\
-  echo "AEGIS-SHUTDOWN-DIAG END"'
+ImportCredential=aegis.holders-script
+ExecStart=/bin/sh %d/aegis.holders-script start
+ExecStop=/bin/sh %d/aegis.holders-script stop
+"""
+
+HOLDERS_SCRIPT = r"""
+echo on > /proc/sys/kernel/printk_devkmsg 2>/dev/null
+say() { echo "aegis-holders[$1]: $2" > /dev/kmsg; }
+units="systemd-journald.service systemd-journal-flush.service"
+units="$units aegis-journal-relinquish.service var.mount"
+say "$1" "units $units: $(systemctl is-active $units 2>&1 | paste -sd' ')"
+for p in /proc/[0-9]*; do
+  comm="$(cat "$p/comm" 2>/dev/null)"
+  for f in "$p/cwd" "$p/root" "$p"/fd/*; do
+    t="$(readlink "$f" 2>/dev/null)"
+    case "$t" in /var|/var/*) echo "${comm}[${p#/proc/}] ${f##*/} -> $t" ;; esac
+  done
+done | sort -u | head -n 25 | while IFS= read -r line; do say "$1" "$line"; done
+say "$1" "mounts under /var: $(findmnt -rn -o TARGET -R /var | paste -sd' ')"
+say "$1" "done"
 """
 
 
@@ -115,14 +136,16 @@ def console_diagnostic_credentials() -> list[str]:
     """systemd credentials that add the diagnostic unit and pull it into the boot."""
     unit = base64.b64encode(DIAGNOSTIC_UNIT.encode()).decode()
     shutdown = base64.b64encode(SHUTDOWN_DIAGNOSTIC_UNIT.encode()).decode()
-    dropin = base64.b64encode(
-        b"[Unit]\nWants=aegis-diagnostics.service aegis-shutdown-diagnostics.service\n"
-    ).decode()
+    script = base64.b64encode(HOLDERS_SCRIPT.encode()).decode()
+    dropin = base64.b64encode(b"[Unit]\nWants=aegis-diagnostics.service\n").decode()
+    local_fs = base64.b64encode(b"[Unit]\nWants=aegis-shutdown-diagnostics.service\n").decode()
     return [
         f"io.systemd.credential.binary:systemd.extra-unit.aegis-diagnostics.service={unit}",
         "io.systemd.credential.binary:systemd.extra-unit.aegis-shutdown-diagnostics.service="
         + shutdown,
         f"io.systemd.credential.binary:systemd.unit-dropin.multi-user.target={dropin}",
+        f"io.systemd.credential.binary:systemd.unit-dropin.local-fs.target={local_fs}",
+        f"io.systemd.credential.binary:aegis.holders-script={script}",
     ]
 
 

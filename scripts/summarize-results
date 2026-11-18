@@ -164,10 +164,11 @@ else
 fi
 echo
 
-echo "=== what held /var at the first shutdown (development variant)"
+section "BUG-8: shutdown-related units and /var ordering (running system)" \
+  "${logs}/boot1-shutdown-units.txt" 90
+echo "=== BUG-8: what held /var before it was unmounted (first development boot)"
 if [[ -n "${first}" ]]; then
-  sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' "${first}" | tr -d '\r' \
-    | sed -n '/AEGIS-SHUTDOWN-DIAG BEGIN/,/AEGIS-SHUTDOWN-DIAG END/p' | cut -c1-200 | head -n 45
+  grep -a 'aegis-holders' "${first}" | sed -E 's/^\[ *[0-9.]+\] //' | cut -c1-200 | head -n 70
 fi
 echo
 for evidence in v05-unsigned-uki v05-tampered-uki v05-unsigned-loader v07-root-object \

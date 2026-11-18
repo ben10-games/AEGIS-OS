@@ -56,6 +56,17 @@ def collect_diagnostics(vm, logdir, tag: str) -> None:
             " echo; bootctl status --no-pager 2>&1 | head -n 45;"
             " echo; bootctl list --no-pager 2>&1 | head -n 30"
         ),
+        # BUG-8: are the units meant to act at shutdown active, and how is /var ordered?
+        "shutdown-units": (
+            "systemctl status --no-pager --lines=5 aegis-journal-relinquish.service"
+            " systemd-journal-flush.service aegis-shutdown-diagnostics.service 2>&1 | head -n 60;"
+            " echo; systemctl show var.mount -p ActiveState -p What -p Options -p After"
+            " -p Before -p RequiredBy -p WantedBy -p Requires -p BindsTo;"
+            " echo; ls -l /usr/lib/systemd/system/local-fs.target.wants/;"
+            " echo; grep -E ' /var | /sysroot ' /proc/self/mountinfo;"
+            " echo; systemctl cat --no-pager systemd-journal-flush.service"
+            " | grep -E 'Exec|Requires|After|Before'"
+        ),
         # Candidates for "/var busy at shutdown": what has files open under /var.
         "var-holders": (
             "findmnt -R /var; echo; lsof -n -w /var 2>/dev/null"
