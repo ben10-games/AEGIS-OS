@@ -9,10 +9,10 @@ only if it actually ran and passed, with the commit and where it ran.
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
 - **Phase / milestone:** Phase 1. M0, M1 and **M2 (baseline configuration) are
   complete**; see sections 4 and 5 and `docs/architecture/security-baseline.md`.
-- **Next task:** M4 (signed updates). Update, refusal and rollback tests pass and gate
-  G1's criteria are met (see "M4 progress"); signed publishing to GHCR is implemented
-  and verified only once a `[publish-image]` run on this branch has passed. The GUI
-  foundation (M4-GUI) is on branch `claude/aegis-os-gui-foundation`, not here.
+- **Next task:** M4 is complete (gate G1 passed, signed publishing verified). Next in
+  the blueprint is M5 (input pinning, reproducibility, SBOM: P1-15, P1-16); it needs the
+  owner's go-ahead. The GUI foundation (M4-GUI) is on branch
+  `claude/aegis-os-gui-foundation`, not here.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the end of the `build` job log: the "Collect results"
   step prints `scripts/summarize-results`, with short inventories, the differences
@@ -53,7 +53,19 @@ Signed publishing (P1-13): `scripts/publish-images` pushes `aegis-base` and `aeg
 to `ghcr.io/ben10-games/aegis-os/aegis-{base,dev}:git-<commit>` signed with the run's key,
 refuses to overwrite a tag, and verifies the published signature with the run's public
 key (must pass) and the untrusted key (must fail). Runs only on the default branch, on
-request, after every test passed. **Not yet verified.**
+request, after every test passed. **Verified** in `build` run 44330064081 on `7dd30ce`
+(`lint` run 44330063820 green): all 25 image and 83 VM tests passed, then
+
+- `ghcr.io/ben10-games/aegis-os/aegis-base:git-7dd30ce82a91@sha256:ef5112408e19c5358b89e1217443f851ac398d770b761b738076f8f81e219c09`
+- `ghcr.io/ben10-games/aegis-os/aegis-dev:git-7dd30ce82a91@sha256:7b66518f22303eeb5c238706bebe71cfd7b5ccb7bfdb79f6ad841200fc9a00b7`
+
+were published; untrusted key: "Source image rejected: cryptographic signature
+verification failed"; run key: accepted. The run's public key and the references are
+the artifact `aegis-os-signed-images` (kept 90 days). The same run published the sealed
+development QCOW2 (`aegis-os-dev-qcow2`, until 2026-12-02), and the Windows job booted
+it with the PowerShell launcher. An earlier run (44325751988) also pushed
+`git-9d2e8d345279` images before its positive verification step failed; they are signed
+the same way.
 
 Iterations: run 44306277370 (golden `/etc` entry, v4 = v2), 44312412759 and
 44315892051 (skopeo reuses existing blobs, so recompression never changed v4's
@@ -160,7 +172,7 @@ image.
 | P1-10 | Ephemeral key tooling | done | `scripts/dev-keys`; keys generated per CI run, private keys only in the job workspace |
 | P1-11 | Sealed image, gate G1 | in progress | implemented and verified (`3a07962`, `build` run 44300954850); G1 pending: V-13/V-14 need M4 |
 | P1-12 | Tamper and negative boot tests | done | `3a07962`; `build` run 44300954850 |
-| P1-13 | Signing and signature policy | in progress | policy, keys and signing verified (run 44319072870); GHCR publishing implemented, not yet verified |
+| P1-13 | Signing and signature policy | done | `7dd30ce`; `build` run 44330064081 (published to GHCR, signatures verified) |
 | P1-14 | Update and rollback tests | done | `a7cd392`; `build` run 44319072870 (V-09, V-13, V-14, V-15) |
 | P1-15 | Input pinning | todo | |
 | P1-16 | Reproducibility, SBOM, vulnerability report | todo | |
@@ -193,7 +205,8 @@ Deviations from the approved blueprint:
 | M0 Repository and tooling (P1-00 to P1-02) | 2026-11-13 | `lint` run 43458827403, `probe` run 43459049502 |
 | M1 First verified boot (P1-03 to P1-06) | 2026-11-13 | `build` run 43460695621 on `399d421`: 8 VM tests passed in 43.5 s under KVM; repeated on `a3a5004` (run 43461672095) |
 | M2 Baseline configuration (P1-07 to P1-09) | 2026-11-14 | `build` run 43557838924 on `c3308a8`: 14 image tests and 55 VM tests passed (both variants, KVM); `lint` run 43557838949 green on the same commit. Same result on `3514aec` (run 43557821995) |
-| M3 Sealed boot chain (P1-10 to P1-12), except gate G1 | 2026-11-18 | `build` run 44300954850 on `3a07962`: 25 image tests and 77 VM tests under Secure Boot, including B-06, V-04, V-05, V-06, V-07 and the boot-parameter tests; `lint` run 44300954927. G1 needs V-13/V-14 (M4) |
+| M3 Sealed boot chain (P1-10 to P1-12) | 2026-11-18 | `build` run 44300954850 on `3a07962`: 25 image tests and 77 VM tests under Secure Boot, including B-06, V-04, V-05, V-06, V-07 and the boot-parameter tests; `lint` run 44300954927. G1 needs V-13/V-14 (M4) |
+| M4 Updates (P1-13, P1-14); gate G1 passed | 2026-11-18 | `build` run 44319072870 on `a7cd392`: V-13, V-14, V-15, V-09 under Secure Boot; `build` run 44330064081 on `7dd30ce`: signed images published to GHCR and verified, all 83 VM tests |
 
 Milestone tags `p1-m0` (`cdce239`) and `p1-m1-first-boot` (`399d421`) exist only in the
 session that created them: pushing tags was refused (HTTP 403; the session may push the
@@ -350,7 +363,7 @@ Nothing has been verified on a local workstation or on physical hardware.
 
 ## 7. Security limitations
 
-`docs/architecture/security-baseline.md` lists what the M2 image provides, with the test
+`docs/architecture/security-baseline.md` lists what the image provides after M4, with the test
 for each statement, and what it does not. In short:
 
 - The boot chain is verified only in virtual machines with the build's throw-away keys.
@@ -363,7 +376,13 @@ for each statement, and what it does not. In short:
 - The initramfs runs before `aegis-verify-cmdline.service`, so a firmware-supplied
   kernel argument is in effect until that check stops the machine (BUG-9). Measured
   boot with a TPM policy is not implemented.
-- No updates, no rollback test, no boot counting yet (M4, Phase 2).
+- Signed updates and manual rollback work (M4), but the signing key is generated per CI
+  run: an installed image accepts updates only from the run that built it. There is no
+  update channel and no automatic boot counting or rollback (Phase 2).
+- `/etc/containers/policy.json`, which decides which updates are accepted, is in `/etc`
+  (writable state); root can replace it. The public key itself is in the sealed root.
+- Published images in GHCR are signed but the package is private by default; signatures
+  are verifiable only with the public key of the run that published them.
 - The local VM launchers boot the sealed image with plain firmware, without Secure Boot:
   fs-verity still checks the root, but nothing verifies the UKI (`LOCAL_VM_GUIDE.md`).
 - 31 SELinux domains are permissive in Fedora's policy
