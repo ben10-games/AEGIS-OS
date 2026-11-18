@@ -1,6 +1,7 @@
 # AEGIS OS graphical desktop: architecture (M4-GUI foundation)
 
-Status: first iteration in progress on branch `claude/aegis-os-gui-foundation`. The
+Status: first functional graphical image on branch `claude/aegis-os-gui-foundation`
+(CI run 44312306345: 16 of 17 GUI tests and 8 of 8 Secure Boot tests on the GUI image). The
 security milestone M4 (signed updates, manual rollback, gate G1) is **not** complete and
 is not affected by this track. Results are recorded in `PROJECT_STATE.md` only once a CI
 run has shown them.
@@ -88,3 +89,48 @@ Screenshots are taken through QMP and printed, half size, into the job log.
 
 The M3 Secure Boot and sealed-root tests (`tests/vm/test_secure_boot.py`) also run
 against the GUI image in the same job.
+
+## Results of the first image (CI run 44312306345, commit `163334e`)
+
+Rendered under Secure Boot in a KVM virtual machine (virtio-vga, software rendering,
+1280x800), screenshots taken through QMP and inspected:
+
+| Desktop | Konsole with the typed test command |
+|---|---|
+| ![AEGIS desktop](gui-screenshots/m4-gui-desktop.png) | ![Konsole](gui-screenshots/m4-gui-konsole.png) |
+| **Dolphin** | **System Settings (AEGIS Dark colours)** |
+| ![Dolphin](gui-screenshots/m4-gui-dolphin.png) | ![System Settings](gui-screenshots/m4-gui-systemsettings.png) |
+
+Observed: AEGIS wallpaper and colour scheme applied; floating, centred, content-sized
+panel with launcher, pinned Files/Terminal/Settings, tray and clock; legible text, no
+clipping, no error dialogs. Measurements are in `PROJECT_STATE.md`.
+
+## Known limitations
+
+- Software rendering only (llvmpipe in a VM); no GPU acceleration, frame times not
+  measured yet.
+- The launcher button shows the generic start icon, not an AEGIS mark.
+- Dolphin's "Devices" shows one volume with a full (red) usage bar, most likely the
+  read-only composefs root reporting itself as full. Cosmetic; to be hidden or labelled.
+- `plasma-keyboard` (on-screen keyboard) runs and uses about 266 MB; it is not needed
+  on this image.
+- XWayland runs for compatibility; no X11 session is offered.
+- The GUI image is not yet covered by golden manifests (packages, units, `/etc`).
+- SDDM shows the stock Breeze login screen when autologin is off; no AEGIS branding.
+- Only one test user, created at boot by the test harness; there is no user setup flow.
+
+## Next GUI tasks, in order
+
+1. Verify the pointer test (key name fixed) and add golden manifests for `aegis-gui`.
+2. Remove or disable the on-screen keyboard; measure memory again.
+3. AEGIS mark for the launcher button and the SDDM theme; hide the composefs root in
+   Dolphin's Places.
+4. Frame-time measurement (KWin's FPS/latency output) on the software renderer, as the
+   baseline for the Phase 4 frame-time budget.
+5. AEGIS QML design tokens module (colours, spacing, radii, motion) shared by future
+   components (`aegis-ui-designer`, `aegis-qt-developer` skills).
+6. Security dashboard v0: read-only Kirigami application showing Secure Boot, sealed
+   root, SELinux and lockdown state from `/sys`; design note for the D-Bus service that
+   later exposes `bootc status`.
+7. Dock v1: an AEGIS QML applet replacing the task manager in the floating panel.
+8. Decide plasma-login-manager versus SDDM once the login screen is branded.

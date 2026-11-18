@@ -151,7 +151,7 @@ def test_gui_file_manager_and_settings_start(gui, logdir):
 
 def test_gui_pointer_opens_the_desktop_menu(gui, logdir):
     """Pointer: a right click on the desktop changes the screen (context menu); Esc closes it."""
-    gui.send_keys("meta-d")  # show the desktop
+    gui.send_keys("meta_l-d")  # show the desktop
     time.sleep(2)
     before = shot(gui, logdir, "before-click").read_bytes()
     gui.click(0.25, 0.25, button="right")

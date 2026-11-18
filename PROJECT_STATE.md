@@ -24,6 +24,43 @@ only if it actually ran and passed, with the commit and where it ran.
      "differences between the golden manifests and this build" block of the job log
      into `tests/golden/` in the same commit series.
 
+### M4-GUI track (graphical development image), branch `claude/aegis-os-gui-foundation`
+
+Authorised by the owner as a parallel foundation track. **The security milestone M4
+(signed updates, manual rollback, gate G1) is not complete**; its work continues on the
+main development branch and is not affected by this branch. This branch starts from
+`fef77c4` (all M3 tests verified).
+
+State: first functional graphical image. `build` run 44312306345 on `163334e`, job
+"Graphical development image (M4-GUI)", KVM, Secure Boot with enrolled throw-away keys:
+16 of 17 tests passed; the main job (all M1-M3 tests on base and dev) passed in the same
+run. The one failure was a test bug (QEMU key name `meta` instead of `meta_l`), fixed in
+the commit that records this; verified only once the next run passes.
+
+Verified in that run (`tests/vm/test_gui.py`, plus `tests/vm/test_secure_boot.py`
+against the GUI image):
+
+| Check | Result |
+|---|---|
+| Boot under Secure Boot into an SDDM autologin Plasma 6.8 session, `Type=wayland`, KWin and plasmashell running | pass |
+| Secure Boot enforced, SELinux enforcing, **no AVC denials**, sealed composefs root, sealed command-line check active, no failed units | pass |
+| Keyboard: Ctrl+Alt+T opens Konsole; a command typed on the virtual keyboard runs (file created, owned by the user) | pass |
+| Dolphin and System Settings start and keep running | pass |
+| Networking connected; PipeWire offers the virtual sound card ("Built-in Audio Analog Stereo") | pass |
+| Restart returns to the desktop; power-off exits QEMU 0 with no failed unit | pass |
+| M3 tests on the GUI image: V-04 (3), V-06 (4), sealed command-line check | pass (8 of 8) |
+| Pointer (right click changes the screen) | not yet verified (test bug above) |
+
+Screenshots (rendered in CI, recovered from the job log and inspected):
+`docs/architecture/gui-screenshots/m4-gui-{desktop,konsole,dolphin,systemsettings}.png`.
+
+Measurements (same run, 4 GiB VM, software rendering, Konsole, Dolphin and System
+Settings open): memory in use 1250 MiB (development image without GUI: 498 MiB),
+201 processes (47 of the user), systemd startup 10.1 s. Largest: plasmashell 410 MB RSS,
+System Settings 300 MB, KWin 275 MB, plasma-keyboard (on-screen keyboard) 266 MB.
+
+Details, decisions and next tasks: `docs/architecture/gui-architecture.md`.
+
 ### M3 progress (sealed boot chain)
 
 **State: complete except gate G1.** Every test passes on `3a07962`: `build` run

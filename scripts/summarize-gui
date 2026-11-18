@@ -14,9 +14,18 @@ section() {
   echo
 }
 
-for name in session resources audio pointer selinux-denials; do
+for name in session resources audio pointer; do
   section "gui: ${name}" "${logs}/gui-${name}.txt" 60
 done
+echo "=== gui: SELinux denials during the graphical session"
+if [[ -s "${logs}/gui-selinux-denials.txt" ]]; then
+  head -n 40 "${logs}/gui-selinux-denials.txt"
+elif [[ -e "${logs}/gui-selinux-denials.txt" ]]; then
+  echo "none"
+else
+  echo "(not recorded)"
+fi
+echo
 section "gui: Secure Boot status (bootctl)" "${logs}/secure-boot-bootctl-status.txt" 12
 
 for qemu_log in "${logs}"/*qemu.log; do
