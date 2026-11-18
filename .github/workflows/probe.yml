@@ -68,21 +68,19 @@ jobs:
         run: |
           printf '%s' "${REGISTRY_TOKEN}" \
             | sudo podman login --username "${REGISTRY_USER}" --password-stdin ghcr.io
-          printf '%s' "${REGISTRY_TOKEN}" \
-            | skopeo login --username "${REGISTRY_USER}" --password-stdin ghcr.io
 
       # A digest pin only helps while the registry still serves that digest.
       - name: "Base image pin: still available? Which immutable tags exist?"
         run: |
           pinned="$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
           repository="$(grep -E '^UPSTREAM_REPOSITORY=' image/base.lock | cut -d= -f2-)"
-          if skopeo inspect --raw "docker://${pinned}" > /dev/null 2> pin-error.txt; then
+          if sudo skopeo inspect --raw "docker://${pinned}" > /dev/null 2> pin-error.txt; then
             echo "PIN RESULT: ${pinned} is available"
           else
             echo "PIN RESULT: ${pinned} is GONE: $(tail -n 1 pin-error.txt)"
           fi
           echo "tags of ${repository} that start with 45:"
-          skopeo list-tags "docker://${repository}" \
+          sudo skopeo list-tags "docker://${repository}" \
             | grep -oE '"45[^"]*"' | tr -d '"' | sort -V | tail -n 40 | paste -sd' ' || true
 
       # Facts the sealed boot chain (milestone M3) is designed from.
