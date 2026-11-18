@@ -6,7 +6,7 @@ the update image of this build under three tags:
 - v2: signed with this build's AEGIS signing key (the key whose public half is sealed
   into the image),
 - v3: the same image content under a different manifest, unsigned,
-- v4: the same image content with uncompressed layers (a different manifest),
+- v4: the same image content with gzip-compressed layers (a different manifest),
   signed with a key nobody trusts.
 
 The guest is told only one thing at test time: that ghcr.io/ben10-games/aegis-os has a
@@ -86,7 +86,12 @@ def registry(workdir, logdir):
                 running,
                 root,
                 "v4",
-                ["--dest-decompress", *signed_by("untrusted", "v4")],
+                [
+                    "--dest-compress",
+                    "--dest-compress-format",
+                    "gzip",
+                    *signed_by("untrusted", "v4"),
+                ],
             ),
         }
         (logdir / "update-registry.txt").write_text(json.dumps(digests, indent=2) + "\n")
