@@ -56,6 +56,10 @@ command line contains anything else.
 - The initramfs runs before `aegis-verify-cmdline.service`; a firmware-supplied argument
   is in effect until that check stops the machine. Measured boot (TPM) would close this.
 - No automatic rollback on failed boot yet on this backend (no boot counting); Phase 2.
+- `/var` is a mount made by the initramfs without a unit file, so systemd does not
+  derive requirements from `RequiresMountsFor=/var/...`. `aegis-journal-relinquish.service`
+  makes journald release `/var` at shutdown (BUG-8); other services relying on such
+  requirements may need the same care.
 - The image is built as root filesystem, split image and sealed image; two extra
   container-storage passes per variant compute the digests.
 - Updates (V-13) and rollback (V-14) need a registry and signed images (M4); until they
@@ -63,5 +67,6 @@ command line contains anything else.
 
 ## Verification
 
-Done in M3 (CI, KVM, Secure Boot firmware with enrolled keys): B-06, V-04, V-05, V-06,
-V-07, boot-parameter tests; see `PROJECT_STATE.md` section 5. Open: V-13, V-14 (M4).
+Done in M3 (CI, KVM, Secure Boot firmware with enrolled keys; `build` run 44300954850 on
+`3a07962`, all 77 VM tests pass): B-06, V-04, V-05, V-06, V-07, boot-parameter tests;
+see `PROJECT_STATE.md` section 5. Open: V-13, V-14 (M4).

@@ -9,8 +9,8 @@ only if it actually ran and passed, with the commit and where it ran.
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
 - **Phase / milestone:** Phase 1. M0, M1 and **M2 (baseline configuration) are
   complete**; see sections 4 and 5 and `docs/architecture/security-baseline.md`.
-- **Next task:** BUG-8 (shutdown, see section 6). M3 is implementation-complete with
-  gate G1 pending. M4 (signing,
+- **Next task:** M4 (signing and registry, update and rollback tests: P1-13, P1-14),
+  which closes gate G1. Waits for the owner's go-ahead. M3 is complete except G1. M4 (signing,
   registry, update and rollback tests, P1-13 and P1-14) closes G1 and needs the
   owner's go-ahead. See "M3 progress" below and section 5.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
@@ -26,12 +26,10 @@ only if it actually ran and passed, with the commit and where it ran.
 
 ### M3 progress (sealed boot chain)
 
-**State: implementation complete, gate G1 pending, one regression open (BUG-8).**
-The sealed boot chain boots in CI under Secure Boot and every M3 security test passes
-(latest: run 44107287400 on `3897c4e`, 25 image tests, 76 of 77 VM tests; `lint` run
-44107287315 green). The one failing test is the release variant's clean power-off:
-`/var` is busy at shutdown (BUG-8, open). Update and rollback (V-13, V-14) need M4,
-so G1 stays open and ADR-0004 stays Provisional.
+**State: complete except gate G1.** Every test passes on `3a07962`: `build` run
+44300954850 (25 image tests, 77 of 77 VM tests, all under Secure Boot) and `lint` run
+44300954927. Update and rollback (V-13, V-14) need M4, so G1 stays open and ADR-0004
+stays Provisional.
 
 Boot chain as built: OVMF Secure Boot with only the build's throw-away keys
 → signed systemd-boot 262 → signed UKI (ukify; command line = `kargs.d` + composefs
@@ -58,7 +56,9 @@ Iterations, for the record (each a CI run on this branch):
 | 44096629031 | SMBIOS extension now stops the machine; V-07 hit a stale copy | locate the live object |
 | 44100054742 | V-07 passes; only `/var` busy at shutdown left | `var.mount` ordered before `local-fs.target` |
 | 44104092316 | all services stop first; `/var` still busy | `journalctl --relinquish-var` unit |
-| 44107287400 | unit apparently never started; BUG-8 open | recorded, not relaxed |
+| 44107287400 | relinquish unit never stopped; BUG-8 open | focused diagnostics |
+| 44298288483 | journald is the only holder; `var.mount` has no unit file, so `RequiresMountsFor=` is ordering only and no ExecStop runs | relinquish unit requires `var.mount` and conflicts with `shutdown.target` |
+| 44300954850 | all 77 VM tests pass; nothing holds `/var` at unmount | BUG-8 closed |
 
 ### Local VM image (owner request, done)
 
@@ -123,8 +123,8 @@ image.
 | P1-08 | Operating system baseline | done | `e378b1e`; `build` run 43554108533 (identity, services, firewall, audit, kernel arguments, sysctl, networking) |
 | P1-09 | SELinux enforcement validation | done | `c3308a8`; `build` run 43557838924 (V-08: zero denials, labels, enforcement self-test) |
 | P1-10 | Ephemeral key tooling | done | `scripts/dev-keys`; keys generated per CI run, private keys only in the job workspace |
-| P1-11 | Sealed image, gate G1 | in progress | implemented; G1 pending (V-13/V-14 need M4);  `21bb955`; `build` run 44100054742 |
-| P1-12 | Tamper and negative boot tests | done | `21bb955`; `build` run 44100054742 |
+| P1-11 | Sealed image, gate G1 | in progress | implemented and verified (`3a07962`, `build` run 44300954850); G1 pending: V-13/V-14 need M4 |
+| P1-12 | Tamper and negative boot tests | done | `3a07962`; `build` run 44300954850 |
 | P1-13 | Signing and signature policy | todo | |
 | P1-14 | Update and rollback tests | todo | |
 | P1-15 | Input pinning | todo | |
@@ -158,6 +158,7 @@ Deviations from the approved blueprint:
 | M0 Repository and tooling (P1-00 to P1-02) | 2026-11-13 | `lint` run 43458827403, `probe` run 43459049502 |
 | M1 First verified boot (P1-03 to P1-06) | 2026-11-13 | `build` run 43460695621 on `399d421`: 8 VM tests passed in 43.5 s under KVM; repeated on `a3a5004` (run 43461672095) |
 | M2 Baseline configuration (P1-07 to P1-09) | 2026-11-14 | `build` run 43557838924 on `c3308a8`: 14 image tests and 55 VM tests passed (both variants, KVM); `lint` run 43557838949 green on the same commit. Same result on `3514aec` (run 43557821995) |
+| M3 Sealed boot chain (P1-10 to P1-12), except gate G1 | 2026-11-18 | `build` run 44300954850 on `3a07962`: 25 image tests and 77 VM tests under Secure Boot, including B-06, V-04, V-05, V-06, V-07 and the boot-parameter tests; `lint` run 44300954927. G1 needs V-13/V-14 (M4) |
 
 Milestone tags `p1-m0` (`cdce239`) and `p1-m1-first-boot` (`399d421`) exist only in the
 session that created them: pushing tags was refused (HTTP 403; the session may push the
@@ -221,8 +222,9 @@ still the unmodified Fedora service set, so this is expected to change in P1-08.
 
 ### M3 tests (sealed boot chain)
 
-All in GitHub Actions run 44100054742 on `21bb955`, KVM, OVMF Secure Boot firmware with
-only that run's throw-away keys enrolled (`virt-fw-vars`).
+All in GitHub Actions run 44300954850 on `3a07962` (first passed in run 44100054742 on
+`21bb955`), KVM, OVMF Secure Boot firmware with only that run's throw-away keys
+enrolled (`virt-fw-vars`). `lint` run 44300954927 green on the same commit.
 
 | Test | Result | Evidence |
 |---|---|---|
@@ -237,25 +239,28 @@ only that run's throw-away keys enrolled (`virt-fw-vars`).
 | V-07 64 bytes of the live object of a sealed root file inverted on the disk (offset located with filefrag and btrfs-map-logical): reading the file fails with "Input/output error", the content is never served | pass | as above. Which layer refused the data (btrfs checksums or fs-verity) was not logged; both would |
 | Boot-entry `options enforcing=0 aegis.tamper=1` added on the ESP: ignored, SELinux enforcing | pass | as above |
 | `io.systemd.stub.kernel-cmdline-extra=enforcing=0` in SMBIOS: the machine powers itself off before `sysinit.target` with "unexpected argument: enforcing=0" | pass (after the fix; failed in run 44093307831) | as above |
-| All M1/M2 tests on the sealed images under Secure Boot | pass except the release variant's clean power-off (BUG-8) | 76 of 77 |
+| All M1/M2 tests on the sealed images under Secure Boot, including clean power-off of both variants | pass | 77 of 77; BUG-8 fixed |
 
 ### Measurements after M3
 
-`aegis-dev`, first boot, run 44100054742, same runner type as M2. Startup time is
-measured by systemd and excludes firmware and boot loader.
+`aegis-dev`, first boot, run 44300954850 (`3a07962`), same runner type as M2. Startup
+time is measured by systemd and excludes firmware and boot loader.
 
 | Metric | M2 (run 43557838924) | M3 |
 |---|---|---|
-| Startup, first boot | 9.3 s | 9.7 s (0.9 + 2.8 + 6.0) |
-| Startup, second boot | 7.4 s | 8.4 s |
-| Memory in use | 509–529 MiB | 488 MiB |
-| Running services | 22 | 21 (bootloader-update gone) |
+| Startup, first boot | 9.3 s | 9.2 s (1.0 + 2.6 + 5.5) |
+| Startup, second boot | 7.4 s | 7.7 s |
+| Memory in use | 509–529 MiB | 498 MiB |
+| Running services | 22 | 22 |
 | Enabled units | 58 | 57 |
+| TCP/UDP listeners | 8 | 8 |
 | SELinux denials | 0 | 0 |
-| Exported QCOW2 | 1.15 GiB | 1.53 GiB |
-| `build` workflow duration | 17 min | 19 min (15 more tests, 7 extra boots) |
+| Exported QCOW2 | 1.15 GiB | 1.5 GiB |
+| `build` workflow duration | 17 min | 11 min (run 44300954850; 15 more tests, 7 extra boots; runner variation is large) |
 
-Single runs on shared runners; differences under a second are not significant.
+Single runs on shared runners; differences under a second are not significant. The
+image is about 0.35 GiB larger: the UKI (135 MB, kernel and initramfs) on the ESP and
+the composefs object store.
 
 Not yet run: B-05, B-07, V-09, V-12 to V-16 (V-13/V-14 are G1 criteria, M4), V-18, all R tests.
 
@@ -300,7 +305,7 @@ Nothing has been verified on a local workstation or on physical hardware.
 | BUG-6 | `ausearch -ts boot` returns nothing on the test VM although the audit log is being written (run 43554108533). | Tests that query the audit log by "since boot" would silently see no events. | The SELinux tests read the whole audit log and the journal and filter by time themselves. Cause not yet investigated. |
 | BUG-5 | The initramfs is the one built by Fedora. It contains Fedora's `os-release`, so early boot identifies itself as Fedora and sets the hostname `fedora` until the real system applies `/etc/hostname`. | Cosmetic in M2. | The initramfs is regenerated when the UKI is built for the sealed boot chain (P1-11). |
 | BUG-7 | Closed (`mirror-base` run 43851534053). The base image pin did not last: quay.io dropped the digests of 2026-11-13 and 2026-11-15 within one to two days; the repository has only moving tags. | Commits before the mirror cannot be rebuilt from their own pin (table in `docs/operations/base-image.md`). | Every pinned base is now copied, digest unchanged, to `ghcr.io/ben10-games/aegis-os/fedora-bootc`, and builds use the copy. Added packages are still unlocked (P1-15). |
-| BUG-8 | **Open.** With the composefs backend, `/var` (a bind mount of `/state/os/default/var` set up by the initramfs) cannot be unmounted at shutdown: "umount: /var: target is busy", reported as `[FAILED] Failed unmounting var.mount` (runs 44090714344 to 44107287400). | The release variant's power-off test fails (1 of 77 VM tests). The machine still powers off, data is synced first ("Syncing filesystems and block devices"), and every following boot was clean. | Tried: auditd ordered before `/var` (no effect); `var.mount` ordered before `local-fs.target` (run 44104092316: every service now stops first, still busy); `aegis-journal-relinquish.service` statically wanted by `local-fs.target` (run 44107287400: it never appears in the shutdown log, so it apparently did not start; not yet understood). At runtime journald, auditd and firewalld hold files under `/var`. Next step: confirm whether the unit starts (`systemctl status` on a running system), and whether journald is the holder at the moment of the unmount. The test is not relaxed. |
+| BUG-8 | Closed (`ec285da`, verified in run 44300954850). `/var` could not be unmounted at shutdown ("target is busy"). Cause, shown by shutdown diagnostics (run 44298288483): journald kept `/var/log/journal` open. With the composefs backend `/var` is a bind mount made by the initramfs, so `var.mount` has no unit file; for such a mount systemd turns `RequiresMountsFor=` into ordering only, so stopping `var.mount` never stopped `systemd-journal-flush.service` and its `journalctl --smart-relinquish-var` never ran. (On the ostree backend a generator writes a `var.mount` unit file.) | The release-variant power-off test failed; data was synced and later boots were clean. | `aegis-journal-relinquish.service` requires `var.mount` and conflicts with `shutdown.target`, so `journalctl --relinquish-var` runs right before `/var` is unmounted; `var.mount` is ordered before `local-fs.target`. The shutdown diagnostic shows no process holding `/var` at that point. |
 | BUG-9 | Closed by mitigation. systemd-stub appends `io.systemd.stub.kernel-cmdline-extra` from SMBIOS even under Secure Boot; `enforcing=0` there made SELinux permissive (run 44093307831). | Whoever controls the firmware tables could weaken the system. | `aegis-verify-cmdline.service` powers the machine off on any argument not in the sealed set (verified in run 44096629031). The initramfs still runs before the check. |
 
 ## 7. Security limitations

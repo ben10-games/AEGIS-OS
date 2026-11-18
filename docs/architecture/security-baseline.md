@@ -1,7 +1,7 @@
 # Security baseline after milestones M2 and M3
 
-What the AEGIS OS image demonstrably provides at the end of M2, what it does not, and
-where each statement is tested. "Tested" means a test in this repository passed in
+What the AEGIS OS image demonstrably provides at the end of M3 (sealed boot chain; gate
+G1 still open), what it does not, and where each statement is tested. "Tested" means a test in this repository passed in
 GitHub Actions on a KVM virtual machine; the run is recorded in `PROJECT_STATE.md`.
 Nothing here has been checked on physical hardware.
 
@@ -26,6 +26,7 @@ Nothing here has been checked on physical hardware.
 | The firmware runs only boot code signed with the project's key (M3) | UEFI Secure Boot with own PK/KEK/db; systemd-boot and the UKI are signed; an unsigned or modified UKI or boot loader is refused | V-04, V-05 (VM, throw-away keys) |
 | The kernel command line is the signed one | It is inside the signed UKI; boot-entry options are ignored; any other argument (e.g. from firmware SMBIOS strings) makes the system power off | V-06, boot-parameter tests |
 | The operating system tree is exactly the built image | composefs root whose digest is in the signed command line; stored objects carry fs-verity; offline changes to a file's stored bytes make reads fail, never return the changed content | B-06, V-06, V-07 |
+| The sealed system shuts down cleanly | `/etc` and `/var` are released before unmounting; both variants power off without failed units | release-variant power-off test (BUG-8 fixed) |
 
 ## Not provided yet
 
