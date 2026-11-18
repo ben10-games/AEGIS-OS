@@ -17,10 +17,24 @@ cd "$(dirname "$0")/.."
 
 tag="${1:?tag, e.g. git-<commit>}"
 repository=ghcr.io/ben10-games/aegis-os
-auth=/run/containers/0/auth.json
 as_root=()
 if [[ "${EUID}" -ne 0 ]]; then
   as_root=(sudo)
+fi
+
+# Where root's 'podman login' stored the credentials. Under sudo, podman keeps the
+# caller's XDG_RUNTIME_DIR, so on GitHub runners it is not /run/containers/0.
+auth=""
+for candidate in "${REGISTRY_AUTH_FILE:-}" "/run/user/$(id -u)/containers/auth.json" \
+  /run/containers/0/auth.json; do
+  if [[ -n "${candidate}" ]] && "${as_root[@]}" test -s "${candidate}"; then
+    auth="${candidate}"
+    break
+  fi
+done
+if [[ -z "${auth}" ]]; then
+  echo "error: no registry login found; run 'sudo podman login ghcr.io' first" >&2
+  exit 1
 fi
 
 work="$(mktemp -d)"
