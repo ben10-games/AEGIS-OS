@@ -97,15 +97,18 @@ ExecStart=/bin/sh -c 'echo "AEGIS-DIAG BEGIN"; \\
 
 
 # BUG-8: which processes still have a working directory, root or open file under /var
-# right before /var is unmounted at shutdown. The unit is ordered like a local file
-# system user (After=var.mount, Before=local-fs.target), so it stops after every
-# ordinary service and immediately before var.mount. Findings go to /dev/kmsg, which
+# right before /var is unmounted at shutdown. The unit takes part in shutdown
+# (Conflicts=shutdown.target) and is ordered so that it stops after every ordinary
+# service and after aegis-journal-relinquish.service, and before var.mount. Findings go to /dev/kmsg, which
 # the kernel prints on the serial console even this late in shutdown.
 SHUTDOWN_DIAGNOSTIC_UNIT = """[Unit]
 Description=AEGIS test diagnostics: what still holds /var at shutdown
 DefaultDependencies=no
+Requires=var.mount
 After=var.mount systemd-journald.service
-Before=local-fs.target
+Before=local-fs.target aegis-journal-relinquish.service
+Before=shutdown.target umount.target
+Conflicts=shutdown.target umount.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes

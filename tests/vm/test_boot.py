@@ -60,7 +60,8 @@ def collect_diagnostics(vm, logdir, tag: str) -> None:
         "shutdown-units": (
             "systemctl status --no-pager --lines=5 aegis-journal-relinquish.service"
             " systemd-journal-flush.service aegis-shutdown-diagnostics.service 2>&1 | head -n 60;"
-            " echo; systemctl show var.mount -p ActiveState -p What -p Options -p After"
+            " echo; systemctl show var.mount -p ActiveState -p FragmentPath -p What"
+            " -p Options -p After"
             " -p Before -p RequiredBy -p WantedBy -p Requires -p BindsTo;"
             " echo; ls -l /usr/lib/systemd/system/local-fs.target.wants/;"
             " echo; grep -E ' /var | /sysroot ' /proc/self/mountinfo;"
