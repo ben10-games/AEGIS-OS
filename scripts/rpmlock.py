@@ -293,6 +293,10 @@ def build_lock(metadata: Path, repos: Path, base: str, inputs_data: bytes) -> Lo
         if key not in origin:
             raise InputError(f"{step}/{file}: no repository offers {name}-{version}-{release}")
         repoid, location = origin[key]
+        # dnf reports the URL of the mirror it used; the lock keeps the path inside the
+        # repository, which is the same on every mirror.
+        if "://" in location and "/Packages/" in location:
+            location = "Packages/" + location.rsplit("/Packages/", 1)[1]
         evr = (
             f"{version}-{release}"
             if epoch in ("0", "", "(none)")

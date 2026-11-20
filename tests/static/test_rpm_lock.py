@@ -257,13 +257,15 @@ def test_build_lock_from_resolver_output(rpmlock, tmp_path):
     )
     repos = tmp_path / "repos.tsv"
     repos.write_text(
-        "audit\t0\t4.1.2\t1.fc45\tx86_64\tupdates\tPackages/a/audit-4.1.2-1.fc45.x86_64.rpm\n"
+        "audit\t0\t4.1.2\t1.fc45\tx86_64\tupdates\thttp://mirror.example/fedora/linux/updates/45/"
+        "Everything/x86_64/Packages/a/audit-4.1.2-1.fc45.x86_64.rpm\n"
         "selinux-policy-devel\t0\t45.24\t1.fc45\tnoarch\tfedora\t"
         "Packages/s/selinux-policy-devel-45.24-1.fc45.noarch.rpm\n"
     )
     lock = rpmlock.build_lock(metadata, repos, BASE, INPUTS)
     assert [p.name for p in lock.packages] == ["audit", "selinux-policy-devel"]
     assert lock.cache == rpmlock.UNPUBLISHED
+    assert lock.packages[0].location == "Packages/a/audit-4.1.2-1.fc45.x86_64.rpm"
     assert rpmlock.parse_lock(lock.text()) == lock
 
 
