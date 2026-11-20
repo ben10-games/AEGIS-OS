@@ -76,7 +76,23 @@ without the owner's authorisation.
   - New wallpaper (`scripts/make-wallpaper`, inspected).
   Tests added: `tests/vm/test_gui.py` (idle measurements, KWin effects loaded, keyboard
   absent, dock layout, dashboard facts and screenshot, application start times) and
-  `tests/static/test_gui_assets.py`. Not run yet.
+  `tests/static/test_gui_assets.py`.
+- First full GUI v1 run, `build` run 44749833133 on `84b60d0` (KVM): the graphical
+  image builds from the locked inputs without network, seals, passes
+  `bootc container lint` and installs. GUI job: 20 of 21 tests on the harness VM under
+  Secure Boot (all 8 M3 Secure Boot / sealed-root tests pass on the GUI image), 9 of 10
+  on the exported QCOW2 booted with `run-aegis-gui-vm.sh` (1920x1080 Wayland desktop,
+  typed command runs as the user, network, audio device, SELinux enforcing with no
+  denials, clean power-off). Failures, both fixed in the next commit: KWin loads no
+  separate `contrast` effect (only `blur`, which is the backdrop; config and test
+  corrected); the launcher's user had a locked password because systemd-sysusers
+  imports password credentials for root only (drop-in importing
+  `passwd.hashed-password.*`). Screenshots inspected: the dashboard window showed the
+  compact icon, and the launcher and Security widget used the same mark (both changed).
+  Measurements (4 GiB, software rendering): idle after login 900 MiB, KWin 261 MiB,
+  plasmashell 405 MiB, on-screen keyboard 0 (not started), idle CPU 0.8 %; with
+  Konsole, Dolphin and System Settings open 1147 MiB (M4-GUI: 1250-1267 MiB); systemd
+  startup 10.6 s.
 
 ### M4-GUI foundation (history), branch `claude/aegis-os-gui-foundation`
 

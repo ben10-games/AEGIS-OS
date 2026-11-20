@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- AEGIS Security: an outlined glass shield with a check mark (status, not the brand). -->
+  <defs>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b8fff0"/>
+      <stop offset="1" stop-color="#3fbf8c"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 6 L52 12.5 V30 C52 43 43 52 32 57.5 C21 52 12 43 12 30 V12.5 Z"
+        fill="#0d2233" fill-opacity="0.85" stroke="url(#edge)" stroke-width="3.5"
+        stroke-linejoin="round"/>
+  <path d="M22.5 31.5 L29.5 38.5 L42.5 24.5" fill="none" stroke="#e9fff7" stroke-width="5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

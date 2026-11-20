@@ -154,7 +154,8 @@ def test_gui_idle_measurements(gui, logdir, record_property):
 
 
 def test_gui_glass_effects_and_no_onscreen_keyboard(gui, logdir):
-    """KWin really runs the blur and contrast effects behind the translucent dock, and the
+    """KWin really runs the blur effect behind the translucent dock (contrast and sliding
+    popups are recorded only: this KWin build loads no such separate effects), and the
     on-screen keyboard is not started (it remains available in System Settings)."""
     loaded = {}
     for effect in ("blur", "contrast", "slidingpopups"):
@@ -175,7 +176,6 @@ def test_gui_glass_effects_and_no_onscreen_keyboard(gui, logdir):
         ).stdout
     )
     assert loaded["blur"] == "b true", loaded
-    assert loaded["contrast"] == "b true", loaded
     assert gui.ssh("pgrep -x plasma-keyboard", check=False).returncode != 0, (
         "the on-screen keyboard is running"
     )

@@ -2,7 +2,7 @@
 // radii, typography, shadows and motion for AEGIS QML components.
 //
 // Materials follow a layered glass model: translucent tint, backdrop blur supplied by
-// the compositor (KWin's blur and contrast effects, configured in /etc/xdg/kwinrc;
+// the compositor (KWin's blur effect, configured in /etc/xdg/kwinrc;
 // a QML item cannot sample what is behind its window), a fine light-facing border,
 // a faint inner highlight and a soft shadow. Three variants only: regular, elevated,
 // control. When transparency must be reduced (software Qt Quick renderer, or a component

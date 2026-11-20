@@ -2,14 +2,13 @@
 # Settings; their own ~/.config/kwinrc takes precedence. KConfig reads system defaults
 # only from XDG configuration directories, hence /etc/xdg.
 
-# Glass: KWin's own blur and contrast effects draw the backdrop behind translucent
-# panels, popups and windows that ask for it. Moderate strength: each blur pass costs
-# GPU time, and in a virtual machine without 3D it runs in software (llvmpipe).
-# Values mirror org.aegisos.style Tokens.blur.
+# Glass: KWin's own blur effect draws the backdrop behind translucent panels, popups
+# and windows that ask for it. Moderate strength: each blur pass costs GPU time, and in
+# a virtual machine without 3D it runs in software (llvmpipe). Values mirror
+# org.aegisos.style Tokens.blur. (This KWin build loads no separate 'contrast' or
+# 'slidingpopups' effect, run 44749833133, so they are not configured here.)
 [Plugins]
 blurEnabled=true
-contrastEnabled=true
-slidingpopupsEnabled=true
 
 [Effect-blur]
 BlurStrength=12

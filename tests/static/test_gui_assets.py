@@ -35,7 +35,7 @@ def test_blur_tokens_match_the_kwin_defaults(root):
     noise = re.search(r"kwinNoise: (\d+)", tokens).group(1)
     assert f"BlurStrength={strength}" in kwinrc
     assert f"NoiseStrength={noise}" in kwinrc
-    assert "blurEnabled=true" in kwinrc and "contrastEnabled=true" in kwinrc
+    assert "blurEnabled=true" in kwinrc
 
 
 def test_every_material_has_an_opaque_fallback(root):
@@ -54,7 +54,8 @@ def test_security_widget_is_complete_and_in_the_dock(root):
     layout = (root / LAYOUT).read_text()
     assert 'panel.addWidget("org.aegisos.security")' in layout
     assert 'writeConfig("icon", "aegis-os")' in layout
-    assert (root / GUI / "usr/share/icons/hicolor/scalable/apps/aegis-os.svg").is_file()
+    for icon in ("aegis-os", "aegis-security"):
+        assert (root / GUI / f"usr/share/icons/hicolor/scalable/apps/{icon}.svg").is_file()
 
 
 def test_security_helper_is_read_only_and_unprivileged(root):

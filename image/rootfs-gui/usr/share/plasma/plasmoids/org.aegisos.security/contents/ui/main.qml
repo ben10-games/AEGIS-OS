@@ -24,11 +24,14 @@ PlasmoidItem {
         : healthy ? "Protected: SELinux enforcing, sealed root"
         : "Attention: see the AEGIS Security panel"
 
-    Plasmoid.icon: "aegis-os"
+    Plasmoid.icon: "aegis-security"
     Plasmoid.status: healthy ? PlasmaCore.Types.PassiveStatus : PlasmaCore.Types.ActiveStatus
     toolTipMainText: "AEGIS Security"
     toolTipSubText: summary
-    preferredRepresentation: compactRepresentation
+    // In the dock: an icon with a popup. With room for it (a desktop widget, or the
+    // window of 'plasmawindowed org.aegisos.security'): the dashboard itself.
+    switchWidth: Kirigami.Units.gridUnit * 16
+    switchHeight: Kirigami.Units.gridUnit * 16
 
     P5Support.DataSource {
         id: executable
@@ -88,7 +91,7 @@ PlasmoidItem {
             RowLayout {
                 spacing: Tokens.spacing.medium
                 Kirigami.Icon {
-                    source: "aegis-os"
+                    source: "aegis-security"
                     Layout.preferredWidth: Kirigami.Units.iconSizes.large
                     Layout.preferredHeight: Kirigami.Units.iconSizes.large
                 }

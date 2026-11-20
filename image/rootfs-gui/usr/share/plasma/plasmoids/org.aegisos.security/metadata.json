@@ -3,7 +3,7 @@
         "Authors": [{ "Name": "AEGIS OS" }],
         "Category": "System Information",
         "Description": "Read-only security status: SELinux, Secure Boot, sealed root, deployment, updates",
-        "Icon": "aegis-os",
+        "Icon": "aegis-security",
         "Id": "org.aegisos.security",
         "License": "GPL-2.0-or-later",
         "Name": "AEGIS Security",
