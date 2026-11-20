@@ -45,11 +45,19 @@ fi
 
 mkdir -p out/vm
 
+# QEMU's DNS forwarder (10.0.2.3) sends the guest's queries to the nameserver in the
+# container's /etc/resolv.conf. The network tests answer them with a DNS server on the
+# container's loopback (tests/vm/harness/servers.py), so that is the only nameserver.
+# Set explicitly: an image built without network can carry a resolv.conf naming a
+# server that does not exist here (V-10 failed that way in run 44731480599).
+printf 'nameserver 127.0.0.1\n' > out/vm/resolv.conf
+
 # No network for the container: the tests talk to the guest over a forwarded port on
 # the container's own loopback interface, and nothing here needs the internet.
 "${as_root[@]}" podman run --rm \
   "${kvm_args[@]}" \
   --network=none \
+  -v "${PWD}/out/vm/resolv.conf:/etc/resolv.conf:ro" \
   --security-opt label=disable \
   -v "${PWD}:/work" \
   -w /work \

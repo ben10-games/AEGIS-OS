@@ -53,3 +53,59 @@ def test_base_pin_is_the_upstream_digest(root):
     assert digest == lock["UPSTREAM_DIGEST"], "BASE_IMAGE must carry the upstream digest"
     assert repository in (lock["UPSTREAM_REPOSITORY"], lock["MIRROR_REPOSITORY"])
     assert lock["MIRROR_REPOSITORY"] == lock["MIRROR_REPOSITORY"].lower()
+
+
+# --- P1-15: packages come from the locked inputs only ------------------------------------
+
+ALL_CONTAINERFILES = [
+    "image/Containerfile",
+    "image/Containerfile.dev",
+    "image/Containerfile.seal",
+    "image/Containerfile.update",
+    "image/Containerfile.gui",
+    "build/builder/Containerfile",
+]
+
+
+def test_no_containerfile_installs_from_a_repository(root):
+    """Every dnf install goes through install-locked; no name is resolved at build time."""
+    for name in ALL_CONTAINERFILES:
+        text = (root / name).read_text().replace("\\\n", " ")
+        for line in text.splitlines():
+            if line.lstrip().startswith("#"):
+                continue
+            assert not re.search(r"\b(dnf|yum|microdnf|rpm-ostree)\b[^&;|]*\binstall\b", line), (
+                f"{name}: installs from a repository: {line.strip()}"
+            )
+            assert "curl " not in line and "wget " not in line, f"{name}: downloads: {line}"
+
+
+def test_locked_install_steps_match_the_inputs(root):
+    """Each install step of rpms.in.yaml is installed from its own directory of the lock."""
+    mounts = {
+        "image/Containerfile": {"base"},
+        "image/Containerfile.dev": {"dev", "dev-policy"},
+        "image/Containerfile.gui": {"gui"},
+        "build/builder/Containerfile": {"builder"},
+    }
+    for name, steps in mounts.items():
+        text = (root / name).read_text()
+        found = set(re.findall(r"--mount=type=bind,from=rpms,source=([a-z-]+),", text))
+        assert found == steps, f"{name}: mounts locked steps {found}, expected {steps}"
+
+
+def test_install_locked_disables_repositories_and_checks_sums(root):
+    text = (root / "image" / "build" / "install-locked").read_text()
+    assert "sha256sum --check --strict" in text
+    assert text.count("--disablerepo='*'") == 2
+    assert "dnf -y --disablerepo='*' --setopt=install_weak_deps=False install" in text
+
+
+def test_image_builds_have_no_network(root):
+    """All image and builder builds pass the locked options (no network, fixed time)."""
+    for name in ("scripts/build-image", "scripts/build-builder"):
+        text = (root / name).read_text()
+        builds = text.count("podman build \\\n")
+        assert builds > 0
+        assert text.count('"${locked[@]}"') == builds, f"{name}: a build without the lock options"
+        assert "--network=none" in text and '--build-context "rpms=${inputs}"' in text

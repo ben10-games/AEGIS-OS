@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# Publish the tested aegis-base and aegis-dev images to GHCR, signed with this run's
+# throw-away signing key (sigstore attachments), and verify the published signatures
+# (task P1-13).
+#
+#   scripts/publish-images TAG
+#
+# Rules:
+#   - Never overwrite: an existing TAG is an error. Nothing is deleted.
+#   - The private key never leaves .secrets/signing; skopeo reads it from a read-only
+#     mount in the tools container. Registry credentials come from root's podman login.
+#   - After pushing, the signature is verified with the run's public key (must pass)
+#     and with the untrusted key (must fail).
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+tag="${1:?tag, e.g. git-<commit>}"
+repository=ghcr.io/ben10-games/aegis-os
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+# Where root's 'podman login' stored the credentials. Under sudo, podman keeps the
+# caller's XDG_RUNTIME_DIR, so on GitHub runners it is not /run/containers/0.
+auth=""
+for candidate in "${REGISTRY_AUTH_FILE:-}" "/run/user/$(id -u)/containers/auth.json" \
+  /run/containers/0/auth.json; do
+  if [[ -n "${candidate}" ]] && "${as_root[@]}" test -s "${candidate}"; then
+    auth="${candidate}"
+    break
+  fi
+done
+if [[ -z "${auth}" ]]; then
+  echo "error: no registry login found; run 'sudo podman login ghcr.io' first" >&2
+  exit 1
+fi
+
+work="$(mktemp -d)"
+trap '"${as_root[@]}" rm -rf "${work}"' EXIT
+mkdir -p "${work}/registries.d"
+printf 'docker:\n  %s:\n    use-sigstore-attachments: true\n' "${repository}" \
+  > "${work}/registries.d/aegis-os.yaml"
+for key in aegis-os untrusted; do
+  "${as_root[@]}" cp ".secrets/signing/${key}.pub" "${work}/${key}.pub"
+  cat > "${work}/verify-${key}.json" <<JSON
+{"default": [{"type": "reject"}],
+ "transports": {"docker": {"${repository}": [{"type": "sigstoreSigned",
+   "keyPath": "/work/${key}.pub", "signedIdentity": {"type": "matchRepository"}}]}}}
+JSON
+done
+
+tools() {
+  "${as_root[@]}" podman run --rm --privileged --security-opt label=disable \
+    -v /var/lib/containers:/var/lib/containers \
+    -v "${auth}:/auth.json:ro" \
+    -v "${PWD}/.secrets/signing:/keys:ro" \
+    -v "${work}:/work" \
+    localhost/aegis-builder:latest "$@"
+}
+
+: > out/published.txt
+for variant in base dev; do
+  reference="${repository}/aegis-${variant}:${tag}"
+  if tools skopeo inspect --authfile /auth.json --raw "docker://${reference}" > /dev/null 2>&1; then
+    echo "error: ${reference} already exists; refusing to overwrite" >&2
+    exit 1
+  fi
+  echo "== publishing ${reference}"
+  tools skopeo --registries.d /work/registries.d copy --authfile /auth.json \
+    --sign-by-sigstore-private-key /keys/aegis-os.private \
+    --sign-passphrase-file /keys/passphrase \
+    --digestfile "/work/${variant}.digest" \
+    "containers-storage:localhost/aegis-${variant}:latest" "docker://${reference}"
+  digest="$(cat "${work}/${variant}.digest")"
+  echo "${reference}@${digest}" | tee -a out/published.txt
+done
+
+# The negative check is evaluated on the manifest and signature only (fast); the
+# positive one copies the release image, which proves that the policy accepts it.
+reference="${repository}/aegis-base:${tag}"
+if tools skopeo --policy /work/verify-untrusted.json --registries.d /work/registries.d \
+  copy --authfile /auth.json "docker://${reference}" "oci:/work/verify-untrusted:x" \
+  > "${work}/untrusted.log" 2>&1; then
+  echo "error: ${reference} verified with the untrusted key" >&2
+  exit 1
+fi
+echo "VERIFY untrusted key: rejected ($(tail -n 1 "${work}/untrusted.log" | cut -c1-160))" \
+  | tee -a out/published.txt
+# The policy is checked against the source before anything is copied; the local copy
+# cannot hold sigstore signatures, so they are not written to it.
+tools skopeo --policy /work/verify-aegis-os.json --registries.d /work/registries.d \
+  copy --authfile /auth.json --remove-signatures "docker://${reference}" "oci:/work/verify:x" \
+  > /dev/null
+echo "VERIFY run key: accepted" | tee -a out/published.txt
+cp "${work}/aegis-os.pub" out/aegis-os-signing.pub

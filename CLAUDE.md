@@ -39,6 +39,8 @@ IDs (S-, B-, V-, R-) come from it.
 |---|---|---|
 | `make static` | Repository rule tests + ruff | Anywhere |
 | `make lint` | `static` plus shellcheck, yamllint, actionlint, gitleaks | CI, or a machine with those tools |
+| `make inputs` | Fetch and verify the locked RPM inputs (P1-15) | CI, or Linux with podman and registry access |
+| `make repro` | Two independent clean builds, R-01/R-02/R-03 | CI runner |
 | `make all` | Build both images, inventory, golden manifest tests, disks, VM tests | CI, or Linux with podman and KVM |
 | `make summary` | Print the evidence of the last build and test run | After `make all` |
 | `scripts/probe-env` | Prints environment capabilities (read-only) | Anywhere |

@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# Resolve the RPM inputs again (task P1-15) and produce a candidate lock for review.
+#
+#   scripts/bump-inputs            resolve, download and verify; write a candidate lock
+#   scripts/bump-inputs --publish  also publish the RPMs as an immutable cache image and
+#                                  record its digest in the candidate lock
+#
+# Runs where the Fedora repositories are reachable (the update-inputs workflow; not a
+# cloud session). It never changes the repository: the candidate is written to
+# out/inputs-candidate/rpms.lock.yaml, with a diff against the current lock, and is
+# adopted only by a reviewed commit (docs/operations/inputs.md).
+#
+# Resolution happens on the base image pinned in image/base.lock, so the lock describes
+# exactly what each install step adds to that base. Every downloaded RPM is checked
+# (size, SHA-256, header identity, Fedora signature) before anything is published.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+publish=0
+if [[ "${1:-}" == "--publish" ]]; then
+  publish=1
+elif [[ -n "${1:-}" ]]; then
+  echo "usage: scripts/bump-inputs [--publish]" >&2
+  exit 2
+fi
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+base="$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
+cache_repository="$(python3 -c 'import sys; sys.path.insert(0, "scripts"); import rpmlock; print(rpmlock.CACHE_REPOSITORY)')"
+work=out/inputs-candidate
+"${as_root[@]}" rm -rf "${work}"
+mkdir -p "${work}/in" "${work}/out"
+for step in $(python3 scripts/rpmlock.py sets); do
+  python3 scripts/rpmlock.py names "${step}" > "${work}/in/${step}.txt"
+done
+
+"${as_root[@]}" podman pull --quiet "${base}" > /dev/null
+for mode in os builder; do
+  echo "== resolving the ${mode} install steps on ${base}"
+  "${as_root[@]}" podman run --rm \
+    -v "${PWD}/${work}/in:/in:ro" \
+    -v "${PWD}/${work}/out:/out" \
+    -v "${PWD}/scripts/container:/helpers:ro" \
+    "${base}" /helpers/resolve-rpms "${mode}"
+done
+"${as_root[@]}" chown -R "$(id -u):$(id -g)" "${work}"
+cat "${work}"/out/metadata-*.tsv > "${work}/metadata.tsv"
+cat "${work}"/out/repos-*.tsv > "${work}/repos.tsv"
+lock="${work}/rpms.lock.yaml"
+python3 scripts/rpmlock.py write --metadata "${work}/metadata.tsv" \
+  --repos "${work}/repos.tsv" --base "${base}" --out "${lock}"
+
+echo "== checking the downloaded RPMs (size, SHA-256, header, Fedora signature)"
+"${as_root[@]}" podman run --rm --network=none \
+  -v "${PWD}/${work}/out/rpms:/rpms:ro" \
+  -v "${PWD}/scripts/container:/helpers:ro" \
+  "${base}" /helpers/check-rpms /rpms > "${work}/headers.tsv"
+python3 scripts/rpmlock.py verify --lock "${lock}" --dir "${work}/out/rpms" \
+  --headers "${work}/headers.tsv"
+
+if [[ "${publish}" -eq 1 ]]; then
+  tag="lock-$(python3 scripts/rpmlock.py packages-hash "${lock}" | cut -c1-16)"
+  printf 'FROM scratch\nCOPY rpms/ /rpms/\n' > "${work}/out/Containerfile"
+  if "${as_root[@]}" podman pull --quiet "${cache_repository}:${tag}" > /dev/null 2>&1; then
+    # Tags are never overwritten. The same package list was published before; reuse it
+    # only if its content verifies against this lock (checked below by fetch-inputs).
+    digest="$("${as_root[@]}" podman image inspect --format '{{ .Digest }}' "${cache_repository}:${tag}")"
+    echo "== ${cache_repository}:${tag} exists (${digest}); verifying it instead of pushing"
+  else
+    echo "== publishing ${cache_repository}:${tag}"
+    "${as_root[@]}" podman build --network=none --timestamp 0 \
+      --tag "localhost/aegis-rpm-inputs:${tag}" \
+      --file "${work}/out/Containerfile" "${work}/out"
+    "${as_root[@]}" podman push --digestfile "${work}/cache-digest" \
+      "localhost/aegis-rpm-inputs:${tag}" "docker://${cache_repository}:${tag}"
+    digest="$(cat "${work}/cache-digest")"
+  fi
+  python3 scripts/rpmlock.py set-cache "${lock}" "${cache_repository}@${digest}"
+  # Round trip: fetch by digest and verify exactly as every build does.
+  AEGIS_RPM_LOCK="${lock}" scripts/fetch-inputs "${work}/roundtrip"
+fi
+
+if [[ -f image/packages/rpms.lock.yaml ]]; then
+  diff -u image/packages/rpms.lock.yaml "${lock}" > "${work}/lock.diff" || true
+else
+  diff -u /dev/null "${lock}" > "${work}/lock.diff" || true
+fi
+echo "== changes against the current lock: $(grep -c '^[-+]  - ' "${work}/lock.diff" || true) package lines"
+grep -E '^[-+]  - ' "${work}/lock.diff" | sed -E 's/, sha256: [0-9a-f]+.*//' || true
+echo "BEGIN CANDIDATE LOCK"
+cat "${lock}"
+echo "END CANDIDATE LOCK"

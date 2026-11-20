@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 
-SHELL_SCRIPTS := $(shell git ls-files 'scripts/*' 'image/build/*' 'local-vm/*.sh' 'image/rootfs/usr/libexec/aegis/*')
+SHELL_SCRIPTS := $(filter-out %.py,$(shell git ls-files 'scripts/*' 'image/build/*' 'local-vm/*.sh' 'image/rootfs/usr/libexec/aegis/*'))
 YAML_FILES := $(shell git ls-files '*.yml' '*.yaml')
 
 .PHONY: help
@@ -29,6 +29,22 @@ probe: ## Print environment capabilities (read-only)
 
 # --- Image, disk and virtual-machine targets. These need podman, access to quay.io and
 # --- (for vm-test) ideally KVM. They run in GitHub Actions or on a Linux workstation.
+
+.PHONY: inputs
+inputs: ## Fetch the locked RPM inputs and verify size, SHA-256, identity, signature (P1-15)
+	scripts/fetch-inputs
+
+.PHONY: input-test
+input-test: ## Negative tests of the input checks on real RPMs (tampered, missing, extra)
+	scripts/test-inputs
+
+.PHONY: sbom
+sbom: ## SPDX SBOMs of both images and a report-only vulnerability scan (P1-16)
+	scripts/sbom
+
+.PHONY: repro
+repro: ## Two independent clean builds and the R-01/R-02/R-03 comparison (CI runner)
+	scripts/repro-build
 
 .PHONY: image
 image: ## Build the sealed aegis-base and aegis-dev container images (B-01); needs 'builder'
@@ -64,7 +80,7 @@ export: ## Export out/disk.raw as a compressed QCOW2 with checksum, launchers an
 	scripts/export-qcow2
 
 .PHONY: image-test
-image-test: ## Compare the inventory with the golden manifests (B-02, B-03, B-04)
+image-test: ## Golden manifests (B-02, B-03, B-04), sealed image (B-06), SBOM (B-07)
 	scripts/run-image-tests
 
 .PHONY: golden-update
@@ -80,4 +96,4 @@ summary: ## Print the evidence collected by the last build and VM test run
 	scripts/summarize-results
 
 .PHONY: all
-all: builder image inventory image-test disk export vm-test ## Build, inventory, install, export, boot and test everything
+all: inputs builder image sbom inventory image-test disk export vm-test ## Build, inventory, install, export, boot and test everything

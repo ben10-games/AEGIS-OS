@@ -12,4 +12,11 @@ rm -rf \
   /var/cache/ldconfig/aux-cache \
   /var/cache/libdnf5 \
   /var/lib/dnf \
-  /var/log/dnf5.log*
+  /var/log/dnf5.log* \
+  /usr/lib/sysimage/libdnf5/transaction_history.sqlite-shm \
+  /usr/lib/sysimage/libdnf5/transaction_history.sqlite-wal
+# The two SQLite side files above hold dnf's record of the build's own transactions,
+# with the wall-clock time of the build; they made otherwise identical builds differ
+# (R-02, run 44731480599). The package database (rpmdb) and the RPM lock remain the
+# record of what is installed; dnf's history of an image build has no use on a bootc
+# system, whose packages change only by replacing the image.

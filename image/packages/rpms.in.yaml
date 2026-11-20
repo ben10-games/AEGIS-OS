@@ -1,0 +1,70 @@
+# RPM inputs of the AEGIS OS build (task P1-15): the packages each install step adds to
+# the digest-pinned base image (image/base.lock). Only names are listed here; the exact
+# packages, including every dependency, are resolved by scripts/bump-inputs into
+# rpms.lock.yaml (NEVRA, size, SHA-256) and are installed from that lock only.
+#
+# Each key is one install step, resolved against the state that step starts from:
+#   base        image/Containerfile, on the base after bootupd, shim-x64 and
+#               openssh-server are removed
+#   dev         image/Containerfile.dev, on top of aegis-base
+#   dev-policy  the policy compiler stage of image/Containerfile.dev, on top of aegis-base
+#   gui         image/Containerfile.gui (graphical development image), on top of aegis-dev
+#   builder     build/builder/Containerfile (tools and test container), on the base
+#
+# "name@other" means: the version and release of 'other' as installed in that step's
+# starting state (the SELinux policy compiler must match the policy in the base).
+#
+# A name the starting state already has is not listed (the resolver refuses it): the
+# builder's SSH client (openssh-clients) comes with the base image.
+#
+# Changing this file makes the lock stale; the static tests then fail until the lock is
+# regenerated (docs/operations/inputs.md).
+base:
+  - audit
+  - firewalld
+  - systemd-boot-unsigned
+dev:
+  - openssh-server
+dev-policy:
+  - make
+  - selinux-policy-devel@selinux-policy
+gui:
+  - plasma-desktop
+  - plasma-workspace
+  - kwin
+  - plasma-breeze
+  - breeze-icon-theme
+  - sddm
+  - sddm-wayland-plasma
+  - konsole
+  - dolphin
+  - plasma-systemsettings
+  - kinfocenter
+  - kscreen
+  - plasma-nm
+  - plasma-pa
+  - pipewire
+  - wireplumber
+  - pipewire-pulseaudio
+  - xdg-desktop-portal-kde
+  - qt6-qtdeclarative
+  - qt6-qtwayland
+  - kf6-kirigami
+  - mesa-dri-drivers
+  - google-noto-sans-fonts
+builder:
+  - binutils
+  - edk2-ovmf
+  - libfaketime
+  - mtools
+  - python3-pytest
+  - python3-virt-firmware
+  - qemu-img
+  - qemu-device-display-virtio-gpu
+  - qemu-device-display-virtio-vga
+  - qemu-system-x86-core
+  - sbsigntools
+  - setools-console
+  - swtpm
+  - systemd-boot-unsigned
+  - systemd-ukify

@@ -7,8 +7,11 @@ ARG BASE=localhost/aegis-base-rootfs:latest
 # Stage 1: compile the self-test SELinux module against exactly the policy version in
 # the base image. The compiler and its dependencies stay in this stage.
 FROM ${BASE} AS policy
-RUN dnf -y install --setopt=install_weak_deps=False make \
-      "selinux-policy-devel-$(rpm -q --qf '%{VERSION}-%{RELEASE}' selinux-policy)"
+ARG SOURCE_DATE_EPOCH
+COPY image/build/install-locked /usr/local/bin/install-locked
+RUN --mount=type=bind,from=rpms,source=dev-policy,target=/tmp/aegis-rpms \
+    install-locked /tmp/aegis-rpms \
+    && rpm -q "selinux-policy-devel-$(rpm -q --qf '%{VERSION}-%{RELEASE}' selinux-policy)"
 COPY policy/selinux/aegis_selftest.te policy/selinux/aegis_selftest.fc /policy/
 RUN make -C /policy -f /usr/share/selinux/devel/Makefile aegis_selftest.pp
 
@@ -17,10 +20,13 @@ FROM ${BASE}
 
 ARG AEGIS_VERSION=0.1.0-dev
 ARG AEGIS_REVISION=unknown
+ARG SOURCE_DATE_EPOCH
 
 COPY image/build/ /usr/libexec/aegis-build/
 
-RUN dnf -y install --setopt=install_weak_deps=False openssh-server \
+# Locked inputs only, as in image/Containerfile.
+RUN --mount=type=bind,from=rpms,source=dev,target=/tmp/aegis-rpms \
+    /usr/libexec/aegis-build/install-locked /tmp/aegis-rpms \
     && /usr/libexec/aegis-build/clean-package-state
 
 COPY image/rootfs-dev/ /

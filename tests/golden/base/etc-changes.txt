@@ -7,6 +7,11 @@ A audit/audit.rules
 A audit/auditd.conf
 A audit/rules.d/audit.rules
 
+# Signed updates (P1-13, policy/containers/): default-reject signature policy and
+# sigstore attachments for the AEGIS registry.
+A containers/policy.json
+A containers/registries.d/aegis-os.yaml
+
 # shim is removed: systemd-boot, signed with the project's key, is the boot loader
 # (ADR-0004). Its dnf protection entry goes with it.
 D dnf/protected.d/shim.conf

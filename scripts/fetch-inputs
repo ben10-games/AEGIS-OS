@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Fetch the locked RPM inputs and verify them before any build uses them (task P1-15).
+#
+#   scripts/fetch-inputs [OUTDIR]      default: out/inputs
+#
+# The RPMs come from the cache image named by digest in image/packages/rpms.lock.yaml
+# (AEGIS_RPM_LOCK overrides the lock file). The build fails closed: if the lock is stale,
+# the image is not served, or any RPM is missing, extra, of another size or checksum,
+# names another package in its header or lacks a valid Fedora signature, nothing is
+# built. There is no fallback to the Fedora repositories or to newer packages; image
+# builds run without network access.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+lock="${AEGIS_RPM_LOCK:-image/packages/rpms.lock.yaml}"
+out="${1:-out/inputs}"
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+python3 scripts/rpmlock.py check --lock "${lock}"
+cache="$(python3 scripts/rpmlock.py field "${lock}" cache)"
+base="$(python3 scripts/rpmlock.py field "${lock}" base)"
+
+if ! "${as_root[@]}" podman pull --quiet "${cache}" > /dev/null; then
+  echo "INPUT ERROR: the locked RPM cache image could not be pulled: ${cache}" >&2
+  exit 1
+fi
+"${as_root[@]}" podman pull --quiet "${base}" > /dev/null
+
+"${as_root[@]}" rm -rf "${out}"
+mkdir -p "${out}"
+container="$("${as_root[@]}" podman create "${cache}" /none)"
+trap '"${as_root[@]}" podman rm --force "${container}" > /dev/null 2>&1 || true' EXIT
+"${as_root[@]}" podman cp "${container}:/rpms" "${out}/rpms"
+"${as_root[@]}" chown -R "$(id -u):$(id -g)" "${out}"
+
+"${as_root[@]}" podman run --rm --network=none \
+  -v "${PWD}/${out}/rpms:/rpms:ro" \
+  -v "${PWD}/scripts/container:/helpers:ro" \
+  "${base}" /helpers/check-rpms /rpms > "${out}/headers.tsv"
+python3 scripts/rpmlock.py verify --lock "${lock}" --dir "${out}/rpms" \
+  --headers "${out}/headers.tsv" --write-sums
+echo "inputs: ${cache}"

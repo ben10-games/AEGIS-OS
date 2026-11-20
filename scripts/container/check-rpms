@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Runs inside a throw-away container of the pinned Fedora base image, without network,
+# with the RPM directory mounted read-only:
+#
+#   check-rpms DIR
+#
+# Prints, for every DIR/<step>/<file>.rpm: path, name, epoch, version, release, arch and
+# the result of rpm's digest and signature check against Fedora's release key from the
+# base image. scripts/rpmlock.py compares this with the lock; it accepts only the result
+# "digests signatures OK" (an unsigned package reports "digests OK" and is refused).
+set -euo pipefail
+
+dir="$1"
+version_id="$(sed -n 's/^VERSION_ID=//p' /usr/lib/os-release | tr -d '"')"
+# The release key as shipped by the base image's fedora-gpg-keys package (its location
+# differs between Fedora releases), as named by the repository configuration.
+key=""
+while read -r candidate; do
+  case "$(basename "${candidate}")" in
+    "RPM-GPG-KEY-fedora-${version_id}-primary" | "RPM-GPG-KEY-fedora-${version_id}-$(uname -m)")
+      # Images composed with rpm-ostree may keep the package's /etc under /usr/etc.
+      for path in "${candidate}" "/usr${candidate}"; do
+        if [[ -f "${path}" ]]; then
+          key="${path}"
+          break 2
+        fi
+      done
+      ;;
+  esac
+done < <(rpm -ql fedora-gpg-keys | sort)
+if [[ -z "${key}" ]]; then
+  echo "error: no Fedora ${version_id} release key in fedora-gpg-keys:" >&2
+  rpm -ql fedora-gpg-keys | grep -- "-${version_id}" >&2 || true
+  ls -la /etc/pki/rpm-gpg /usr/etc/pki/rpm-gpg >&2 || true
+  grep -h '^gpgkey' /etc/yum.repos.d/*.repo >&2 || true
+  exit 1
+fi
+# Only this throw-away container's key ring is changed.
+rpmkeys --import "${key}"
+echo "release key: ${key}" >&2
+
+cd "${dir}"
+shopt -s nullglob
+for file in */*.rpm; do
+  header="$(rpm -qp --nosignature --nodigest \
+    --qf '%{NAME}\t%{EPOCHNUM}\t%{VERSION}\t%{RELEASE}\t%{ARCH}' "${file}" 2> /dev/null \
+    || printf 'unreadable\t-\t-\t-\t-')"
+  result="$(rpmkeys --checksig "${file}" 2>&1 | head -n 1 || true)"
+  result="${result#"${file}": }"
+  printf '%s\t%s\t%s\n' "${file}" "${header}" "${result:-no result}"
+done

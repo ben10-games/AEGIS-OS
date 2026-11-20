@@ -7,12 +7,16 @@ only if it actually ran and passed, with the commit and where it ran.
 ## 1. Resume here
 
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
-- **Phase / milestone:** Phase 1. M0, M1 and **M2 (baseline configuration) are
-  complete**; see sections 4 and 5 and `docs/architecture/security-baseline.md`.
-- **Next task:** M4 (signing and registry, update and rollback tests: P1-13, P1-14),
-  which closes gate G1. Waits for the owner's go-ahead. M3 is complete except G1. M4 (signing,
-  registry, update and rollback tests, P1-13 and P1-14) closes G1 and needs the
-  owner's go-ahead. See "M3 progress" below and section 5.
+- **Phase / milestone:** Phase 1. M0 to **M4 are complete** (M3 sealed boot chain,
+  M4 signed updates and rollback; gate G1 passed); **M5 (input pinning,
+  reproducibility, SBOM) is complete**: `build` run 44738357964 and `lint` run
+  44738358019 on `cd9bf7c`. See sections 4 and 5 and
+  `docs/architecture/security-baseline.md`.
+- **Next task:** M6 (P1-17 metrics baseline V-12, P1-18 operations documentation,
+  P1-19 exit review); needs the owner's go-ahead. Input updates follow
+  `docs/operations/inputs.md`. The GUI foundation (M4-GUI) is on branch
+  `claude/aegis-os-gui-foundation`; GUI v1 continues on `claude/aegis-os-gui-v1`
+  (see "GUI v1 track" below).
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the end of the `build` job log: the "Collect results"
   step prints `scripts/summarize-results`, with short inventories, the differences
@@ -24,12 +28,23 @@ only if it actually ran and passed, with the commit and where it ran.
      "differences between the golden manifests and this build" block of the job log
      into `tests/golden/` in the same commit series.
 
-### M4-GUI track (graphical development image), branch `claude/aegis-os-gui-foundation`
+### GUI v1 track (bootable graphical desktop), branch `claude/aegis-os-gui-v1`
 
-Authorised by the owner as a parallel foundation track. **The security milestone M4
-(signed updates, manual rollback, gate G1) is not complete**; its work continues on the
-main development branch and is not affected by this branch. This branch starts from
-`fef77c4` (all M3 tests verified).
+Authorised by the owner on 2026-11-20. This branch starts from the M4-GUI foundation
+(`1f5d04c`) and merges the security branch at `078ae06` (M4 and M5 complete), so the
+graphical image is built from the locked RPM inputs, without network, like every other
+image. The security branch is not changed by this work and nothing is merged back
+without the owner's authorisation.
+
+- Integration (merge commit): the Plasma packages become the `gui` install step of
+  `image/packages/rpms.in.yaml`; the QEMU virtio display modules join the `builder` step;
+  `scripts/seal-image` is folded back into `scripts/build-image`. State: lock
+  regeneration pending (`update-inputs`), then the first GUI run on locked inputs.
+
+### M4-GUI foundation (history), branch `claude/aegis-os-gui-foundation`
+
+Recorded as it was on that branch (it started from `fef77c4`, before M4 and M5). These
+results are history; they do not show that the integrated GUI v1 branch is green.
 
 State: **first functional graphical image, all GUI tests pass.** `build` run
 44315378122 on `aa805e4`, job "Graphical development image (M4-GUI)", KVM, Secure Boot
@@ -61,14 +76,121 @@ without GUI: 498 MiB), 201 / 200 processes, systemd startup 10.1 / 13.5 s (users
 6.2 / 9.3 s; shared-runner variation). Largest: plasmashell about 415 MB RSS, System
 Settings 300 MB, KWin 277 MB, plasma-keyboard (on-screen keyboard, not needed) 266 MB.
 
-Details, decisions and next tasks: `docs/architecture/gui-architecture.md`.
+
+### M5 progress (input pinning, reproducibility, SBOM)
+
+**State: complete.** Verified on `cd9bf7c`: `build` run 44738357964 (both jobs) and
+`lint` run 44738358019.
+
+- **P1-15 lock.** `image/packages/rpms.in.yaml` → `rpms.lock.yaml`: 75 RPMs (9 base,
+  1 dev, 12 dev-policy, 53 builder), each with NEVRA, size, SHA-256, repository and path;
+  the lock also pins the base digest and the SHA-256 of `rpms.in.yaml`. The RPMs are
+  kept in `ghcr.io/ben10-games/aegis-os/rpm-inputs` (tag `lock-d07ec828bc3dd5f7`, by
+  digest in the lock). Resolved and verified by `update-inputs` runs 44731157775 (74
+  RPMs) and 44737897215 (+ libfaketime; reviewed diff: one line).
+- **Fail closed.** Every build fetches the cache by digest and checks size, SHA-256,
+  header identity and Fedora signature of every RPM (`digests signatures OK` with
+  `RPM-GPG-KEY-fedora-45-primary` from the base image); all image and builder builds
+  run with `--network=none` and all repositories disabled.
+- **Negative tests on real RPMs** (`scripts/test-inputs`, in every build and in
+  `update-inputs`): changed byte; changed byte with a forged lock entry (refused by the
+  signature check); missing RPM; extra RPM; another genuine Fedora package under a
+  locked name with a forged entry (refused by the header check); stale lock;
+  unavailable cache image; offline install with a dependency removed. All refused, with
+  positive controls. Plus 41 static tests in `tests/static/test_rpm_lock.py`.
+- **R-01 pass, R-02 pass, R-03 reported** (job "Two independent clean builds", run
+  44738357964): build A in the checkout with root's default container storage, build B
+  in a fresh clone on `/mnt` with its own storage, its own input fetch and verification
+  and its own builder container; shared: the commit, the registry and the throw-away
+  keys. R-01: identical base digest and image ID, lock, RPM files, builder inputs and
+  installed package sets (NEVRA + SIGMD5) of builder, aegis-base and aegis-dev. R-02:
+  identical composefs digests — aegis-base `38a7d42b0742…`, aegis-dev `9c1131b8d2d9…`.
+  R-03: image IDs differ; 75 of 76 (base), 81 of 82 (dev), 65 of 66 (builder) layers are
+  identical; not gating in Phase 1, cause not investigated further.
+- **B-07, SBOM part: pass.** SPDX 2.3 per image (syft 1.27.1, pinned by digest): valid
+  structure, RPMs from the image's database equal the golden list (B-02) by name and
+  count, every locked package present in its locked version. The `cosign verify` part
+  of B-07 is not run: published signatures are verified with the container signature
+  policy (`scripts/publish-images`, run 44330064081), and the SBOM is not yet attached
+  to published images.
+- **Vulnerability report (report only):** grype 0.104.2 with database schema v6.1.10
+  built 2026-11-20T06:21Z; 348 matches per image (91 distinct vulnerability/package
+  pairs), all Go modules inside shipped
+  binaries (grype has no Fedora RPM feed). Fedora's own advisories (dnf5 5.4.8, `updates`
+  metadata of 2026-11-20 07:46): 9 package updates in 5 security advisories newer than
+  the base pin (tpm2-tss, c-ares, p11-kit, xfsprogs (Important), criu). Scan times are
+  in `out/sbom/vulnerability-report.txt` of each run.
+
+Reproducibility fixes found by measuring (each a CI run):
+
+| Run | Difference between the two builds | Fix |
+|---|---|---|
+| 44731480599 | dnf's transaction-history WAL/SHM files; the signed boot loader | remove the WAL/SHM files with the other package-manager leftovers |
+| 44735052522 | only the signed boot loader: identical unsigned content, `signingTime` attribute differs | sign with sbsign's clock fixed at the commit time (libfaketime) |
+| 44738357964 | none | — |
+
+Other iterations: dnf 5 has no `--destdir` for `install` (run 44729805862); repoquery
+needs real tabs (44729967506); Fedora 45 keeps its release keys in
+`/usr/share/pki/rpm-gpg` (44730219961); dnf reports mirror URLs (44730658638);
+`openssh-clients` is already in the base (44730882284); V-10 DNS failed once after the
+builder was built offline (44731480599) and passes since the VM test container gets an
+explicit loopback `resolv.conf` (the exact cause was not isolated); syft names the RPM
+database `/usr/share/rpm/rpmdb.sqlite` and also reads an older copy kept in the base
+image's `/sysroot/ostree` objects (44735052522).
+
+### M4 progress (signed updates and rollback)
+
+Verified in `build` run 44319072870 on `a7cd392` (KVM, Secure Boot with the run's
+throw-away keys): 25 image tests and 83 of 83 VM tests, including:
+
+| Test | Evidence |
+|---|---|
+| V-15 unsigned update refused, nothing staged | `bootc switch ...aegis-dev:v3`: "A signature was required, but no signature exists" |
+| V-15 update signed by an unknown key refused, nothing staged | `bootc switch ...aegis-dev-untrusted:v4`: "cryptographic signature verification failed: invalid signature" |
+| V-13 signed v2 staged; after reboot the running command line carries v2's sealed digest, v2's marker exists, Secure Boot, SELinux enforcing, command-line check active, no failed unit | `bootc status`: booted `ghcr.io/ben10-games/aegis-os/aegis-dev:v2`, `imageDigest sha256:8226608d…` |
+| V-14 `bootc rollback` and reboot: v1's sealed digest again, marker gone, same security checks | `bootc status`: booted `localhost/aegis-dev:latest` |
+| V-09 sentinels in `/etc` and `/var` survive update and rollback | |
+
+How it works: `/etc/containers/policy.json` (from `policy/containers/`) rejects every
+image by default and accepts `ghcr.io/ben10-games/aegis-os` only with a sigstore
+signature by the AEGIS key, whose public half is sealed into
+`/usr/share/aegis/keys/`. Keys are generated per run (`scripts/signing-keys`). The test
+registry (`tests/vm/harness/registry.py`) runs offline in the test container; the guest
+uses it only as a registries.conf mirror of the real repository name, so the image's own
+policy is exercised unchanged. Assumption A5 (policy enforced on the composefs backend)
+is confirmed.
+
+Gate G1: install, Secure Boot, upgrade, rollback and tamper rejection all passed in VMs
+of the same run (V-04 to V-07, V-13 to V-15). ADR-0004 is Accepted.
+
+Signed publishing (P1-13): `scripts/publish-images` pushes `aegis-base` and `aegis-dev`
+to `ghcr.io/ben10-games/aegis-os/aegis-{base,dev}:git-<commit>` signed with the run's key,
+refuses to overwrite a tag, and verifies the published signature with the run's public
+key (must pass) and the untrusted key (must fail). Runs only on the default branch, on
+request, after every test passed. **Verified** in `build` run 44330064081 on `7dd30ce`
+(`lint` run 44330063820 green): all 25 image and 83 VM tests passed, then
+
+- `ghcr.io/ben10-games/aegis-os/aegis-base:git-7dd30ce82a91@sha256:ef5112408e19c5358b89e1217443f851ac398d770b761b738076f8f81e219c09`
+- `ghcr.io/ben10-games/aegis-os/aegis-dev:git-7dd30ce82a91@sha256:7b66518f22303eeb5c238706bebe71cfd7b5ccb7bfdb79f6ad841200fc9a00b7`
+
+were published; untrusted key: "Source image rejected: cryptographic signature
+verification failed"; run key: accepted. The run's public key and the references are
+the artifact `aegis-os-signed-images` (kept 90 days). The same run published the sealed
+development QCOW2 (`aegis-os-dev-qcow2`, until 2026-12-02), and the Windows job booted
+it with the PowerShell launcher. An earlier run (44325751988) also pushed
+`git-9d2e8d345279` images before its positive verification step failed; they are signed
+the same way.
+
+Iterations: run 44306277370 (golden `/etc` entry, v4 = v2), 44312412759 and
+44315892051 (skopeo reuses existing blobs, so recompression never changed v4's
+manifest), 44319072870 (v4 in its own repository: all pass).
 
 ### M3 progress (sealed boot chain)
 
-**State: complete except gate G1.** Every test passes on `3a07962`: `build` run
-44300954850 (25 image tests, 77 of 77 VM tests, all under Secure Boot) and `lint` run
-44300954927. Update and rollback (V-13, V-14) need M4, so G1 stays open and ADR-0004
-stays Provisional.
+**State: complete.** Every test passed on `3a07962`: `build` run 44300954850 (25 image
+tests, 77 of 77 VM tests, all under Secure Boot) and `lint` run 44300954927. Gate G1
+needed update and rollback as well; it passed with M4 (`build` run 44319072870 on
+`a7cd392`), and ADR-0004 is Accepted.
 
 Boot chain as built: OVMF Secure Boot with only the build's throw-away keys
 → signed systemd-boot 262 → signed UKI (ukify; command line = `kargs.d` + composefs
@@ -162,12 +284,12 @@ image.
 | P1-08 | Operating system baseline | done | `e378b1e`; `build` run 43554108533 (identity, services, firewall, audit, kernel arguments, sysctl, networking) |
 | P1-09 | SELinux enforcement validation | done | `c3308a8`; `build` run 43557838924 (V-08: zero denials, labels, enforcement self-test) |
 | P1-10 | Ephemeral key tooling | done | `scripts/dev-keys`; keys generated per CI run, private keys only in the job workspace |
-| P1-11 | Sealed image, gate G1 | in progress | implemented and verified (`3a07962`, `build` run 44300954850); G1 pending: V-13/V-14 need M4 |
+| P1-11 | Sealed image, gate G1 | done | sealed image verified on `3a07962` (`build` run 44300954850); gate G1 passed with V-13/V-14/V-15 on `a7cd392` (`build` run 44319072870) |
 | P1-12 | Tamper and negative boot tests | done | `3a07962`; `build` run 44300954850 |
-| P1-13 | Signing and signature policy | todo | |
-| P1-14 | Update and rollback tests | todo | |
-| P1-15 | Input pinning | todo | |
-| P1-16 | Reproducibility, SBOM, vulnerability report | todo | |
+| P1-13 | Signing and signature policy | done | `7dd30ce`; `build` run 44330064081 (published to GHCR, signatures verified) |
+| P1-14 | Update and rollback tests | done | `a7cd392`; `build` run 44319072870 (V-09, V-13, V-14, V-15) |
+| P1-15 | Input pinning | done | `cd9bf7c`, `build` run 44738357964; lock from `update-inputs` run 44737897215 |
+| P1-16 | Reproducibility, SBOM, vulnerability report | done | R-01, R-02 pass, R-03 reported; B-07 SBOM part pass (`build` run 44738357964) |
 | P1-17 | Metrics baseline | todo | |
 | P1-18 | Operations and development documentation | todo | |
 | P1-19 | Phase 1 exit review | todo | |
@@ -175,7 +297,7 @@ image.
 ## 3. Architecture decisions
 
 See `docs/adr/README.md` for the index. ADR-0004 (sealed composefs backend) is
-**Provisional** until gate G1 passes. ADR-0012 and ADR-0013 are **Open**.
+**Accepted** (gate G1 passed, `build` run 44319072870). ADR-0012 and ADR-0013 are **Open**.
 
 Deviations from the approved blueprint:
 
@@ -187,7 +309,7 @@ Deviations from the approved blueprint:
 | The builder container holds test tooling only (QEMU, firmware, swtpm, pytest). Image builds and the disk install use the host's podman directly | A privileged loopback install nested inside another container is fragile; one level of nesting worked first time | this file |
 | The builder container is built from the pinned `fedora-bootc` base, not a plain Fedora image | One pinned input instead of two; layers are shared with the OS image build | `build/builder/Containerfile` |
 | One `build` workflow does images, disk and VM tests; there is no separate `vm-test` workflow yet | Multi-gigabyte images are not passed between jobs; split when a registry exists (P1-13) | this file |
-| No `build/disk/phase1.toml`; the ESP has bootc's default size, not 2 GiB | `bootc install to-disk` creates the layout itself; the 2 GiB ESP matters only for UKIs and is handled in P1-11 | this file |
+| No `build/disk/phase1.toml`; the ESP has bootc's default size, not 2 GiB | `bootc install to-disk` creates the layout itself; the sealed UKI fits in it (M3 and M4 boot tests) | this file |
 | Disk image is raw (`out/disk.raw`) with a qcow2 overlay at test time, not a stored qcow2 | Nothing consumes a standalone qcow2 yet | this file |
 
 ## 4. Completed milestones
@@ -197,7 +319,9 @@ Deviations from the approved blueprint:
 | M0 Repository and tooling (P1-00 to P1-02) | 2026-11-13 | `lint` run 43458827403, `probe` run 43459049502 |
 | M1 First verified boot (P1-03 to P1-06) | 2026-11-13 | `build` run 43460695621 on `399d421`: 8 VM tests passed in 43.5 s under KVM; repeated on `a3a5004` (run 43461672095) |
 | M2 Baseline configuration (P1-07 to P1-09) | 2026-11-14 | `build` run 43557838924 on `c3308a8`: 14 image tests and 55 VM tests passed (both variants, KVM); `lint` run 43557838949 green on the same commit. Same result on `3514aec` (run 43557821995) |
-| M3 Sealed boot chain (P1-10 to P1-12), except gate G1 | 2026-11-18 | `build` run 44300954850 on `3a07962`: 25 image tests and 77 VM tests under Secure Boot, including B-06, V-04, V-05, V-06, V-07 and the boot-parameter tests; `lint` run 44300954927. G1 needs V-13/V-14 (M4) |
+| M3 Sealed boot chain (P1-10 to P1-12) | 2026-11-18 | `build` run 44300954850 on `3a07962`: 25 image tests and 77 VM tests under Secure Boot, including B-06, V-04, V-05, V-06, V-07 and the boot-parameter tests; `lint` run 44300954927. G1 completed with M4 |
+| M5 Inputs, reproducibility, SBOM (P1-15, P1-16) | 2026-11-20 | `build` run 44738357964 on `cd9bf7c`: 33 image tests, 83 VM tests, 8 negative input tests, R-01 and R-02 from two independent builds; `lint` run 44738358019 |
+| M4 Updates (P1-13, P1-14); gate G1 passed | 2026-11-18 | `build` run 44319072870 on `a7cd392`: V-13, V-14, V-15, V-09 under Secure Boot; `build` run 44330064081 on `7dd30ce`: signed images published to GHCR and verified, all 83 VM tests |
 
 Milestone tags `p1-m0` (`cdce239`) and `p1-m1-first-boot` (`399d421`) exist only in the
 session that created them: pushing tags was refused (HTTP 403; the session may push the
@@ -301,7 +425,19 @@ Single runs on shared runners; differences under a second are not significant. T
 image is about 0.35 GiB larger: the UKI (135 MB, kernel and initramfs) on the ESP and
 the composefs object store.
 
-Not yet run: B-05, B-07, V-09, V-12 to V-16 (V-13/V-14 are G1 criteria, M4), V-18, all R tests.
+| V-13 Signed update staged and booted under Secure Boot | pass | `a7cd392` | GitHub Actions run 44319072870, KVM |
+| V-14 Rollback to v1 under Secure Boot | pass | `a7cd392` | GitHub Actions run 44319072870, KVM |
+| V-15 Unsigned and untrusted-signed updates refused by the signature policy, nothing staged | pass | `a7cd392` | GitHub Actions run 44319072870, KVM |
+| V-09 `/etc` and `/var` state survives update and rollback | pass | `a7cd392` | GitHub Actions run 44319072870, KVM |
+
+| R-01 Input determinism: two builds, identical base, lock, RPM files, builder inputs, installed package sets | pass | `cd9bf7c` | GitHub Actions run 44738357964 |
+| R-02 Content determinism: identical composefs digests of aegis-base and aegis-dev from two independent clean builds | pass | `cd9bf7c` | GitHub Actions run 44738357964 |
+| R-03 OCI digest equality | reported: not equal (one layer per image differs) | `cd9bf7c` | GitHub Actions run 44738357964 |
+| B-07 SBOM: valid SPDX 2.3, same packages and count as B-02, locked versions installed | pass (SBOM part; `cosign verify` not run) | `cd9bf7c` | GitHub Actions run 44738357964 |
+| Locked inputs: size, SHA-256, header, Fedora signature of 75 RPMs; 8 negative cases refused | pass | `cd9bf7c` | GitHub Actions run 44738357964 |
+| M1 to M4 suites (Secure Boot, SELinux, sealed root, signed update, untrusted and unsigned update refused, rollback) on locked inputs | pass (83 VM tests) | `cd9bf7c` | GitHub Actions run 44738357964, KVM |
+
+Not yet run: B-05, the `cosign verify` part of B-07, V-12, V-16, V-18.
 
 ### Measurements before and after M2
 
@@ -349,7 +485,7 @@ Nothing has been verified on a local workstation or on physical hardware.
 
 ## 7. Security limitations
 
-`docs/architecture/security-baseline.md` lists what the M2 image provides, with the test
+`docs/architecture/security-baseline.md` lists what the image provides after M4, with the test
 for each statement, and what it does not. In short:
 
 - The boot chain is verified only in virtual machines with the build's throw-away keys.
@@ -362,7 +498,13 @@ for each statement, and what it does not. In short:
 - The initramfs runs before `aegis-verify-cmdline.service`, so a firmware-supplied
   kernel argument is in effect until that check stops the machine (BUG-9). Measured
   boot with a TPM policy is not implemented.
-- No updates, no rollback test, no boot counting yet (M4, Phase 2).
+- Signed updates and manual rollback work (M4), but the signing key is generated per CI
+  run: an installed image accepts updates only from the run that built it. There is no
+  update channel and no automatic boot counting or rollback (Phase 2).
+- `/etc/containers/policy.json`, which decides which updates are accepted, is in `/etc`
+  (writable state); root can replace it. The public key itself is in the sealed root.
+- Published images in GHCR are signed but the package is private by default; signatures
+  are verifiable only with the public key of the run that published them.
 - The local VM launchers boot the sealed image with plain firmware, without Secure Boot:
   fs-verity still checks the root, but nothing verifies the UKI (`LOCAL_VM_GUIDE.md`).
 - 31 SELinux domains are permissive in Fedora's policy
@@ -382,9 +524,20 @@ for each statement, and what it does not. In short:
   development variant, which differs by the recorded delta (sshd and the SELinux
   self-test).
 - The SELinux label correction (BUG-1) applies to disks built by this repository.
-- The disk has a BIOS boot partition and a 512 MiB ESP because `bootc install to-disk`
-  was run with `--generic-image`; BIOS boot support is not wanted in the final design.
-- Package goldens hold names, not versions; packages are not version-locked until P1-15.
+- The disk is created by `bootc install to-disk --generic-image` with bootc's default
+  partition layout (recorded in M2 as a BIOS boot partition and a 512 MiB ESP; not
+  re-measured since the composefs backend replaced ostree in M3). A fixed layout
+  (`build/disk/phase1.toml`) is not implemented.
+- Package goldens hold names; versions are pinned by the RPM lock and checked against
+  the SBOM (`test_locked_packages_are_installed_in_the_locked_version`). The base image's
+  own packages are pinned by its digest only.
+- R-02 is shown for two builds on one runner on one day, with the same throw-away keys
+  (they are build inputs). Builds on different days may differ where software records
+  the date (for example password-ageing fields if a package creates a user); not tested.
+- The vulnerability scan is a report. grype has no Fedora RPM data; Fedora advisories are
+  read from Fedora's update metadata at scan time. Nothing acts on findings yet.
+- The RPM cache and base image live only in GHCR; losing them makes old commits
+  unbuildable (no retention policy yet).
 - Planned Phase 1 limitations (see blueprint section 11): no disk encryption, throw-away
   signing keys, no automatic rollback on failed boot, no application sandboxing, `/etc`
   and `/var` are not integrity-protected.
@@ -396,9 +549,9 @@ for each statement, and what it does not. In short:
 |---|---|---|
 | A1 | GitHub-hosted Linux runners expose usable KVM | **confirmed** (QEMU started with `-accel kvm`, probe run 43459049502) |
 | A2 | `fedora-bootc:45` ships bootc 1.16 or newer | **confirmed** (bootc 1.17.1, probe run 43459049502) |
-| A3 | `bootc install to-disk` supports btrfs with the composefs backend | partly confirmed: btrfs works with the ostree backend (run 43460695621); composefs backend still open (P1-11) |
-| A4 | Fedora's updates-archive repository is usable for locked RPMs | open (P1-15) |
-| A5 | Container signature policy is enforced on the composefs backend | open (P1-14, test V-15) |
+| A3 | `bootc install to-disk` supports btrfs with the composefs backend | **confirmed** for both backends: ostree (run 43460695621) and composefs (B-08 asserts a btrfs root; passed in runs 44300954850 and 44319072870) |
+| A4 | Fedora's updates-archive repository is usable for locked RPMs | not needed: locked RPMs are kept in an immutable GHCR image (ADR-0006); not tested |
+| A5 | Container signature policy is enforced on the composefs backend | **confirmed** (run 44319072870, V-15: unsigned and wrongly signed images refused by the policy) |
 | A6 | SSH key injection through a systemd credential on the QEMU command line works | **confirmed** (run 43460695621) |
 
 ## 9. Outstanding tasks and open decisions for the owner

@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Generate THROW-AWAY image signing keys (sigstore format, as used by cosign and by
+# containers' sigstoreSigned policy) for development and CI.
+#
+#   scripts/signing-keys [DIRECTORY]        default: .secrets/signing
+#
+# Creates aegis-os.private/.pub (the key images are signed with) and
+# untrusted.private/.pub (never trusted anywhere; negative tests sign with it), both
+# protected by a random passphrase in the same directory. Runs skopeo from the tools
+# container (scripts/build-builder). Existing keys are kept.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+directory="${1:-.secrets/signing}"
+if ! git check-ignore -q "${directory}/aegis-os.private"; then
+  echo "error: ${directory} is not ignored by git; refusing to create private keys there" >&2
+  exit 1
+fi
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+umask 077
+"${as_root[@]}" mkdir -p "${directory}"
+if [[ ! -s "${directory}/passphrase" ]]; then
+  head -c 32 /dev/urandom | base64 | "${as_root[@]}" tee "${directory}/passphrase" > /dev/null
+fi
+absolute="$(cd "${directory}" && pwd)"
+for name in aegis-os untrusted; do
+  if [[ -s "${directory}/${name}.private" ]]; then
+    continue
+  fi
+  "${as_root[@]}" podman run --rm --network=none --security-opt label=disable \
+    -v "${absolute}:/keys" localhost/aegis-builder:latest \
+    skopeo generate-sigstore-key --output-prefix "/keys/${name}" --passphrase-file /keys/passphrase
+done
+"${as_root[@]}" chmod 0644 "${directory}"/*.pub
+echo "image signing keys in ${directory} (private keys stay there):"
+"${as_root[@]}" sha256sum "${directory}"/*.pub

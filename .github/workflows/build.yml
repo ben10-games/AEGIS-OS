@@ -27,6 +27,11 @@ jobs:
     name: Build images, check manifests, boot both variants in a VM
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    # packages: write only for "Publish signed images" (default branch, on request); the
+    # token is referenced only by the registry login step (enforced by a static test).
+    permissions:
+      contents: read
+      packages: write
     outputs:
       published: ${{ steps.publish.outcome == 'success' }}
     steps:
@@ -53,6 +58,13 @@ jobs:
           printf '%s' "${REGISTRY_TOKEN}" \
             | sudo podman login --username "${REGISTRY_USER}" --password-stdin ghcr.io
 
+      # P1-15: the only package source of every build below. Fails closed.
+      - name: Fetch and verify the locked RPM inputs
+        run: make inputs
+
+      - name: Negative tests of the input checks (tampered, missing, extra RPMs)
+        run: make input-test
+
       # Also the tools stage of the image build (signing, UKI), so it is built first.
       - name: Build test and tools container
         run: make builder
@@ -61,6 +73,10 @@ jobs:
       # this job's workspace (scripts/dev-keys).
       - name: Build sealed container images (B-01)
         run: make image
+
+      # P1-16: SBOM (checked by the image tests, B-07) and a report-only scan.
+      - name: SBOM and vulnerability report
+        run: make sbom
 
       - name: Image inventory
         run: make inventory
@@ -106,6 +122,7 @@ jobs:
             out/*.txt
             out/*.xml
             out/inventory/
+            out/sbom/
             out/vm/logs/
           if-no-files-found: warn
           retention-days: 14
@@ -122,6 +139,71 @@ jobs:
           path: out/release/
           if-no-files-found: error
           compression-level: 0
+          retention-days: 14
+
+      # P1-13: signed images to GHCR. Default branch only, on request, after every test
+      # in this job passed. Tags are never overwritten; signatures are verified after
+      # the push with this run's public key (published as an artifact).
+      - name: Publish signed images to GHCR
+        id: publish-signed
+        if: >-
+          ${{ success() && github.ref_name == github.event.repository.default_branch
+          && (github.event_name == 'workflow_dispatch'
+          || contains(github.event.head_commit.message, '[publish-image]')) }}
+        run: scripts/publish-images "git-${GITHUB_SHA::12}"
+
+      - name: Upload the signing public key and published references
+        if: ${{ steps.publish-signed.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aegis-os-signed-images
+          path: |
+            out/published.txt
+            out/aegis-os-signing.pub
+          if-no-files-found: error
+          retention-days: 90
+
+  reproducibility:
+    name: Two independent clean builds (R-01, R-02, R-03)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Log in to the container registry (read-only) for the base image and RPM inputs
+        env:
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "${REGISTRY_TOKEN}" | sudo podman login --authfile "${RUNNER_TEMP}/auth.json" \
+            --username "${REGISTRY_USER}" --password-stdin ghcr.io
+
+      - name: Build twice and compare (R-01 and R-02 required, R-03 reported)
+        run: REGISTRY_AUTH_FILE="${RUNNER_TEMP}/auth.json" make repro
+
+      - name: Collect results
+        if: always()
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" out || true
+          {
+            echo '### Reproducibility'
+            echo '```'
+            cat out/repro/a/evidence.txt out/repro/b/evidence.txt out/repro/r03.txt 2>/dev/null || true
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          sudo rm -f "${RUNNER_TEMP}/auth.json"
+
+      - name: Upload the evidence of both builds
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reproducibility-${{ github.sha }}
+          path: |
+            out/repro/
+            out/junit-repro.xml
+          if-no-files-found: warn
           retention-days: 14
 
   windows-launch:
@@ -227,6 +309,10 @@ jobs:
         run: |
           printf '%s' "${REGISTRY_TOKEN}" \
             | sudo podman login --username "${REGISTRY_USER}" --password-stdin ghcr.io
+
+      # P1-15: the only package source of every build below (includes the 'gui' step).
+      - name: Fetch and verify the locked RPM inputs
+        run: make inputs
 
       - name: Build test and tools container
         run: make builder

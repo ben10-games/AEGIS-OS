@@ -1,0 +1,80 @@
+name: update-inputs
+
+# Controlled RPM input updates (task P1-15, docs/operations/inputs.md).
+#
+# Resolves the packages of image/packages/rpms.in.yaml against the pinned base image,
+# downloads and verifies them (size, SHA-256, header identity, Fedora signature), and
+# prints a candidate image/packages/rpms.lock.yaml with its diff. Nothing in the
+# repository is changed: a candidate is adopted only by a reviewed commit, and the
+# build workflow then runs the full test suite on it.
+#
+# On a push that changes the inputs, and when started by hand, the candidate's RPMs are
+# also published as an immutable cache image (ghcr.io/ben10-games/aegis-os/rpm-inputs,
+# tag = hash of the package list, never overwritten), which builds pull by digest.
+# The weekly run only reports what would change; it publishes nothing.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+  push:
+    paths:
+      - image/packages/rpms.in.yaml
+      - image/base.lock
+      - scripts/bump-inputs
+      - scripts/fetch-inputs
+      - scripts/rpmlock.py
+      - scripts/container/**
+      - .github/workflows/update-inputs.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-inputs-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve, verify and (on request) publish the RPM inputs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # packages: write only to publish the RPM cache image (not on the weekly report).
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Log in to the container registry for the base image and the RPM cache
+        env:
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "${REGISTRY_TOKEN}" \
+            | sudo podman login --username "${REGISTRY_USER}" --password-stdin ghcr.io
+
+      - name: Resolve and verify a candidate lock
+        if: ${{ github.event_name == 'schedule' }}
+        run: scripts/bump-inputs
+
+      - name: Resolve, verify and publish a candidate lock
+        if: ${{ github.event_name != 'schedule' }}
+        run: scripts/bump-inputs --publish
+
+      - name: Negative input tests against the candidate
+        if: ${{ github.event_name != 'schedule' }}
+        run: AEGIS_RPM_LOCK=out/inputs-candidate/rpms.lock.yaml scripts/test-inputs out/inputs-candidate/roundtrip
+
+      - name: Upload the candidate lock and its diff
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: candidate-lock-${{ github.run_id }}
+          path: |
+            out/inputs-candidate/rpms.lock.yaml
+            out/inputs-candidate/lock.diff
+            out/inputs-candidate/headers.tsv
+          if-no-files-found: warn
+          retention-days: 30

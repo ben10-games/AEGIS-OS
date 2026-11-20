@@ -10,6 +10,7 @@ FROM ${BASE_IMAGE} AS rootfs-unsigned
 
 ARG AEGIS_VERSION=0.1.0-dev
 ARG AEGIS_REVISION=unknown
+ARG SOURCE_DATE_EPOCH
 
 # Build helpers. They are removed again below and are not part of the image.
 COPY image/build/ /usr/libexec/aegis-build/
@@ -18,16 +19,31 @@ COPY image/build/ /usr/libexec/aegis-build/
 # shim is not in the trust chain when the boot loader is signed with our own key.
 # The release image carries no remote-login daemon at all (ADR-0002).
 # firewalld is the firewall manager (ADR-0008); audit records security events.
-# Added packages are not version-locked until the RPM lockfile exists (P1-15).
-RUN rpm -e bootupd shim-x64 \
+#
+# Packages come only from the locked inputs (P1-15, image/packages/rpms.lock.yaml):
+# the build context 'rpms' holds the RPMs that scripts/fetch-inputs verified (size,
+# SHA-256, header, Fedora signature). The build has no network and every repository
+# is disabled, so nothing newer or unlisted can be installed; an incomplete set fails.
+RUN --mount=type=bind,from=rpms,source=base,target=/tmp/aegis-rpms \
+    /usr/libexec/aegis-build/install-locked /tmp/aegis-rpms \
+      --remove-rpm bootupd --remove-rpm shim-x64 --remove openssh-server \
     && rm -rf /usr/lib/bootupd \
-    && dnf -y remove openssh-server \
-    && dnf -y install --setopt=install_weak_deps=False audit firewalld systemd-boot-unsigned \
     && /usr/libexec/aegis-build/clean-package-state
 
 # Vendor configuration lives under /usr/lib; the few files that must be under /etc
 # are listed in tests/golden/base/etc-changes.txt (ADR-0014).
 COPY image/rootfs/ /
+
+# Signed updates (task P1-13, policy/containers/README.md): only images signed by the
+# AEGIS key are accepted from the AEGIS registry; everything else is rejected. The
+# public key goes into the sealed root filesystem; it is generated per CI run.
+ARG AEGIS_SIGNING_PUBKEY
+COPY policy/containers/policy.json /etc/containers/policy.json
+COPY policy/containers/registries.d/aegis-os.yaml /etc/containers/registries.d/aegis-os.yaml
+RUN install -d -m 0755 /usr/share/aegis/keys \
+    && printf '%s' "${AEGIS_SIGNING_PUBKEY}" | base64 -d > /usr/share/aegis/keys/aegis-os-signing.pub \
+    && grep -q 'BEGIN PUBLIC KEY' /usr/share/aegis/keys/aegis-os-signing.pub \
+    && ! grep -q 'PRIVATE' /usr/share/aegis/keys/aegis-os-signing.pub
 
 # Identity, unit enablement, firewall zone, storage backend marker.
 RUN AEGIS_VARIANT=base AEGIS_VERSION="${AEGIS_VERSION}" AEGIS_REVISION="${AEGIS_REVISION}" \
@@ -38,12 +54,20 @@ RUN AEGIS_VARIANT=base AEGIS_VERSION="${AEGIS_VERSION}" AEGIS_REVISION="${AEGIS_
 # The key is a build secret: it is mounted for this command only and never stored in
 # a layer. The signed boot loader replaces the unsigned one inside the root filesystem,
 # before the filesystem digest is computed.
+#
+# sbsign puts the current time into the signature (signingTime attribute), which made
+# two otherwise identical builds differ in this one file (R-02, run 44735052522). The
+# clock of sbsign alone is fixed at the commit time (SOURCE_DATE_EPOCH) with libfaketime;
+# Secure Boot does not evaluate the attribute, and the signature is verified below.
 FROM ${TOOLS} AS sdboot-signed
+ARG SOURCE_DATE_EPOCH
 RUN --mount=type=bind,from=rootfs-unsigned,source=/usr/lib/systemd/boot/efi,target=/unsigned \
     --mount=type=secret,id=secureboot_key \
     --mount=type=secret,id=secureboot_cert \
     mkdir /out \
-    && sbsign --key /run/secrets/secureboot_key --cert /run/secrets/secureboot_cert \
+    && test -n "${SOURCE_DATE_EPOCH}" \
+    && TZ=UTC faketime -f "$(date -u -d "@${SOURCE_DATE_EPOCH}" '+%Y-%m-%d %H:%M:%S')" \
+         sbsign --key /run/secrets/secureboot_key --cert /run/secrets/secureboot_cert \
          --output /out/systemd-bootx64.efi /unsigned/systemd-bootx64.efi \
     && sbverify --cert /run/secrets/secureboot_cert /out/systemd-bootx64.efi
 

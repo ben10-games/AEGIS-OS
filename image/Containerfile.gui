@@ -5,6 +5,8 @@
 ARG BASE=localhost/aegis-dev-rootfs:latest
 FROM ${BASE}
 
+ARG SOURCE_DATE_EPOCH
+
 COPY image/build/ /usr/libexec/aegis-build/
 
 # Plasma 6 without weak dependencies: the shell and compositor, the login manager, the
@@ -12,14 +14,11 @@ COPY image/build/ /usr/libexec/aegis-build/
 # portals, Qt Quick / Kirigami, and software rendering for virtual machines.
 # Fedora 45's KDE edition uses plasma-login-manager; AEGIS uses SDDM for now, whose
 # configuration is documented and stable (decision in gui-architecture.md).
-RUN /usr/libexec/aegis-build/var-to-tmpfiles snapshot \
-    && dnf -y install --setopt=install_weak_deps=False \
-      plasma-desktop plasma-workspace kwin plasma-breeze breeze-icon-theme \
-      sddm sddm-wayland-plasma \
-      konsole dolphin plasma-systemsettings kinfocenter kscreen \
-      plasma-nm plasma-pa pipewire wireplumber pipewire-pulseaudio \
-      xdg-desktop-portal-kde qt6-qtdeclarative qt6-qtwayland kf6-kirigami \
-      mesa-dri-drivers google-noto-sans-fonts \
+# Locked inputs only (P1-15): the 'gui' step of image/packages/rpms.in.yaml, verified by
+# scripts/fetch-inputs, installed without network and with every repository disabled.
+RUN --mount=type=bind,from=rpms,source=gui,target=/tmp/aegis-rpms \
+    /usr/libexec/aegis-build/var-to-tmpfiles snapshot \
+    && /usr/libexec/aegis-build/install-locked /tmp/aegis-rpms \
     && /usr/libexec/aegis-build/clean-package-state \
     && /usr/libexec/aegis-build/var-to-tmpfiles finish aegis-gui
 
