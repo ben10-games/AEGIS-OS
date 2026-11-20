@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+# Negative tests of the RPM input checks (task P1-15), on real Fedora RPMs:
+#
+#   scripts/test-inputs [VERIFIED_DIR]     default: out/inputs (from scripts/fetch-inputs)
+#
+# Each case damages a copy of the verified inputs or of the lock and requires that the
+# check refuses it; a positive control shows the undamaged copy passes. The original
+# directory and lock are not modified. AEGIS_RPM_LOCK selects the lock (default: the
+# repository's).
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+lock="${AEGIS_RPM_LOCK:-image/packages/rpms.lock.yaml}"
+source_dir="${1:-out/inputs}/rpms"
+mkdir -p out
+work="$(mktemp -d "${PWD}/out/test-inputs.XXXXXX")"
+trap 'rm -rf "${work}"' EXIT
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+base="$(python3 scripts/rpmlock.py field "${lock}" base)"
+failures=0
+
+fresh() {
+  rm -rf "${work}/rpms" "${work}/lock.yaml"
+  cp -a "${source_dir}" "${work}/rpms"
+  find "${work}/rpms" -name SHA256SUMS -delete
+  cp "${lock}" "${work}/lock.yaml"
+}
+
+headers() {
+  "${as_root[@]}" podman run --rm --network=none \
+    -v "${work}/rpms:/rpms:ro" -v "${PWD}/scripts/container:/helpers:ro" \
+    "${base}" /helpers/check-rpms /rpms > "${work}/headers.tsv" 2> /dev/null
+}
+
+# expect_refused NAME PATTERN: the verification of the current copy must fail, and its
+# message must contain PATTERN.
+expect_refused() {
+  local name="$1" pattern="$2" output
+  if output="$(python3 scripts/rpmlock.py verify --lock "${work}/lock.yaml" \
+    --dir "${work}/rpms" --headers "${work}/headers.tsv" 2>&1)"; then
+    echo "NEGATIVE TEST ${name}: FAILED (accepted)"
+    failures=$((failures + 1))
+  elif grep -q -- "${pattern}" <<< "${output}"; then
+    echo "NEGATIVE TEST ${name}: ok (refused: $(grep -m1 -- "${pattern}" <<< "${output}" | sed 's/^ *//'))"
+  else
+    echo "NEGATIVE TEST ${name}: FAILED (refused for another reason: ${output})"
+    failures=$((failures + 1))
+  fi
+}
+
+# Field of a lock line, and a lock line rewritten.
+victim_path() { find "${work}/rpms/base" -name '*.rpm' | sort | head -n 1; }
+set_lock_field() { # file-name field value
+  python3 - "${work}/lock.yaml" "$1" "$2" "$3" <<'PY'
+import re, sys
+path, name, field, value = sys.argv[1:]
+lines = open(path).read().splitlines(keepends=True)
+hits = [i for i, l in enumerate(lines) if l.startswith("  - {set: base,") and f'/{name}"' in l]
+assert len(hits) == 1, hits
+lines[hits[0]] = re.sub(rf"{field}: [^,}}]+", f"{field}: {value}", lines[hits[0]])
+open(path, "w").writelines(lines)
+PY
+}
+
+echo "== positive control: the undamaged copy passes"
+fresh
+headers
+if python3 scripts/rpmlock.py verify --lock "${work}/lock.yaml" --dir "${work}/rpms" \
+  --headers "${work}/headers.tsv"; then
+  echo "POSITIVE CONTROL: ok"
+else
+  echo "POSITIVE CONTROL: FAILED"
+  exit 1
+fi
+
+fresh
+victim="$(victim_path)"
+printf '\xff' | dd of="${victim}" bs=1 seek=$(($(stat -c %s "${victim}") - 100)) conv=notrunc status=none
+headers
+expect_refused "tampered RPM (one byte changed)" "SHA-256 differs"
+
+# The attacker also rewrites the lock entry: the Fedora signature still catches it.
+set_lock_field "$(basename "${victim}")" sha256 "$(sha256sum "${victim}" | cut -d' ' -f1)"
+expect_refused "tampered RPM with a matching tampered lock" "signature check"
+
+fresh
+rm "$(victim_path)"
+headers
+expect_refused "missing RPM" "locked but missing"
+
+fresh
+cp "$(victim_path)" "${work}/rpms/base/extra-1.0-1.fc45.x86_64.rpm"
+headers
+expect_refused "extra RPM" "not in the lock"
+
+# Another genuine, correctly signed Fedora package under a locked name.
+fresh
+mapfile -t two < <(find "${work}/rpms/base" -name '*.rpm' | sort | head -n 2)
+cp "${two[1]}" "${two[0]}"
+set_lock_field "$(basename "${two[0]}")" sha256 "$(sha256sum "${two[0]}" | cut -d' ' -f1)"
+set_lock_field "$(basename "${two[0]}")" size "$(stat -c %s "${two[0]}")"
+headers
+expect_refused "substituted package with a matching tampered lock" "header says"
+
+echo "== the lock must match its inputs"
+fresh
+other="$(printf 'other inputs' | sha256sum | cut -d' ' -f1)"
+sed -i -E "s/^inputs: \"sha256:[0-9a-f]{64}\"/inputs: \"sha256:${other}\"/" "${work}/lock.yaml"
+if python3 scripts/rpmlock.py check --lock "${work}/lock.yaml" 2> "${work}/err"; then
+  echo "NEGATIVE TEST stale lock: FAILED (accepted)"
+  failures=$((failures + 1))
+else
+  echo "NEGATIVE TEST stale lock: ok (refused: $(cat "${work}/err"))"
+fi
+
+fresh
+sed -i -E 's/^(cache: ".*@sha256:)[0-9a-f]{4}/\1dead/' "${work}/lock.yaml"
+if AEGIS_RPM_LOCK="${work}/lock.yaml" scripts/fetch-inputs "${work#"${PWD}/"}/fetched" > "${work}/err" 2>&1; then
+  echo "NEGATIVE TEST unavailable cache image: FAILED (fetched)"
+  failures=$((failures + 1))
+else
+  echo "NEGATIVE TEST unavailable cache image: ok (refused: $(grep -m1 'INPUT ERROR' "${work}/err"))"
+fi
+
+echo "== an install step cannot complete with a dependency missing (no network, no repositories)"
+fresh
+requested="$(python3 scripts/rpmlock.py names base | sed 's/@.*//')"
+dependency=""
+for file in "${work}"/rpms/base/*.rpm; do
+  name="$(basename "${file}" | sed -E 's/-[^-]+-[^-]+\.[^.]+\.rpm$//')"
+  if ! grep -qx "${name}" <<< "${requested}"; then
+    dependency="${file}"
+    break
+  fi
+done
+install_base() {
+  "${as_root[@]}" podman run --rm --network=none -v "${work}/rpms:/rpms:ro" "${base}" \
+    bash -c "rpm -e bootupd shim-x64 && dnf -y -q --disablerepo='*' remove openssh-server \
+      && dnf -y -q --disablerepo='*' --setopt=install_weak_deps=False install /rpms/base/*.rpm" \
+    > "${work}/install.log" 2>&1
+}
+if install_base; then
+  echo "POSITIVE CONTROL offline install of the complete base step: ok"
+else
+  echo "POSITIVE CONTROL offline install of the complete base step: FAILED"
+  tail -n 20 "${work}/install.log"
+  failures=$((failures + 1))
+fi
+if [[ -z "${dependency}" ]]; then
+  echo "NEGATIVE TEST missing dependency: FAILED (the base step has no dependency to remove)"
+  failures=$((failures + 1))
+else
+  rm "${dependency}"
+  if install_base; then
+    echo "NEGATIVE TEST missing dependency $(basename "${dependency}"): FAILED (installed)"
+    failures=$((failures + 1))
+  else
+    echo "NEGATIVE TEST missing dependency $(basename "${dependency}"): ok (refused: $(grep -m1 -iE 'nothing provides|requires|problem' "${work}/install.log" || tail -n 1 "${work}/install.log"))"
+  fi
+fi
+
+if [[ "${failures}" -ne 0 ]]; then
+  echo "INPUT TESTS: ${failures} failed"
+  exit 1
+fi
+echo "INPUT TESTS: all passed"

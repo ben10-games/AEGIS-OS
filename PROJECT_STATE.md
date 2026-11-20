@@ -24,6 +24,16 @@ only if it actually ran and passed, with the commit and where it ran.
      "differences between the golden manifests and this build" block of the job log
      into `tests/golden/` in the same commit series.
 
+### M5 progress (input pinning, reproducibility, SBOM)
+
+- P1-15, step 1: the RPM lock tooling. `image/packages/rpms.in.yaml` names what each
+  install step adds; `scripts/bump-inputs` resolves it on the pinned base into a
+  candidate `rpms.lock.yaml` (NEVRA, size, SHA-256, source repository) and publishes the
+  RPMs as an immutable cache image; `scripts/fetch-inputs` verifies size, SHA-256, RPM
+  header identity and the Fedora signature before any build; `scripts/test-inputs` holds
+  the negative tests on real RPMs; `.github/workflows/update-inputs.yml` runs them.
+  Static tests: `tests/static/test_rpm_lock.py`. Not yet run in CI.
+
 ### M4 progress (signed updates and rollback)
 
 Verified in `build` run 44319072870 on `a7cd392` (KVM, Secure Boot with the run's
@@ -174,7 +184,7 @@ image.
 | P1-12 | Tamper and negative boot tests | done | `3a07962`; `build` run 44300954850 |
 | P1-13 | Signing and signature policy | done | `7dd30ce`; `build` run 44330064081 (published to GHCR, signatures verified) |
 | P1-14 | Update and rollback tests | done | `a7cd392`; `build` run 44319072870 (V-09, V-13, V-14, V-15) |
-| P1-15 | Input pinning | todo | |
+| P1-15 | Input pinning | in progress | lock tooling written; first CI resolution pending |
 | P1-16 | Reproducibility, SBOM, vulnerability report | todo | |
 | P1-17 | Metrics baseline | todo | |
 | P1-18 | Operations and development documentation | todo | |

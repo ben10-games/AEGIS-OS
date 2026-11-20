@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Runs inside a throw-away container of the pinned Fedora base image, without network,
+# with the RPM directory mounted read-only:
+#
+#   check-rpms DIR
+#
+# Prints, for every DIR/<step>/<file>.rpm: path, name, epoch, version, release, arch and
+# the result of rpm's digest and signature check against Fedora's release key from the
+# base image. scripts/rpmlock.py compares this with the lock; it accepts only the result
+# "digests signatures OK" (an unsigned package reports "digests OK" and is refused).
+set -euo pipefail
+
+dir="$1"
+version_id="$(. /usr/lib/os-release && echo "${VERSION_ID}")"
+key=""
+for candidate in "RPM-GPG-KEY-fedora-${version_id}-primary" \
+  "RPM-GPG-KEY-fedora-${version_id}-$(uname -m)"; do
+  if [[ -f "/etc/pki/rpm-gpg/${candidate}" ]]; then
+    key="/etc/pki/rpm-gpg/${candidate}"
+    break
+  fi
+done
+if [[ -z "${key}" ]]; then
+  echo "error: no Fedora ${version_id} release key in /etc/pki/rpm-gpg:" >&2
+  ls /etc/pki/rpm-gpg >&2
+  exit 1
+fi
+# Only this throw-away container's key ring is changed.
+rpmkeys --import "${key}"
+echo "release key: ${key}" >&2
+
+cd "${dir}"
+shopt -s nullglob
+for file in */*.rpm; do
+  header="$(rpm -qp --nosignature --nodigest \
+    --qf '%{NAME}\t%{EPOCHNUM}\t%{VERSION}\t%{RELEASE}\t%{ARCH}' "${file}" 2> /dev/null \
+    || printf 'unreadable\t-\t-\t-\t-')"
+  result="$(rpmkeys --checksig "${file}" 2>&1 | head -n 1 || true)"
+  result="${result#"${file}": }"
+  printf '%s\t%s\t%s\n' "${file}" "${header}" "${result:-no result}"
+done

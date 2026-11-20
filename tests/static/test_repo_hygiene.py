@@ -33,9 +33,13 @@ def test_secrets_directory_is_ignored(root):
 def test_scripts_are_executable_and_strict(root):
     scripts = [
         p
-        for directory in (root / "scripts", root / "image" / "build")
+        for directory in (
+            root / "scripts",
+            root / "scripts" / "container",
+            root / "image" / "build",
+        )
         for p in directory.iterdir()
-        if p.is_file()
+        if p.is_file() and p.suffix != ".py"
     ]
     assert scripts, "no scripts found"
     for path in scripts:
@@ -43,6 +47,9 @@ def test_scripts_are_executable_and_strict(root):
         assert path.stat().st_mode & stat.S_IXUSR, f"{path.name}: not executable"
         assert text.startswith("#!/usr/bin/env bash\n"), f"{path.name}: unexpected shebang"
         assert "set -euo pipefail" in text, f"{path.name}: missing 'set -euo pipefail'"
+    for path in (root / "scripts").glob("*.py"):
+        assert path.stat().st_mode & stat.S_IXUSR, f"{path.name}: not executable"
+        assert path.read_text().startswith("#!/usr/bin/env python3\n"), path.name
 
 
 def test_lint_requirements_are_hash_pinned(root):

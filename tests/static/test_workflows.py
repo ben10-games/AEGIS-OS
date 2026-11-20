@@ -53,7 +53,11 @@ def test_checkout_does_not_persist_credentials(root):
         )
 
 
-PACKAGE_WRITERS = {"mirror-base.yml": "mirror", "build.yml": "build-and-boot"}
+PACKAGE_WRITERS = {
+    "mirror-base.yml": "mirror",
+    "build.yml": "build-and-boot",
+    "update-inputs.yml": "resolve",
+}
 # Steps other than registry logins that may see the token, each reviewed.
 TOKEN_STEPS = {("mirror-base.yml", "Copy the pinned image, keeping its digest")}
 JOB = re.compile(r"^  ([A-Za-z0-9_-]+):\s*$", re.MULTILINE)
