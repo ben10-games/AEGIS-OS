@@ -43,4 +43,22 @@ done
 for variant in base dev; do
   cp "out/digests/${variant}-final.dump" "${out}/${variant}.dump"
 done
+
+# The signed boot loader is in the root filesystem: record what its signature contains
+# (signing time attribute, signature digest) to explain any difference between builds.
+"${as_root[@]}" podman run --rm --network=none --security-opt label=disable \
+  --mount "type=image,source=localhost/aegis-base:latest,destination=/target" \
+  localhost/aegis-builder:latest bash -c '
+    efi=/target/usr/lib/systemd/boot/efi/systemd-bootx64.efi
+    sbattach --detach /tmp/signature "${efi}" > /dev/null
+    echo "signature sha256: $(sha256sum < /tmp/signature | cut -d" " -f1)"
+    echo "signature size: $(stat -c %s /tmp/signature)"
+    echo "signed attributes:"
+    openssl asn1parse -inform DER -in /tmp/signature \
+      | grep -E -A1 "signingTime|contentType|messageDigest|:1\.2\.840\.113549\.1\.9\." | sed "s/^/  /"
+    cp "${efi}" /tmp/unsigned.efi && sbattach --remove /tmp/unsigned.efi > /dev/null
+    echo "boot loader without signature sha256: $(sha256sum < /tmp/unsigned.efi | cut -d" " -f1)"
+    echo "systemd-sbsign: $(command -v systemd-sbsign || echo not installed)"
+  ' > "${out}/sdboot-signature.txt" 2>&1 || true
+cat "${out}/sdboot-signature.txt"
 cat "${out}/evidence.txt"

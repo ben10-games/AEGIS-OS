@@ -53,9 +53,13 @@ sudo cp -a .secrets "${second}/src/.secrets"
 build "${second}/src" b "${second}/storage"
 df -h / "${second}"
 
+for label in a b; do
+  echo "== signed boot loader, build ${label}"
+  sudo cat "$( [[ ${label} == a ]] && echo out || echo "${second}/src/out")/repro/${label}/sdboot-signature.txt" || true
+done
 sudo rm -rf out/repro/b
 sudo cp -a "${second}/src/out/repro/b" out/repro/b
 sudo rm -f out/repro/r03.txt
 sudo podman run --rm --network=none --security-opt label=disable \
   -v "${PWD}:/work" -w /work localhost/aegis-builder:latest \
-  python3 -m pytest tests/repro -p no:cacheprovider -v --junitxml out/junit-repro.xml
+  python3 -m pytest tests/repro -p no:cacheprovider -v -s --junitxml out/junit-repro.xml
