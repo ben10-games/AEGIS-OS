@@ -4,8 +4,9 @@ This guide takes you from nothing to a running AEGIS OS virtual machine on your 
 computer, using QEMU. It covers Linux and Windows hosts.
 
 **What you are testing.** The image is `aegis-dev`, the *development* variant of the
-Phase 1 milestone M2 system: the Fedora 45 bootc base with the AEGIS identity, service
-baseline, firewall, kernel hardening and SELinux policy. It is not a release, it is not
+Phase 1 system as of milestone M4: the Fedora 45 bootc base with the AEGIS identity,
+service baseline, firewall, kernel hardening and SELinux policy, a sealed root filesystem
+(signed UKI, composefs with fs-verity) and signature-checked updates. It is not a release, it is not
 encrypted, and it has no desktop. It boots to a text console.
 
 **What this cannot do to your computer.** The virtual machine is given exactly one
@@ -183,7 +184,7 @@ mechanism is the virtual equivalent of sitting at the machine's own console.
 
 ## 6. What a normal boot looks like
 
-1. A few seconds of firmware output, then the GRUB menu (it continues by itself).
+1. A few seconds of firmware output, then the systemd-boot menu (it continues by itself).
 2. Kernel and systemd messages scroll by. Lines start with `[  OK  ]`.
 3. `aegis login: root (automatic login)` and a prompt `[root@aegis ~]#`.
 
@@ -231,9 +232,9 @@ poweroff
 The launcher returns when the VM has stopped. To leave the console without shutting
 down cleanly, press `Ctrl-A`, then `X` (this is like pulling the power cord).
 
-During shutdown you will see "Failed to unmount ... Device or resource busy" and
-"Not all file systems unmounted". This is known (BUG-3 in `PROJECT_STATE.md`): data is
-synced before power-off and the next boot shows no file-system recovery.
+If shutdown prints "Failed to unmount ... Device or resource busy", see BUG-3 in
+`PROJECT_STATE.md`: data is synced before power-off and the next boot shows no
+file-system recovery. CI checks that `/var` is unmounted cleanly (BUG-8).
 
 ## 8. Troubleshooting
 
@@ -276,9 +277,10 @@ any physical hardware.
 
 - Development variant: it includes an SSH server and a self-test SELinux module that a
   release image does not have.
-- No disk encryption and no signed updates yet. The root filesystem is verified (composefs
-  with fs-verity), but in these launchers nothing verifies the UKI, because the firmware
-  has no keys enrolled.
+- No disk encryption. The root filesystem is verified (composefs with fs-verity), but in
+  these launchers nothing verifies the UKI, because the firmware has no keys enrolled.
+- The image trusts update images signed with the key of the CI run that built it. That
+  private key is discarded when the run ends, so this image cannot receive updates.
 - No graphical desktop.
 - Each build is signed by nothing; trust comes from the checksum and from the GitHub
   run that produced it.

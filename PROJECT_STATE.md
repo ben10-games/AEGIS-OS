@@ -7,11 +7,11 @@ only if it actually ran and passed, with the commit and where it ran.
 ## 1. Resume here
 
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
-- **Phase / milestone:** Phase 1. M0, M1 and **M2 (baseline configuration) are
-  complete**; see sections 4 and 5 and `docs/architecture/security-baseline.md`.
-- **Next task:** M4 is complete (gate G1 passed, signed publishing verified). Next in
-  the blueprint is M5 (input pinning, reproducibility, SBOM: P1-15, P1-16); it needs the
-  owner's go-ahead. The GUI foundation (M4-GUI) is on branch
+- **Phase / milestone:** Phase 1. M0 to **M4 are complete** (M3 sealed boot chain,
+  M4 signed updates and rollback; gate G1 passed); see sections 4 and 5 and
+  `docs/architecture/security-baseline.md`. M5 (P1-15, P1-16) is in progress.
+- **Next task:** M5 (input pinning, reproducibility, SBOM: P1-15, P1-16), authorised by
+  the owner on 2026-11-20; see "M5 progress" below. The GUI foundation (M4-GUI) is on branch
   `claude/aegis-os-gui-foundation`, not here.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the end of the `build` job log: the "Collect results"
@@ -73,10 +73,10 @@ manifest), 44319072870 (v4 in its own repository: all pass).
 
 ### M3 progress (sealed boot chain)
 
-**State: complete except gate G1.** Every test passes on `3a07962`: `build` run
-44300954850 (25 image tests, 77 of 77 VM tests, all under Secure Boot) and `lint` run
-44300954927. Update and rollback (V-13, V-14) need M4, so G1 stays open and ADR-0004
-stays Provisional.
+**State: complete.** Every test passed on `3a07962`: `build` run 44300954850 (25 image
+tests, 77 of 77 VM tests, all under Secure Boot) and `lint` run 44300954927. Gate G1
+needed update and rollback as well; it passed with M4 (`build` run 44319072870 on
+`a7cd392`), and ADR-0004 is Accepted.
 
 Boot chain as built: OVMF Secure Boot with only the build's throw-away keys
 → signed systemd-boot 262 → signed UKI (ukify; command line = `kargs.d` + composefs
@@ -170,7 +170,7 @@ image.
 | P1-08 | Operating system baseline | done | `e378b1e`; `build` run 43554108533 (identity, services, firewall, audit, kernel arguments, sysctl, networking) |
 | P1-09 | SELinux enforcement validation | done | `c3308a8`; `build` run 43557838924 (V-08: zero denials, labels, enforcement self-test) |
 | P1-10 | Ephemeral key tooling | done | `scripts/dev-keys`; keys generated per CI run, private keys only in the job workspace |
-| P1-11 | Sealed image, gate G1 | in progress | implemented and verified (`3a07962`, `build` run 44300954850); G1 pending: V-13/V-14 need M4 |
+| P1-11 | Sealed image, gate G1 | done | sealed image verified on `3a07962` (`build` run 44300954850); gate G1 passed with V-13/V-14/V-15 on `a7cd392` (`build` run 44319072870) |
 | P1-12 | Tamper and negative boot tests | done | `3a07962`; `build` run 44300954850 |
 | P1-13 | Signing and signature policy | done | `7dd30ce`; `build` run 44330064081 (published to GHCR, signatures verified) |
 | P1-14 | Update and rollback tests | done | `a7cd392`; `build` run 44319072870 (V-09, V-13, V-14, V-15) |
@@ -183,7 +183,7 @@ image.
 ## 3. Architecture decisions
 
 See `docs/adr/README.md` for the index. ADR-0004 (sealed composefs backend) is
-**Provisional** until gate G1 passes. ADR-0012 and ADR-0013 are **Open**.
+**Accepted** (gate G1 passed, `build` run 44319072870). ADR-0012 and ADR-0013 are **Open**.
 
 Deviations from the approved blueprint:
 
@@ -195,7 +195,7 @@ Deviations from the approved blueprint:
 | The builder container holds test tooling only (QEMU, firmware, swtpm, pytest). Image builds and the disk install use the host's podman directly | A privileged loopback install nested inside another container is fragile; one level of nesting worked first time | this file |
 | The builder container is built from the pinned `fedora-bootc` base, not a plain Fedora image | One pinned input instead of two; layers are shared with the OS image build | `build/builder/Containerfile` |
 | One `build` workflow does images, disk and VM tests; there is no separate `vm-test` workflow yet | Multi-gigabyte images are not passed between jobs; split when a registry exists (P1-13) | this file |
-| No `build/disk/phase1.toml`; the ESP has bootc's default size, not 2 GiB | `bootc install to-disk` creates the layout itself; the 2 GiB ESP matters only for UKIs and is handled in P1-11 | this file |
+| No `build/disk/phase1.toml`; the ESP has bootc's default size, not 2 GiB | `bootc install to-disk` creates the layout itself; the sealed UKI fits in it (M3 and M4 boot tests) | this file |
 | Disk image is raw (`out/disk.raw`) with a qcow2 overlay at test time, not a stored qcow2 | Nothing consumes a standalone qcow2 yet | this file |
 
 ## 4. Completed milestones
@@ -205,7 +205,7 @@ Deviations from the approved blueprint:
 | M0 Repository and tooling (P1-00 to P1-02) | 2026-11-13 | `lint` run 43458827403, `probe` run 43459049502 |
 | M1 First verified boot (P1-03 to P1-06) | 2026-11-13 | `build` run 43460695621 on `399d421`: 8 VM tests passed in 43.5 s under KVM; repeated on `a3a5004` (run 43461672095) |
 | M2 Baseline configuration (P1-07 to P1-09) | 2026-11-14 | `build` run 43557838924 on `c3308a8`: 14 image tests and 55 VM tests passed (both variants, KVM); `lint` run 43557838949 green on the same commit. Same result on `3514aec` (run 43557821995) |
-| M3 Sealed boot chain (P1-10 to P1-12) | 2026-11-18 | `build` run 44300954850 on `3a07962`: 25 image tests and 77 VM tests under Secure Boot, including B-06, V-04, V-05, V-06, V-07 and the boot-parameter tests; `lint` run 44300954927. G1 needs V-13/V-14 (M4) |
+| M3 Sealed boot chain (P1-10 to P1-12) | 2026-11-18 | `build` run 44300954850 on `3a07962`: 25 image tests and 77 VM tests under Secure Boot, including B-06, V-04, V-05, V-06, V-07 and the boot-parameter tests; `lint` run 44300954927. G1 completed with M4 |
 | M4 Updates (P1-13, P1-14); gate G1 passed | 2026-11-18 | `build` run 44319072870 on `a7cd392`: V-13, V-14, V-15, V-09 under Secure Boot; `build` run 44330064081 on `7dd30ce`: signed images published to GHCR and verified, all 83 VM tests |
 
 Milestone tags `p1-m0` (`cdce239`) and `p1-m1-first-boot` (`399d421`) exist only in the
@@ -402,8 +402,10 @@ for each statement, and what it does not. In short:
   development variant, which differs by the recorded delta (sshd and the SELinux
   self-test).
 - The SELinux label correction (BUG-1) applies to disks built by this repository.
-- The disk has a BIOS boot partition and a 512 MiB ESP because `bootc install to-disk`
-  was run with `--generic-image`; BIOS boot support is not wanted in the final design.
+- The disk is created by `bootc install to-disk --generic-image` with bootc's default
+  partition layout (recorded in M2 as a BIOS boot partition and a 512 MiB ESP; not
+  re-measured since the composefs backend replaced ostree in M3). A fixed layout
+  (`build/disk/phase1.toml`) is not implemented.
 - Package goldens hold names, not versions; packages are not version-locked until P1-15.
 - Planned Phase 1 limitations (see blueprint section 11): no disk encryption, throw-away
   signing keys, no automatic rollback on failed boot, no application sandboxing, `/etc`
@@ -416,7 +418,7 @@ for each statement, and what it does not. In short:
 |---|---|---|
 | A1 | GitHub-hosted Linux runners expose usable KVM | **confirmed** (QEMU started with `-accel kvm`, probe run 43459049502) |
 | A2 | `fedora-bootc:45` ships bootc 1.16 or newer | **confirmed** (bootc 1.17.1, probe run 43459049502) |
-| A3 | `bootc install to-disk` supports btrfs with the composefs backend | partly confirmed: btrfs works with the ostree backend (run 43460695621); composefs backend still open (P1-11) |
+| A3 | `bootc install to-disk` supports btrfs with the composefs backend | **confirmed** for both backends: ostree (run 43460695621) and composefs (B-08 asserts a btrfs root; passed in runs 44300954850 and 44319072870) |
 | A4 | Fedora's updates-archive repository is usable for locked RPMs | open (P1-15) |
 | A5 | Container signature policy is enforced on the composefs backend | **confirmed** (run 44319072870, V-15: unsigned and wrongly signed images refused by the policy) |
 | A6 | SSH key injection through a systemd credential on the QEMU command line works | **confirmed** (run 43460695621) |
