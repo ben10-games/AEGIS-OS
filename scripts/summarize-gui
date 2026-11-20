@@ -14,7 +14,7 @@ section() {
   echo
 }
 
-for name in session resources audio pointer; do
+for name in session idle resources effects security-status launch-times qml-errors audio pointer; do
   section "gui: ${name}" "${logs}/gui-${name}.txt" 60
 done
 echo "=== gui: SELinux denials during the graphical session"

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- AEGIS OS mark: a faceted shield in midnight glass with a cyan edge light. -->
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d3b5c"/>
+      <stop offset="1" stop-color="#0a1626"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9ff3ff"/>
+      <stop offset="0.55" stop-color="#4fd1e8"/>
+      <stop offset="1" stop-color="#2a7fa8"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 4 L54 11 V30 C54 44 44 54 32 60 C20 54 10 44 10 30 V11 Z"
+        fill="url(#body)" stroke="url(#edge)" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M32 9 L49 14.5 V24 C40 22 24 22 15 26 V14.5 Z" fill="url(#sheen)"/>
+  <path d="M32 17 L42 44 H37.5 L35.3 38 H28.7 L26.5 44 H22 Z M30.1 34 H33.9 L32 28.6 Z"
+        fill="#e6fbff"/>
+</svg>

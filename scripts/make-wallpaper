@@ -4,7 +4,8 @@
 #   scripts/make-wallpaper
 #
 # Writes image/rootfs-gui/usr/share/wallpapers/AEGIS/contents/images/1920x1080.png:
-# a deep blue-black gradient with a soft cyan glow and the outline of a shield.
+# a midnight-to-graphite backdrop with cyan and indigo light ribbons, a glow behind the
+# dock and the outline of a shield (GUI v1).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -30,19 +31,43 @@ def shield_distance(x, y):
     side = abs(abs(u) - half) * (width / 2) if v >= 0 else 1e9
     return min(side, top_edge)
 
+# GUI v1 backdrop: glass needs something to reveal. Midnight-to-graphite base, two soft
+# light ribbons (cyan and indigo) sweeping across the screen, a cool glow behind the
+# dock area, the shield outline, and a fixed-seed dither against gradient banding.
+def ribbon(x, y, centre, amplitude, phase, width):
+    yc = H * centre + amplitude * H * math.sin(x / W * math.pi * 1.6 + phase)
+    return math.exp(-((y - yc) / (width * H)) ** 2)
+
+seed = 0x2E6A
+def noise():
+    global seed
+    seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+    return (seed >> 16) / 32768.0 - 0.5
+
 rows = []
 for y in range(H):
     row = bytearray([0])
+    t = y / H
     for x in range(W):
-        t = y / H
-        r, g, b = 8 + 6 * t, 12 + 10 * t, 24 + 22 * t                # base gradient
-        dx, dy = (x - W * 0.5) / W, (y - H * 0.42) / H
-        glow = math.exp(-(dx * dx + dy * dy) * 9.0)                  # central glow
-        r, g, b = r + 10 * glow, g + 60 * glow, b + 90 * glow
+        s = x / W
+        r, g, b = 7 + 4 * t, 11 + 9 * t, 22 + 20 * t                   # base gradient
+        dx, dy = (x - W * 0.5) / W, (y - H * 0.40) / H
+        glow = math.exp(-(dx * dx * 1.2 + dy * dy) * 7.0)              # central glow
+        r, g, b = r + 8 * glow, g + 46 * glow, b + 72 * glow
+        cyan = ribbon(x, y, 0.62, 0.07, 0.4, 0.07) * (0.35 + 0.65 * s)
+        r, g, b = r + 10 * cyan, g + 62 * cyan, b + 80 * cyan
+        indigo = ribbon(x, y, 0.70, 0.10, 2.2, 0.11) * (1.0 - 0.6 * s)
+        r, g, b = r + 28 * indigo, g + 18 * indigo, b + 70 * indigo
+        dock = math.exp(-(((x - W / 2) / (W * 0.22)) ** 2 + ((y - H) / (H * 0.12)) ** 2))
+        r, g, b = r + 10 * dock, g + 34 * dock, b + 44 * dock          # light under the dock
         d = shield_distance(x, y)
-        line = math.exp(-(d / 2.2) ** 2) * 0.55                      # thin outline
-        r, g, b = r + (80 - r) * line, g + (220 - g) * line, b + (255 - b) * line
-        row += bytes((min(255, int(r)), min(255, int(g)), min(255, int(b))))
+        line = math.exp(-(d / 2.0) ** 2) * 0.6                          # thin outline
+        halo = math.exp(-(d / 22.0) ** 2) * 0.10                        # soft edge light
+        r, g, b = r + 40 * halo, g + 150 * halo, b + 180 * halo
+        r, g, b = r + (90 - r) * line, g + (230 - g) * line, b + (255 - b) * line
+        n = noise() * 2.0
+        row += bytes((max(0, min(255, int(r + n))), max(0, min(255, int(g + n))),
+                      max(0, min(255, int(b + n)))))
     rows.append(bytes(row))
 
 def chunk(kind, data):

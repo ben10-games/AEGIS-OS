@@ -20,8 +20,8 @@ def sandbox(tmp_path, root):
     fake.write_text(
         "#!/usr/bin/env bash\n"
         'case "$*" in\n'
-        '  "-display help") echo "Available display backend types:"; echo gtk; echo sdl; echo none ;;\n'
-        '  "-audiodev help") echo "Available audio drivers:"; echo none; echo pa; echo alsa ;;\n'
+        '  "-display help") echo gtk; echo sdl; echo none ;;\n'
+        '  "-audiodev help") echo none; echo pa; echo alsa ;;\n'
         '  *) printf \'%s\\n\' "$@" > "${FAKE_QEMU_ARGS}" ;;\n'
         "esac\n"
     )

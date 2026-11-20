@@ -1,18 +1,24 @@
-// Default desktop layout of AEGIS OS (first login of a new user).
+// Default desktop layout of AEGIS OS (first login of a new user), GUI v1.
 //
-// One floating panel, centred at the bottom and only as wide as its content: the
-// foundation of the future AEGIS dock. Launcher, pinned core applications, task
-// manager, system tray, clock. The AEGIS wallpaper on every desktop.
+// The AEGIS dock: one floating, translucent panel, centred at the bottom and only as
+// wide as its content. KWin blurs the wallpaper behind it (/etc/xdg/kwinrc). Contents:
+// the launcher with the AEGIS mark, pinned core applications with running indicators,
+// the AEGIS Security status, the system tray (network, volume, power) and the clock.
 
 const panel = new Panel();
 panel.location = "bottom";
-panel.height = 2 * Math.ceil(gridUnit * 2.5 / 2);
+panel.height = 2 * Math.ceil(gridUnit * 3 / 2);
 panel.floating = true;
 panel.alignment = "center";
 panel.lengthMode = "fit";
 panel.hiding = "none";
+panel.opacity = "translucent";
 
-panel.addWidget("org.kde.plasma.kickoff");
+const kickoff = panel.addWidget("org.kde.plasma.kickoff");
+kickoff.currentConfigGroup = ["General"];
+kickoff.writeConfig("icon", "aegis-os");
+kickoff.writeConfig("favoritesDisplay", 0);
+
 const tasks = panel.addWidget("org.kde.plasma.icontasks");
 tasks.currentConfigGroup = ["General"];
 tasks.writeConfig("launchers", [
@@ -20,7 +26,10 @@ tasks.writeConfig("launchers", [
     "applications:org.kde.konsole.desktop",
     "applications:systemsettings.desktop",
 ]);
+tasks.writeConfig("iconSpacing", 2);
+
 panel.addWidget("org.kde.plasma.marginsseparator");
+panel.addWidget("org.aegisos.security");
 panel.addWidget("org.kde.plasma.systemtray");
 panel.addWidget("org.kde.plasma.digitalclock");
 

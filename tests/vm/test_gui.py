@@ -1,4 +1,4 @@
-"""M4-GUI: the graphical development image (aegis-gui) under Secure Boot.
+"""M4-GUI and GUI v1: the graphical development image (aegis-gui) under Secure Boot.
 
 The image ships no user. For this test the harness creates one at boot and asks SDDM
 to log it in automatically, through systemd credentials in the firmware tables, the
@@ -109,6 +109,132 @@ def test_gui_session_starts_on_wayland(gui, logdir, record_property):
     shot(gui, logdir, "desktop")
 
 
+def test_gui_idle_measurements(gui, logdir, record_property):
+    """Performance baseline right after login, before any application is opened:
+    memory in use, KWin and plasmashell memory, idle CPU over 20 s, startup time."""
+    time.sleep(20)  # let the session settle
+
+    def meminfo():
+        fields = dict(
+            line.split(":", 1) for line in gui.ssh("cat /proc/meminfo").stdout.splitlines()
+        )
+        return int(fields["MemTotal"].split()[0]), int(fields["MemAvailable"].split()[0])
+
+    def cpu_ticks():
+        values = [int(v) for v in gui.ssh("head -n 1 /proc/stat").stdout.split()[1:]]
+        return sum(values), values[3] + values[4]  # total, idle + iowait
+
+    total_a, idle_a = cpu_ticks()
+    time.sleep(20)
+    total_b, idle_b = cpu_ticks()
+    busy = 100.0 * (1 - (idle_b - idle_a) / max(1, total_b - total_a))
+    total, available = meminfo()
+
+    def rss(name):
+        out = gui.ssh(f"ps -C {name} -o rss= | awk '{{s+=$1}} END {{print s+0}}'").stdout
+        return int(out.strip() or 0) // 1024
+
+    renderer = as_user(
+        gui,
+        'journalctl --user -b -o cat | grep -m1 -iE "OpenGL renderer|llvmpipe|virgl"',
+        check=False,
+    ).stdout.strip()
+    report = (
+        f"idle memory in use (MiB): {(total - available) // 1024}\n"
+        f"kwin_wayland RSS (MiB): {rss('kwin_wayland')}\n"
+        f"plasmashell RSS (MiB): {rss('plasmashell')}\n"
+        f"plasma-keyboard RSS (MiB): {rss('plasma-keyboard')}\n"
+        f"idle CPU busy over 20 s (%, all CPUs): {busy:.1f}\n"
+        f"startup: {gui.ssh('systemd-analyze').stdout.splitlines()[0]}\n"
+        f"renderer: {renderer or 'not reported'}\n"
+    )
+    (logdir / "gui-idle.txt").write_text(report)
+    record_property("idle_memory_mib", (total - available) // 1024)
+    record_property("idle_cpu_percent", round(busy, 1))
+
+
+def test_gui_glass_effects_and_no_onscreen_keyboard(gui, logdir):
+    """KWin really runs the blur and contrast effects behind the translucent dock, and the
+    on-screen keyboard is not started (it remains available in System Settings)."""
+    loaded = {}
+    for effect in ("blur", "contrast", "slidingpopups"):
+        reply = as_user(
+            gui,
+            "busctl --user call org.kde.KWin /Effects org.kde.kwin.Effects "
+            f"isEffectLoaded s {effect}",
+            check=False,
+        ).stdout.strip()
+        loaded[effect] = reply
+    (logdir / "gui-effects.txt").write_text(
+        "\n".join(f"{k}: {v}" for k, v in loaded.items())
+        + "\n\nsupported:\n"
+        + as_user(
+            gui,
+            "busctl --user get-property org.kde.KWin /Effects org.kde.kwin.Effects loadedEffects",
+            check=False,
+        ).stdout
+    )
+    assert loaded["blur"] == "b true", loaded
+    assert loaded["contrast"] == "b true", loaded
+    assert gui.ssh("pgrep -x plasma-keyboard", check=False).returncode != 0, (
+        "the on-screen keyboard is running"
+    )
+
+
+def test_gui_dock_layout(gui, logdir):
+    """The AEGIS dock: floating panel with the AEGIS launcher mark, pinned applications
+    and the AEGIS Security widget, as written by the look-and-feel layout script."""
+    applets = gui.ssh(
+        f"cat /var/home/{USER}/.config/plasma-org.kde.plasma.desktop-appletsrc"
+    ).stdout
+    (logdir / "gui-applets.txt").write_text(applets)
+    for plugin in (
+        "org.kde.plasma.kickoff",
+        "org.kde.plasma.icontasks",
+        "org.aegisos.security",
+        "org.kde.plasma.systemtray",
+    ):
+        assert f"plugin={plugin}" in applets, plugin
+    assert "icon=aegis-os" in applets
+    assert "org.kde.dolphin.desktop" in applets
+
+
+def test_gui_security_dashboard(gui, logdir):
+    """AEGIS Security Dashboard v0: its read-only helper reports the true state when run
+    as the desktop user, and the widget (rendered by plasmawindowed) loads without QML
+    errors. Screenshot inspected for the report."""
+    facts = dict(
+        line.split("=", 1)
+        for line in as_user(gui, "/usr/libexec/aegis/security-status").stdout.splitlines()
+        if "=" in line
+    )
+    (logdir / "gui-security-status.txt").write_text("\n".join(f"{k}={v}" for k, v in facts.items()))
+    assert facts["selinux"] == "Enforcing"
+    assert facts["secureboot"] == "enabled"
+    assert facts["root"] == "sealed-composefs"
+    assert facts["cmdline_check"] == "active"
+    assert facts["firewall"] == "active"
+    assert facts["lockdown"] == "integrity"
+    assert facts["root_digest"] in gui.ssh("cat /proc/cmdline").stdout
+    assert facts["updates"].startswith("unavailable"), "the helper must not have root"
+    as_user(
+        gui,
+        "systemd-run --user --collect --unit=aegis-test-dashboard "
+        "plasmawindowed org.aegisos.security",
+    )
+    wait_for(gui, f"pgrep -u {USER} -x plasmawindowed", 60, "the security widget window")
+    time.sleep(10)
+    shot(gui, logdir, "security-dashboard")
+    errors = as_user(
+        gui,
+        'journalctl --user -b -o cat | grep -iE "aegisos|org/aegisos" '
+        '| grep -iE "error|cannot|not installed|failed" || true',
+    ).stdout
+    (logdir / "gui-qml-errors.txt").write_text(errors)
+    assert not errors.strip(), errors[:3000]
+    gui.ssh(f"pkill -u {USER} -x plasmawindowed", check=False)
+
+
 def test_gui_security_properties_are_kept(gui, logdir):
     """Secure Boot, SELinux enforcing, the sealed command line check; no denials."""
     secure_boot = gui.ssh(
@@ -141,7 +267,9 @@ def test_gui_file_manager_and_settings_start(gui, logdir):
     """Dolphin and System Settings start in the session and keep running."""
     for application in ("dolphin", "systemsettings"):
         launch(gui, application)
-        wait_for(gui, f"pgrep -u {USER} -x {application}", 60, f"{application} to start")
+        seconds = wait_for(gui, f"pgrep -u {USER} -x {application}", 60, f"{application} to start")
+        with (logdir / "gui-launch-times.txt").open("a") as times:
+            times.write(f"{application}: process after {seconds:.1f} s\n")
         time.sleep(8)
         assert gui.ssh(f"pgrep -u {USER} -x {application}", check=False).returncode == 0, (
             f"{application} exited"

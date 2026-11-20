@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 
-SHELL_SCRIPTS := $(filter-out %.py,$(shell git ls-files 'scripts/*' 'image/build/*' 'local-vm/*.sh' 'image/rootfs/usr/libexec/aegis/*'))
+SHELL_SCRIPTS := $(filter-out %.py,$(shell git ls-files 'scripts/*' 'image/build/*' 'local-vm/*.sh' 'image/rootfs/usr/libexec/aegis/*' 'image/rootfs-gui/usr/libexec/aegis/*'))
 YAML_FILES := $(shell git ls-files '*.yml' '*.yaml')
 
 .PHONY: help

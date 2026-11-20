@@ -43,7 +43,10 @@ without the owner's authorisation.
   found `openh264` from the Cisco-hosted `fedora-cisco-openh264` repository. Refused:
   the resolver disables that repository, the `gui` step names Fedora's stub
   `noopenh264`, and `scripts/rpmlock.py` now refuses any package not from `fedora` or
-  `updates`. Re-resolution pending.
+  `updates`. Re-resolved by `update-inputs` run 44748846864: 589 RPMs (365 `fedora`,
+  224 `updates`), all verified (size, SHA-256, header, Fedora signature), cache tag
+  `lock-2e7405ca645f39d9`; reviewed: the 75 earlier packages unchanged, 2 new builder
+  packages (QEMU virtio display modules), 512 `gui` packages including `noopenh264`.
 - Downloadable image (Stage B): `scripts/export-qcow2 --gui` → `out/release-gui/`
   (QCOW2, `run-aegis-gui-vm.sh`, `LOCAL_GUI_VM_GUIDE.md`, `IMAGE-INFO.txt`,
   `SHA256SUMS`), published as artifact `aegis-os-gui-qcow2` only after every test in
@@ -53,6 +56,27 @@ without the owner's authorisation.
   `tests/static/test_local_gui_launcher.py` (fake QEMU) and in CI by
   `tests/vm/test_local_gui_image.py` (the exported file booted with the launcher). Not
   run yet.
+- Visual design and components (Stages C to E), all in the image under `/usr` except
+  `/etc/xdg/kwinrc`:
+  - `org.aegisos.style` QML module (`/usr/lib64/qt6/qml/org/aegisos/style`): design
+    tokens (colour, opacity, blur, radii, spacing, typography, shadow, motion), three
+    glass materials with opaque fallbacks for the software renderer, and the
+    `GlassSurface` and `StatusRow` primitives.
+  - Glass from KWin itself: blur and contrast effects on, blur strength 12, noise 2
+    (`/etc/xdg/kwinrc`); no own compositor code.
+  - AEGIS dock: floating, translucent, centred panel with the AEGIS mark on the
+    launcher, pinned Files, Terminal and Settings, the AEGIS Security widget, tray, clock.
+  - AEGIS Security Dashboard v0 (`org.aegisos.security` Plasma widget): SELinux, Secure
+    Boot, sealed root and digest, command-line check, firewall, lockdown, running image;
+    data from `/usr/libexec/aegis/security-status`, run as the desktop user (read-only;
+    update state needs root and is shown as unavailable).
+  - Control Center: Plasma's system tray (network, volume, power) is used as is; no
+    AEGIS control panel yet.
+  - On-screen keyboard not started (`InputMethod` empty; still installed, can be enabled).
+  - New wallpaper (`scripts/make-wallpaper`, inspected).
+  Tests added: `tests/vm/test_gui.py` (idle measurements, KWin effects loaded, keyboard
+  absent, dock layout, dashboard facts and screenshot, application start times) and
+  `tests/static/test_gui_assets.py`. Not run yet.
 
 ### M4-GUI foundation (history), branch `claude/aegis-os-gui-foundation`
 

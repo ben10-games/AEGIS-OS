@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# AEGIS Security Dashboard v0: print the machine's security state as key=value lines.
+#
+# Read-only and unprivileged: it runs as the desktop user, changes nothing, and reads
+# only files and commands any user may read. Facts that need root (the deployment list
+# and update state from 'bootc status') are reported as unavailable, not guessed; a
+# polkit-guarded, read-only D-Bus service for them is future work
+# (docs/architecture/gui-architecture.md).
+set -uo pipefail
+
+value() { # key command...
+  local key="$1" out
+  shift
+  out="$("$@" 2> /dev/null | head -n 1)" || true
+  printf '%s=%s\n' "${key}" "${out:-unknown}"
+}
+
+value selinux getenforce
+
+efivar=/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c
+if [[ -r "${efivar}" ]]; then
+  case "$(od -An -tu1 -j4 -N1 "${efivar}" | tr -d ' ')" in
+    1) echo "secureboot=enabled" ;;
+    0) echo "secureboot=disabled" ;;
+    *) echo "secureboot=unknown" ;;
+  esac
+elif [[ -d /sys/firmware/efi ]]; then
+  echo "secureboot=unknown"
+else
+  echo "secureboot=no-uefi"
+fi
+
+root_source="$(findmnt -no SOURCE / 2> /dev/null)"
+case "${root_source}" in
+  composefs*) echo "root=sealed-composefs" ;;
+  "") echo "root=unknown" ;;
+  *) echo "root=${root_source}" ;;
+esac
+digest="$(tr ' ' '\n' < /proc/cmdline | sed -n 's/^composefs\.digest=//p' | head -n 1)"
+echo "root_digest=${digest:-none}"
+value cmdline_check systemctl is-active aegis-verify-cmdline.service
+value firewall systemctl is-active firewalld.service
+lockdown="$(sed -n 's/.*\[\(.*\)\].*/\1/p' /sys/kernel/security/lockdown 2> /dev/null)"
+echo "lockdown=${lockdown:-unknown}"
+
+# The running image, from its own identity file.
+image_id="$(sed -n 's/^IMAGE_ID=//p' /usr/lib/os-release | tr -d '"')"
+image_version="$(sed -n 's/^IMAGE_VERSION=//p' /usr/lib/os-release | tr -d '"')"
+build_id="$(sed -n 's/^BUILD_ID=//p' /usr/lib/os-release | tr -d '"')"
+echo "deployment=${image_id:-unknown} ${image_version:-?} (${build_id:0:12})"
+
+# Update state needs bootc, which only root may ask.
+if bootc status --booted --format=json > /dev/null 2>&1; then
+  echo "updates=$(bootc status --format=json 2> /dev/null | grep -o '"staged":[^,]*' | head -n 1)"
+else
+  echo "updates=unavailable (needs administrator rights)"
+fi
+echo "checked=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
