@@ -12,17 +12,27 @@ set -euo pipefail
 
 dir="$1"
 version_id="$(sed -n 's/^VERSION_ID=//p' /usr/lib/os-release | tr -d '"')"
+# The release key as shipped by the base image's fedora-gpg-keys package (its location
+# differs between Fedora releases), as named by the repository configuration.
 key=""
-for candidate in "RPM-GPG-KEY-fedora-${version_id}-primary" \
-  "RPM-GPG-KEY-fedora-${version_id}-$(uname -m)"; do
-  if [[ -f "/etc/pki/rpm-gpg/${candidate}" ]]; then
-    key="/etc/pki/rpm-gpg/${candidate}"
-    break
-  fi
-done
+while read -r candidate; do
+  case "$(basename "${candidate}")" in
+    "RPM-GPG-KEY-fedora-${version_id}-primary" | "RPM-GPG-KEY-fedora-${version_id}-$(uname -m)")
+      # Images composed with rpm-ostree may keep the package's /etc under /usr/etc.
+      for path in "${candidate}" "/usr${candidate}"; do
+        if [[ -f "${path}" ]]; then
+          key="${path}"
+          break 2
+        fi
+      done
+      ;;
+  esac
+done < <(rpm -ql fedora-gpg-keys | sort)
 if [[ -z "${key}" ]]; then
-  echo "error: no Fedora ${version_id} release key in /etc/pki/rpm-gpg:" >&2
-  ls /etc/pki/rpm-gpg >&2
+  echo "error: no Fedora ${version_id} release key in fedora-gpg-keys:" >&2
+  rpm -ql fedora-gpg-keys | grep -- "-${version_id}" >&2 || true
+  ls -la /etc/pki/rpm-gpg /usr/etc/pki/rpm-gpg >&2 || true
+  grep -h '^gpgkey' /etc/yum.repos.d/*.repo >&2 || true
   exit 1
 fi
 # Only this throw-away container's key ring is changed.
