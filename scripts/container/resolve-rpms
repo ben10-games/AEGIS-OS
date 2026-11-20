@@ -33,7 +33,11 @@ download() {
   mapfile -t packages < <(expand "${step}")
   echo "== ${step}: ${packages[*]}"
   mkdir -p "/out/rpms/${step}"
-  dnf "${dnf_opts[@]}" install --downloadonly --destdir "/out/rpms/${step}" "${packages[@]}"
+  # dnf 5 has no --destdir for install: the packages are taken from its cache, which is
+  # emptied of packages first so that only this step's downloads are collected.
+  find /var/cache/libdnf5 -name '*.rpm' -delete 2> /dev/null || true
+  dnf "${dnf_opts[@]}" --setopt=keepcache=True install --downloadonly "${packages[@]}"
+  find /var/cache/libdnf5 -name '*.rpm' -exec mv -t "/out/rpms/${step}" {} +
   if ! compgen -G "/out/rpms/${step}/*.rpm" > /dev/null; then
     echo "error: dnf downloaded nothing for ${step}" >&2
     exit 1
