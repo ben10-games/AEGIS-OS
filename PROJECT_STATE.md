@@ -8,10 +8,13 @@ only if it actually ran and passed, with the commit and where it ran.
 
 - **Branch:** `claude/aegis-os-architecture-ayxptj`
 - **Phase / milestone:** Phase 1. M0 to **M4 are complete** (M3 sealed boot chain,
-  M4 signed updates and rollback; gate G1 passed); see sections 4 and 5 and
-  `docs/architecture/security-baseline.md`. M5 (P1-15, P1-16) is in progress.
-- **Next task:** M5 (input pinning, reproducibility, SBOM: P1-15, P1-16), authorised by
-  the owner on 2026-11-20; see "M5 progress" below. The GUI foundation (M4-GUI) is on branch
+  M4 signed updates and rollback; gate G1 passed); **M5 (input pinning,
+  reproducibility, SBOM) is complete**: `build` run 44738357964 and `lint` run
+  44738358019 on `cd9bf7c`. See sections 4 and 5 and
+  `docs/architecture/security-baseline.md`.
+- **Next task:** M6 (P1-17 metrics baseline V-12, P1-18 operations documentation,
+  P1-19 exit review); needs the owner's go-ahead. Input updates follow
+  `docs/operations/inputs.md`. The GUI foundation (M4-GUI) is on branch
   `claude/aegis-os-gui-foundation`, not here.
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the end of the `build` job log: the "Collect results"
@@ -26,27 +29,64 @@ only if it actually ran and passed, with the commit and where it ran.
 
 ### M5 progress (input pinning, reproducibility, SBOM)
 
-- **P1-15 lock and update workflow: verified in `update-inputs` run 44731157775 on
-  `25d2fba`.** 74 RPMs resolved on the pinned base (9 base, 1 dev, 12 dev-policy,
-  52 builder; 58 from `fedora`, 16 from `updates`), every one checked for size, SHA-256,
-  header identity and Fedora signature (`digests signatures OK` against
-  `RPM-GPG-KEY-fedora-45-primary` from the base image); published as
-  `ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:26253c2988b2…` (tag
-  `lock-dfe7456b76781d4d`, first pushed by run 44730882284), fetched back by digest and
-  verified again. The candidate is committed as `image/packages/rpms.lock.yaml`.
-- **Negative input tests on real RPMs, same run: all passed.** Changed byte (SHA-256),
-  changed byte with forged lock entry (signature: `DIGESTS SIGNATURES NOT OK`), missing
-  RPM, extra RPM, another genuine Fedora package under a locked name with forged lock
-  entry (header identity), stale lock, unavailable cache image, offline install with a
-  dependency removed (dnf refuses); positive controls for the intact set and the
-  complete offline install. `tests/static/test_rpm_lock.py` covers parser and checks.
-- Builds now install only the locked RPMs, without network, with all repositories
-  disabled and file times set to the commit time (`--timestamp`). First CI run of the
-  locked build, SBOM, vulnerability report and the double build: pending.
-- Iterations: dnf 5 has no `--destdir` for `install` (run 44729805862); repoquery
-  needs real tabs (44729967506); Fedora 45 keeps its release keys in
-  `/usr/share/pki/rpm-gpg` (44730219961); dnf reports mirror URLs (44730658638);
-  `openssh-clients` is already in the base (44730882284).
+**State: complete.** Verified on `cd9bf7c`: `build` run 44738357964 (both jobs) and
+`lint` run 44738358019.
+
+- **P1-15 lock.** `image/packages/rpms.in.yaml` → `rpms.lock.yaml`: 75 RPMs (9 base,
+  1 dev, 12 dev-policy, 53 builder), each with NEVRA, size, SHA-256, repository and path;
+  the lock also pins the base digest and the SHA-256 of `rpms.in.yaml`. The RPMs are
+  kept in `ghcr.io/ben10-games/aegis-os/rpm-inputs` (tag `lock-d07ec828bc3dd5f7`, by
+  digest in the lock). Resolved and verified by `update-inputs` runs 44731157775 (74
+  RPMs) and 44737897215 (+ libfaketime; reviewed diff: one line).
+- **Fail closed.** Every build fetches the cache by digest and checks size, SHA-256,
+  header identity and Fedora signature of every RPM (`digests signatures OK` with
+  `RPM-GPG-KEY-fedora-45-primary` from the base image); all image and builder builds
+  run with `--network=none` and all repositories disabled.
+- **Negative tests on real RPMs** (`scripts/test-inputs`, in every build and in
+  `update-inputs`): changed byte; changed byte with a forged lock entry (refused by the
+  signature check); missing RPM; extra RPM; another genuine Fedora package under a
+  locked name with a forged entry (refused by the header check); stale lock;
+  unavailable cache image; offline install with a dependency removed. All refused, with
+  positive controls. Plus 41 static tests in `tests/static/test_rpm_lock.py`.
+- **R-01 pass, R-02 pass, R-03 reported** (job "Two independent clean builds", run
+  44738357964): build A in the checkout with root's default container storage, build B
+  in a fresh clone on `/mnt` with its own storage, its own input fetch and verification
+  and its own builder container; shared: the commit, the registry and the throw-away
+  keys. R-01: identical base digest and image ID, lock, RPM files, builder inputs and
+  installed package sets (NEVRA + SIGMD5) of builder, aegis-base and aegis-dev. R-02:
+  identical composefs digests — aegis-base `38a7d42b0742…`, aegis-dev `9c1131b8d2d9…`.
+  R-03: image IDs differ; 75 of 76 (base), 81 of 82 (dev), 65 of 66 (builder) layers are
+  identical; not gating in Phase 1, cause not investigated further.
+- **B-07, SBOM part: pass.** SPDX 2.3 per image (syft 1.27.1, pinned by digest): valid
+  structure, RPMs from the image's database equal the golden list (B-02) by name and
+  count, every locked package present in its locked version. The `cosign verify` part
+  of B-07 is not run: published signatures are verified with the container signature
+  policy (`scripts/publish-images`, run 44330064081), and the SBOM is not yet attached
+  to published images.
+- **Vulnerability report (report only):** grype 0.104.2 with database schema v6.1.10
+  built 2026-11-20T06:21Z; 348 matches per image (91 distinct vulnerability/package
+  pairs), all Go modules inside shipped
+  binaries (grype has no Fedora RPM feed). Fedora's own advisories (dnf5 5.4.8, `updates`
+  metadata of 2026-11-20 07:46): 9 package updates in 5 security advisories newer than
+  the base pin (tpm2-tss, c-ares, p11-kit, xfsprogs (Important), criu). Scan times are
+  in `out/sbom/vulnerability-report.txt` of each run.
+
+Reproducibility fixes found by measuring (each a CI run):
+
+| Run | Difference between the two builds | Fix |
+|---|---|---|
+| 44731480599 | dnf's transaction-history WAL/SHM files; the signed boot loader | remove the WAL/SHM files with the other package-manager leftovers |
+| 44735052522 | only the signed boot loader: identical unsigned content, `signingTime` attribute differs | sign with sbsign's clock fixed at the commit time (libfaketime) |
+| 44738357964 | none | — |
+
+Other iterations: dnf 5 has no `--destdir` for `install` (run 44729805862); repoquery
+needs real tabs (44729967506); Fedora 45 keeps its release keys in
+`/usr/share/pki/rpm-gpg` (44730219961); dnf reports mirror URLs (44730658638);
+`openssh-clients` is already in the base (44730882284); V-10 DNS failed once after the
+builder was built offline (44731480599) and passes since the VM test container gets an
+explicit loopback `resolv.conf` (the exact cause was not isolated); syft names the RPM
+database `/usr/share/rpm/rpmdb.sqlite` and also reads an older copy kept in the base
+image's `/sysroot/ostree` objects (44735052522).
 
 ### M4 progress (signed updates and rollback)
 
@@ -198,8 +238,8 @@ image.
 | P1-12 | Tamper and negative boot tests | done | `3a07962`; `build` run 44300954850 |
 | P1-13 | Signing and signature policy | done | `7dd30ce`; `build` run 44330064081 (published to GHCR, signatures verified) |
 | P1-14 | Update and rollback tests | done | `a7cd392`; `build` run 44319072870 (V-09, V-13, V-14, V-15) |
-| P1-15 | Input pinning | in progress | lock resolved and verified (`update-inputs` run 44731157775); locked builds pending |
-| P1-16 | Reproducibility, SBOM, vulnerability report | todo | |
+| P1-15 | Input pinning | done | `cd9bf7c`, `build` run 44738357964; lock from `update-inputs` run 44737897215 |
+| P1-16 | Reproducibility, SBOM, vulnerability report | done | R-01, R-02 pass, R-03 reported; B-07 SBOM part pass (`build` run 44738357964) |
 | P1-17 | Metrics baseline | todo | |
 | P1-18 | Operations and development documentation | todo | |
 | P1-19 | Phase 1 exit review | todo | |
@@ -230,6 +270,7 @@ Deviations from the approved blueprint:
 | M1 First verified boot (P1-03 to P1-06) | 2026-11-13 | `build` run 43460695621 on `399d421`: 8 VM tests passed in 43.5 s under KVM; repeated on `a3a5004` (run 43461672095) |
 | M2 Baseline configuration (P1-07 to P1-09) | 2026-11-14 | `build` run 43557838924 on `c3308a8`: 14 image tests and 55 VM tests passed (both variants, KVM); `lint` run 43557838949 green on the same commit. Same result on `3514aec` (run 43557821995) |
 | M3 Sealed boot chain (P1-10 to P1-12) | 2026-11-18 | `build` run 44300954850 on `3a07962`: 25 image tests and 77 VM tests under Secure Boot, including B-06, V-04, V-05, V-06, V-07 and the boot-parameter tests; `lint` run 44300954927. G1 completed with M4 |
+| M5 Inputs, reproducibility, SBOM (P1-15, P1-16) | 2026-11-20 | `build` run 44738357964 on `cd9bf7c`: 33 image tests, 83 VM tests, 8 negative input tests, R-01 and R-02 from two independent builds; `lint` run 44738358019 |
 | M4 Updates (P1-13, P1-14); gate G1 passed | 2026-11-18 | `build` run 44319072870 on `a7cd392`: V-13, V-14, V-15, V-09 under Secure Boot; `build` run 44330064081 on `7dd30ce`: signed images published to GHCR and verified, all 83 VM tests |
 
 Milestone tags `p1-m0` (`cdce239`) and `p1-m1-first-boot` (`399d421`) exist only in the
@@ -339,7 +380,14 @@ the composefs object store.
 | V-15 Unsigned and untrusted-signed updates refused by the signature policy, nothing staged | pass | `a7cd392` | GitHub Actions run 44319072870, KVM |
 | V-09 `/etc` and `/var` state survives update and rollback | pass | `a7cd392` | GitHub Actions run 44319072870, KVM |
 
-Not yet run: B-05, B-07, V-12, V-16, V-18, all R tests.
+| R-01 Input determinism: two builds, identical base, lock, RPM files, builder inputs, installed package sets | pass | `cd9bf7c` | GitHub Actions run 44738357964 |
+| R-02 Content determinism: identical composefs digests of aegis-base and aegis-dev from two independent clean builds | pass | `cd9bf7c` | GitHub Actions run 44738357964 |
+| R-03 OCI digest equality | reported: not equal (one layer per image differs) | `cd9bf7c` | GitHub Actions run 44738357964 |
+| B-07 SBOM: valid SPDX 2.3, same packages and count as B-02, locked versions installed | pass (SBOM part; `cosign verify` not run) | `cd9bf7c` | GitHub Actions run 44738357964 |
+| Locked inputs: size, SHA-256, header, Fedora signature of 75 RPMs; 8 negative cases refused | pass | `cd9bf7c` | GitHub Actions run 44738357964 |
+| M1 to M4 suites (Secure Boot, SELinux, sealed root, signed update, untrusted and unsigned update refused, rollback) on locked inputs | pass (83 VM tests) | `cd9bf7c` | GitHub Actions run 44738357964, KVM |
+
+Not yet run: B-05, the `cosign verify` part of B-07, V-12, V-16, V-18.
 
 ### Measurements before and after M2
 
@@ -430,7 +478,16 @@ for each statement, and what it does not. In short:
   partition layout (recorded in M2 as a BIOS boot partition and a 512 MiB ESP; not
   re-measured since the composefs backend replaced ostree in M3). A fixed layout
   (`build/disk/phase1.toml`) is not implemented.
-- Package goldens hold names, not versions; packages are not version-locked until P1-15.
+- Package goldens hold names; versions are pinned by the RPM lock and checked against
+  the SBOM (`test_locked_packages_are_installed_in_the_locked_version`). The base image's
+  own packages are pinned by its digest only.
+- R-02 is shown for two builds on one runner on one day, with the same throw-away keys
+  (they are build inputs). Builds on different days may differ where software records
+  the date (for example password-ageing fields if a package creates a user); not tested.
+- The vulnerability scan is a report. grype has no Fedora RPM data; Fedora advisories are
+  read from Fedora's update metadata at scan time. Nothing acts on findings yet.
+- The RPM cache and base image live only in GHCR; losing them makes old commits
+  unbuildable (no retention policy yet).
 - Planned Phase 1 limitations (see blueprint section 11): no disk encryption, throw-away
   signing keys, no automatic rollback on failed boot, no application sandboxing, `/etc`
   and `/var` are not integrity-protected.

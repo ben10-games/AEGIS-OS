@@ -1,4 +1,4 @@
-# Security baseline after milestones M2 and M3
+# Security baseline after milestones M2 to M5
 
 What the AEGIS OS image demonstrably provides after M3 and the update tests of M4
 (sealed boot chain; gate G1 passed), what it does not, and where each statement is tested. "Tested" means a test in this repository passed in
@@ -29,6 +29,9 @@ Nothing here has been checked on physical hardware.
 | The sealed system shuts down cleanly | `/etc` and `/var` are released before unmounting; both variants power off without failed units | release-variant power-off test (BUG-8 fixed) |
 | Only signed updates are accepted (M4) | `/etc/containers/policy.json` rejects everything by default; AEGIS images need a sigstore signature by the key sealed into `/usr/share/aegis/keys/`. Unsigned and wrongly signed images are refused, nothing is staged | V-15 |
 | An update can be undone | `bootc rollback` returns to the previous sealed image; `/etc` and `/var` state is kept | V-13, V-14, V-09 |
+| Every added package is the reviewed one (M5) | RPMs only from `image/packages/rpms.lock.yaml` (NEVRA, size, SHA-256); before use each RPM's checksum, header identity and Fedora signature are checked; builds have no network and no repositories; updates arrive as reviewed lock diffs | `scripts/test-inputs` (8 negative cases on real RPMs), `tests/static/test_rpm_lock.py`, `test_locked_packages_are_installed_in_the_locked_version` |
+| The image contents are inventoried for others (M5) | SPDX 2.3 SBOM per image (syft, pinned by digest), checked against the golden package list | B-07 (`tests/image/test_sbom.py`) |
+| A build can be checked by rebuilding it (M5) | Same commit ⇒ same inputs and the same composefs digest from two independent clean builds | R-01, R-02 (`tests/repro/test_double_build.py`) |
 
 ## Not provided yet
 
@@ -44,6 +47,8 @@ Nothing here has been checked on physical hardware.
 | No application sandboxing | Any program a user runs has that user's full access | Phase 3 |
 | No audit rules beyond the defaults | Only events the kernel and systemd report are recorded | Phase 2 |
 | No automatic rollback on a failed boot | A bad update needs a manual choice in the boot menu | Phase 2 |
+| Known vulnerabilities are reported, not blocked | The report lists Fedora security advisories newer than the lock and grype findings (mostly Go modules in shipped binaries); nothing fails a build | Phase 2 (policy for acting on findings) |
+| Build reproducibility depends on GHCR keeping the base and RPM cache images | If either digest disappears, old commits cannot be rebuilt | Phase 2 (retention policy) |
 
 ## Decisions with a cost
 
