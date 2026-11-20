@@ -52,7 +52,14 @@ def document(variant: str) -> dict:
     return json.loads(path.read_text())
 
 
-RPMDB = "/usr/lib/sysimage/rpm/rpmdb.sqlite"
+# The image's RPM database, under either of the paths rpm uses for it in Fedora.
+RPMDB_PATHS = ("/usr/lib/sysimage/rpm/rpmdb.sqlite", "/usr/share/rpm/rpmdb.sqlite")
+RPMDB = " or ".join(RPMDB_PATHS)
+
+
+def from_rpmdb(package: dict) -> bool:
+    source = package.get("sourceInfo", "")
+    return any(source.endswith(f"RPM DB: {path}") for path in RPMDB_PATHS)
 
 
 def rpm_packages(doc: dict) -> list[dict]:
@@ -70,10 +77,11 @@ def rpms(doc: dict, installed: bool = True) -> dict[str, str]:
     """name.arch -> version-release (epoch-less), from the packages' purls. With
     installed=True only packages read from the image's RPM database: syft also reports
     RPM records found elsewhere (for example rpm-ostree's copy of the base image's
-    database), which describe no installed software."""
+    database stored under /sysroot/ostree in the Fedora base), which describe no
+    installed software."""
     found = {}
     for package in rpm_packages(doc):
-        if installed and RPMDB not in package.get("sourceInfo", ""):
+        if installed and not from_rpmdb(package):
             continue
         for ref in package.get("externalRefs", []):
             locator = ref.get("referenceLocator", "")
@@ -121,7 +129,7 @@ def test_sbom_lists_exactly_the_golden_packages(variant):
     elsewhere = sorted(
         f"{p['name']} {p.get('versionInfo', '')} ({p.get('sourceInfo', 'no sourceInfo')})"
         for p in rpm_packages(doc)
-        if RPMDB not in p.get("sourceInfo", "")
+        if not from_rpmdb(p)
     )
     assert not missing and not extra, (
         f"missing from SBOM: {missing}; not golden: {extra}; "
@@ -134,7 +142,7 @@ def test_sbom_lists_exactly_the_golden_packages(variant):
 def test_rpm_records_outside_the_package_database_are_listed(variant):
     """Reported, not a failure: RPM records syft finds outside the RPM database."""
     doc = document(variant)
-    others = [p for p in rpm_packages(doc) if RPMDB not in p.get("sourceInfo", "")]
+    others = [p for p in rpm_packages(doc) if not from_rpmdb(p)]
     sources = sorted({p.get("sourceInfo", "?") for p in others})
     print(f"aegis-{variant}: {len(others)} RPM records outside {RPMDB}: {sources[:5]}")
     assert len(rpms(doc)) > 300, "the image's own RPM database was not catalogued"

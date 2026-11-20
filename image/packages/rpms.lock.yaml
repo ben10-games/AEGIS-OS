@@ -4,9 +4,9 @@
 # yamllint disable rule:line-length
 lockfileVersion: 1
 base: "ghcr.io/ben10-games/aegis-os/fedora-bootc@sha256:d70fb477a35612f651fcfa397f41e2945514374d3fdaaa64b0e75a3ca1da2bbc"
-inputs: "sha256:23c5cd785f42a77579657afdd2a05e02b41df879daf5494490b9c1f63d19e832"
-resolved: "2026-11-20T11:53:45Z"
-cache: "ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:26253c2988b2df8cdfdbc6b18820e46ca54066062aa4973b32547f783d47a9e2"
+inputs: "sha256:5d0c4f7910233574a845e1f5ca6c610733abe5c0edfd49186fe1635b0f7bdb16"
+resolved: "2026-11-20T12:42:20Z"
+cache: "ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:d8c3f1abcd58a97092c2b89b26499c14c50414d11dc74f96aa04940cf8da3f65"
 packages:
   - {set: base, name: audit, evr: "4.2.1-2.fc45", arch: x86_64, sha256: 43ec6cfb0392238dc59db9dc72c7e8ddaca9e5802504cddf4d942cfd139e7081, size: 229371, repo: fedora, location: "Packages/a/audit-4.2.1-2.fc45.x86_64.rpm"}
   - {set: base, name: audit-rules, evr: "4.2.1-2.fc45", arch: x86_64, sha256: f7c016911334b9a939fc68fff5128ede29da771a207db3371606fdba99857574, size: 71607, repo: fedora, location: "Packages/a/audit-rules-4.2.1-2.fc45.x86_64.rpm"}
@@ -24,6 +24,7 @@ packages:
   - {set: builder, name: edk2-ovmf, evr: "20260812-10.fc45", arch: noarch, sha256: b81ab0e9389a1939af5b7029be7d5ebda19bdab99b2c857497ca10a906f9d18c, size: 19137504, repo: updates, location: "Packages/e/edk2-ovmf-20260812-10.fc45.noarch.rpm"}
   - {set: builder, name: igvm-libs, evr: "0.4.0-11.fc45", arch: x86_64, sha256: b31e4e6529244d94462453df5b3c39f05af4566d76b9ffc0cc2c701316ffcf95, size: 235348, repo: fedora, location: "Packages/i/igvm-libs-0.4.0-11.fc45.x86_64.rpm"}
   - {set: builder, name: ipxe-roms-qemu, evr: "1:2.0.0^20260614git13a83f4-4.fc45", arch: noarch, sha256: 1ceb6e6ed1a45f07a41e4f3e7c56688c025e808d04687a85be01c7782d865bde, size: 1918528, repo: fedora, location: "Packages/i/ipxe-roms-qemu-2.0.0^20260614git13a83f4-4.fc45.noarch.rpm"}
+  - {set: builder, name: libfaketime, evr: "0.9.12-14.fc45", arch: x86_64, sha256: 890c032e1c7d92b56c261c0118910653dcb61b5c522aba564c1f4376e5edcfe4, size: 75613, repo: fedora, location: "Packages/l/libfaketime-0.9.12-14.fc45.x86_64.rpm"}
   - {set: builder, name: libfdt, evr: "1.8.1-6.fc45", arch: x86_64, sha256: 912294d75ff69a594f1c6af9eedf2bf984efc10a00f59cf8bac8e552cd67700a, size: 37283, repo: fedora, location: "Packages/l/libfdt-1.8.1-6.fc45.x86_64.rpm"}
   - {set: builder, name: libjpeg-turbo, evr: "3.1.4.1-2.fc45", arch: x86_64, sha256: 2450cb5857f0304265c30a908669c93199cc9457b34fc3d8381563d813932e7c, size: 248418, repo: fedora, location: "Packages/l/libjpeg-turbo-3.1.4.1-2.fc45.x86_64.rpm"}
   - {set: builder, name: libpng, evr: "2:1.6.59-1.fc45", arch: x86_64, sha256: 81e1d7cb71d001c9e96acb50687622bb801a86b4d0618896618dfc291d97a4d6, size: 132286, repo: updates, location: "Packages/l/libpng-1.6.59-1.fc45.x86_64.rpm"}
