@@ -107,6 +107,7 @@ fi
 # by Fedora that are newer than the locked inputs. Read from Fedora's update metadata.
 fedora_advisories() {
   local variant="$1"
+  # shellcheck disable=SC2016 # the script runs inside the container
   "${as_root[@]}" podman run --rm --security-opt label=disable \
     "localhost/aegis-${variant}:latest" bash -c '
       set -euo pipefail

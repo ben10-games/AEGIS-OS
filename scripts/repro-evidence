@@ -46,6 +46,7 @@ done
 
 # The signed boot loader is in the root filesystem: record what its signature contains
 # (signing time attribute, signature digest) to explain any difference between builds.
+# shellcheck disable=SC2016 # the script runs inside the container
 "${as_root[@]}" podman run --rm --network=none --security-opt label=disable \
   --mount "type=image,source=localhost/aegis-base:latest,destination=/target" \
   localhost/aegis-builder:latest bash -c '
