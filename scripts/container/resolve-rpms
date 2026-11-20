@@ -84,6 +84,6 @@ for file in /out/rpms/*/*.rpm; do
 done
 mapfile -t nevras < <(printf '%s\n' "${nevras[@]}" | sort -u)
 dnf -q repoquery --available \
-  --qf '%{name}\t%{epoch}\t%{version}\t%{release}\t%{arch}\t%{repoid}\t%{location}\n' \
+  --qf $'%{name}\t%{epoch}\t%{version}\t%{release}\t%{arch}\t%{repoid}\t%{location}\n' \
   "${nevras[@]}" > "/out/repos-${mode}.tsv"
 echo "== ${mode}: $(wc -l < "/out/metadata-${mode}.tsv") packages"

@@ -11,7 +11,7 @@
 set -euo pipefail
 
 dir="$1"
-version_id="$(. /usr/lib/os-release && echo "${VERSION_ID}")"
+version_id="$(sed -n 's/^VERSION_ID=//p' /usr/lib/os-release | tr -d '"')"
 key=""
 for candidate in "RPM-GPG-KEY-fedora-${version_id}-primary" \
   "RPM-GPG-KEY-fedora-${version_id}-$(uname -m)"; do
