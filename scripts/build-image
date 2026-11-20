@@ -33,6 +33,22 @@ if ! "${as_root[@]}" podman pull --quiet "${base_image}" >/dev/null; then
   exit 1
 fi
 
+# Locked inputs (P1-15): the RPMs verified by scripts/fetch-inputs are the only package
+# source. Builds run without network; file times are the commit time, so two builds
+# of one commit can be compared (R-02).
+inputs=out/inputs/rpms
+if [[ ! -s "${inputs}/base/SHA256SUMS" ]]; then
+  echo "INPUT ERROR: no verified RPM inputs in ${inputs}; run scripts/fetch-inputs" >&2
+  exit 1
+fi
+epoch="${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct 2>/dev/null || echo 0)}"
+locked=(
+  --network=none
+  --build-context "rpms=${inputs}"
+  --timestamp "${epoch}"
+  --build-arg "SOURCE_DATE_EPOCH=${epoch}"
+)
+
 # Throw-away Secure Boot keys (scripts/dev-keys). The db key signs the boot loader and
 # the UKI; it reaches the build as a secret mount and is never written into a layer.
 scripts/dev-keys > /dev/null
@@ -53,6 +69,7 @@ signing_pubkey="$("${as_root[@]}" base64 -w0 .secrets/signing/aegis-os.pub)"
 
 echo "== building the base root filesystem from ${base_image}"
 "${as_root[@]}" podman build \
+  "${locked[@]}" \
   --pull=missing \
   "${secrets[@]}" \
   --build-arg "BASE_IMAGE=${base_image}" \
@@ -65,6 +82,7 @@ echo "== building the base root filesystem from ${base_image}"
 
 echo "== building the development root filesystem"
 "${as_root[@]}" podman build \
+  "${locked[@]}" \
   --build-arg "BASE=localhost/aegis-base-rootfs:latest" \
   --build-arg "AEGIS_VERSION=${version}" \
   --build-arg "AEGIS_REVISION=${revision}" \
@@ -72,20 +90,28 @@ echo "== building the development root filesystem"
   --file image/Containerfile.dev \
   .
 
-echo "== building the update test root filesystem (v2, never released)"
-"${as_root[@]}" podman build \
-  --build-arg "BASE=localhost/aegis-dev-rootfs:latest" \
-  --tag localhost/aegis-dev-v2-rootfs:latest \
-  --file image/Containerfile.update \
-  .
+# AEGIS_SKIP_UPDATE_IMAGE=1 (reproducibility builds) leaves out the update test image.
+variants=(base dev dev-v2)
+if [[ "${AEGIS_SKIP_UPDATE_IMAGE:-0}" == 1 ]]; then
+  variants=(base dev)
+else
+  echo "== building the update test root filesystem (v2, never released)"
+  "${as_root[@]}" podman build \
+    "${locked[@]}" \
+    --build-arg "BASE=localhost/aegis-dev-rootfs:latest" \
+    --tag localhost/aegis-dev-v2-rootfs:latest \
+    --file image/Containerfile.update \
+    .
+fi
 
 # Each variant has its own root filesystem, so each gets its own digest and its own UKI.
 # The digest is computed from the root filesystem image in container storage, the way
 # 'bootc install' computes it (see image/Containerfile.seal).
 mkdir -p out/digests
-for variant in base dev dev-v2; do
+for variant in "${variants[@]}"; do
   echo "== sealing localhost/aegis-${variant}"
   "${as_root[@]}" podman build \
+  "${locked[@]}" \
     --target split \
     --build-arg "ROOTFS=localhost/aegis-${variant}-rootfs:latest" \
     --tag "localhost/aegis-${variant}-split:latest" \
@@ -96,6 +122,7 @@ for variant in base dev dev-v2; do
   echo "composefs digest of aegis-${variant} (V1): ${v1}"
   echo "composefs digest of aegis-${variant} (V2): ${v2}"
   "${as_root[@]}" podman build \
+  "${locked[@]}" \
     "${secrets[@]}" \
     --build-arg "ROOTFS=localhost/aegis-${variant}-rootfs:latest" \
     --build-arg "COMPOSEFS_DIGEST_V1=${v1}" \
@@ -115,17 +142,19 @@ for variant in base dev dev-v2; do
 done
 
 # The update image, for the update tests: they push it, signed, to a test registry.
-mkdir -p out/images
-"${as_root[@]}" rm -f out/images/aegis-dev-v2.oci.tar
-"${as_root[@]}" podman save --format oci-archive -o out/images/aegis-dev-v2.oci.tar \
-  localhost/aegis-dev-v2:latest
-"${as_root[@]}" chown -R "$(id -u):$(id -g)" out/images
-ls -l out/images
+if [[ " ${variants[*]} " == *" dev-v2 "* ]]; then
+  mkdir -p out/images
+  "${as_root[@]}" rm -f out/images/aegis-dev-v2.oci.tar
+  "${as_root[@]}" podman save --format oci-archive -o out/images/aegis-dev-v2.oci.tar \
+    localhost/aegis-dev-v2:latest
+  "${as_root[@]}" chown -R "$(id -u):$(id -g)" out/images
+  ls -l out/images
+fi
 
 # The command line each UKI was sealed with (it contains the root digest). The VM tests
 # compare the running system's command line with it.
 mkdir -p out/sealed
-for variant in base dev dev-v2; do
+for variant in "${variants[@]}"; do
   "${as_root[@]}" podman run --rm --network=none \
     --mount "type=image,source=localhost/aegis-${variant}:latest,destination=/target" \
     localhost/aegis-builder:latest \
@@ -155,6 +184,8 @@ mkdir -p out
   echo "revision=${revision}"
   echo "version=${version}"
   echo "podman=$(podman --version)"
+  echo "source_date_epoch=${epoch}"
+  echo "rpm_lock=$(sha256sum image/packages/rpms.lock.yaml | cut -d' ' -f1)"
   for image in localhost/aegis-base:latest localhost/aegis-dev:latest; do
     echo "${image}=$("${as_root[@]}" podman image inspect --format '{{ .Id }}' "${image}")"
   done

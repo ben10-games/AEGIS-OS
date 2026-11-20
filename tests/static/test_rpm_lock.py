@@ -292,3 +292,14 @@ def test_the_command_line_reports_input_errors(rpmlock, tree, tmp_path, capsys):
 def test_the_repository_inputs_parse(rpmlock, root):
     sets = rpmlock.parse_inputs((root / "image/packages/rpms.in.yaml").read_text())
     assert set(sets) == {"base", "dev", "dev-policy", "builder"}
+
+
+def test_the_repository_lock_is_current(rpmlock, root):
+    """The committed lock belongs to the committed rpms.in.yaml and base pin."""
+    lock = rpmlock.read_lock(root / "image/packages/rpms.lock.yaml")
+    rpmlock.check_lock(
+        lock,
+        (root / "image/packages/rpms.in.yaml").read_bytes(),
+        (root / "image/base.lock").read_text(),
+    )
+    assert {p.set for p in lock.packages} == {"base", "dev", "dev-policy", "builder"}

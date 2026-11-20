@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Install one step's locked RPMs (task P1-15), inside an image build without network.
+#
+#   install-locked DIR [--remove-rpm NAME]... [--remove NAME]...
+#
+# DIR holds the RPMs that scripts/fetch-inputs verified against the lock, and their
+# SHA256SUMS. They are checked again here (the build context could have changed after
+# verification); then the removals run, then exactly these files are installed, with
+# every repository disabled. dnf fails if a dependency is not among them.
+set -euo pipefail
+
+dir="$1"
+shift
+remove_rpm=()
+remove=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --remove-rpm) remove_rpm+=("$2") ;;
+    --remove) remove+=("$2") ;;
+    *)
+      echo "usage: install-locked DIR [--remove-rpm NAME]... [--remove NAME]..." >&2
+      exit 2
+      ;;
+  esac
+  shift 2
+done
+
+if [[ ! -s "${dir}/SHA256SUMS" ]]; then
+  echo "INPUT ERROR: ${dir}/SHA256SUMS is missing; run scripts/fetch-inputs" >&2
+  exit 1
+fi
+shopt -s nullglob
+files=("${dir}"/*.rpm)
+if [[ "$(wc -l < "${dir}/SHA256SUMS")" -ne "${#files[@]}" ]]; then
+  echo "INPUT ERROR: ${dir} holds ${#files[@]} RPMs, SHA256SUMS lists $(wc -l < "${dir}/SHA256SUMS")" >&2
+  exit 1
+fi
+(cd "${dir}" && sha256sum --check --strict --quiet SHA256SUMS)
+
+if [[ "${#remove_rpm[@]}" -gt 0 ]]; then
+  rpm -e "${remove_rpm[@]}"
+fi
+if [[ "${#remove[@]}" -gt 0 ]]; then
+  dnf -y --disablerepo='*' remove "${remove[@]}"
+fi
+dnf -y --disablerepo='*' --setopt=install_weak_deps=False install "${files[@]}"
+echo "installed $(wc -l < "${dir}/SHA256SUMS") locked RPMs from ${dir}"

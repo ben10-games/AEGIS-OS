@@ -16,8 +16,26 @@ if [[ "${EUID}" -ne 0 ]]; then
   as_root=(sudo)
 fi
 
+# Locked inputs (P1-15): the RPMs verified by scripts/fetch-inputs are the only package
+# source. Builds run without network; file times are the commit time, so two builds
+# of one commit can be compared (R-02).
+inputs=out/inputs/rpms
+if [[ ! -s "${inputs}/base/SHA256SUMS" ]]; then
+  echo "INPUT ERROR: no verified RPM inputs in ${inputs}; run scripts/fetch-inputs" >&2
+  exit 1
+fi
+epoch="${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct 2>/dev/null || echo 0)}"
+locked=(
+  --network=none
+  --build-context "rpms=${inputs}"
+  --timestamp "${epoch}"
+  --build-arg "SOURCE_DATE_EPOCH=${epoch}"
+)
+
 "${as_root[@]}" podman build \
   --pull=missing \
+  "${locked[@]}" \
+  --build-context helpers=image/build \
   --build-arg "BASE_IMAGE=${base_image}" \
   --tag localhost/aegis-builder:latest \
   --file build/builder/Containerfile \

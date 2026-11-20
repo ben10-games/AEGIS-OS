@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# SPDX software bill of materials for both images, and a report-only vulnerability scan
+# (task P1-16). Run after scripts/build-image.
+#
+#   scripts/sbom
+#
+# out/sbom/aegis-<variant>.spdx.json   SPDX 2.3 (syft), validated by tests/image/test_sbom.py
+# out/sbom/vulnerability-report.txt    tool and database versions, scan time, findings
+#
+# The SBOM is required: a failure stops the build. The vulnerability scan is a report:
+# findings never fail the build, and a scan that cannot run is reported as not run.
+# The tools are container images pinned by digest; syft runs without network, grype
+# downloads its database (grype.anchore.io) and Fedora's advisories come from the
+# Fedora repositories the base image is configured for.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+# syft v1.27.1 and grype v0.104.2 (multi-architecture index digests on ghcr.io).
+SYFT=ghcr.io/anchore/syft@sha256:844ed6a928ef9396fac26d1de374e71dcaf80df14f05841670ed41619c5a718f
+GRYPE=ghcr.io/anchore/grype@sha256:7416f2fada8bd8f99095d955a6fed700b714b51ceb8150f838920932954b04aa
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+revision="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+out="${PWD}/out/sbom"
+mkdir -p "${out}"
+report="${out}/vulnerability-report.txt"
+
+"${as_root[@]}" podman pull --quiet "${SYFT}" > /dev/null
+syft_version="$("${as_root[@]}" podman run --rm --network=none "${SYFT}" version | sed -n 's/^Version: *//p')"
+echo "syft ${syft_version} (${SYFT})"
+
+for variant in base dev; do
+  echo "== SBOM of aegis-${variant}"
+  # The image's root filesystem, read-only, scanned for installed packages only.
+  "${as_root[@]}" podman run --rm --network=none --security-opt label=disable \
+    --mount "type=image,source=localhost/aegis-${variant}:latest,destination=/target" \
+    -v "${out}:/out" \
+    -e SYFT_CHECK_FOR_APP_UPDATE=false \
+    "${SYFT}" scan dir:/target \
+    --override-default-catalogers image \
+    --source-name "aegis-${variant}" --source-version "${revision}" \
+    -o "spdx-json=/out/aegis-${variant}.spdx.json"
+done
+"${as_root[@]}" chown -R "$(id -u):$(id -g)" "${out}"
+ls -l "${out}"/*.spdx.json
+
+# --- report-only vulnerability scan ------------------------------------------------------
+{
+  echo "AEGIS OS vulnerability report (report only; findings do not fail the build)"
+  echo "revision:  ${revision}"
+  echo "scan time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "syft:      ${syft_version} (${SYFT})"
+} > "${report}"
+
+scan_grype() {
+  "${as_root[@]}" podman pull --quiet "${GRYPE}" > /dev/null || return 1
+  local run=("${as_root[@]}" podman run --rm --security-opt label=disable -v "${out}:/out"
+    -e GRYPE_DB_CACHE_DIR=/out/grype-db -e GRYPE_CHECK_FOR_APP_UPDATE=false "${GRYPE}")
+  "${run[@]}" db update > /dev/null || return 1
+  echo "grype:     $("${run[@]}" version | sed -n 's/^Version: *//p') (${GRYPE})"
+  echo "grype database (grype db status):"
+  "${run[@]}" db status | sed 's/^/  /'
+  local variant
+  for variant in base dev; do
+    "${run[@]}" "sbom:/out/aegis-${variant}.spdx.json" -o json \
+      > "${out}/grype-aegis-${variant}.json" || return 1
+  done
+}
+if scan_grype >> "${report}" 2> "${out}/grype-errors.txt"; then
+  python3 - "${out}" >> "${report}" <<'PY'
+import collections, json, pathlib, sys
+out = pathlib.Path(sys.argv[1])
+for variant in ("base", "dev"):
+    matches = json.loads((out / f"grype-aegis-{variant}.json").read_text()).get("matches", [])
+    by_type = collections.Counter(m["artifact"]["type"] for m in matches)
+    severities = collections.Counter(m["vulnerability"].get("severity", "Unknown") for m in matches)
+    print(f"grype findings for aegis-{variant}: {len(matches)} "
+          f"(by package type: {dict(sorted(by_type.items())) or 'none'}; "
+          f"by severity: {dict(sorted(severities.items())) or 'none'})")
+    for m in sorted(matches, key=lambda m: (m["vulnerability"].get("severity", ""), m["vulnerability"]["id"]))[:40]:
+        a, v = m["artifact"], m["vulnerability"]
+        fix = ",".join(v.get("fix", {}).get("versions", [])) or "-"
+        print(f"  {v.get('severity', '?'):<10} {v['id']:<22} {a['name']} {a['version']} ({a['type']}) fixed in {fix}")
+print("note: grype matches RPMs against distribution advisory feeds; Fedora has none in")
+print("      grype's database, so RPM findings are expected to be incomplete. The Fedora")
+print("      advisory report below is the authoritative list for RPMs.")
+PY
+else
+  echo "grype: SCAN NOT RUN: $(tail -n 1 "${out}/grype-errors.txt")" >> "${report}"
+fi
+
+# Fedora's own security advisories for the packages in the image: updates published
+# by Fedora that are newer than the locked inputs. Read from Fedora's update metadata.
+fedora_advisories() {
+  local variant="$1"
+  "${as_root[@]}" podman run --rm --security-opt label=disable \
+    "localhost/aegis-${variant}:latest" bash -c '
+      set -euo pipefail
+      echo "dnf: $(rpm -q --qf "%{NAME}-%{VERSION}-%{RELEASE}" dnf5)"
+      dnf -q makecache > /dev/null
+      for repo in fedora updates; do
+        echo "repository ${repo} metadata: $(dnf -q repo info "${repo}" 2>/dev/null \
+          | sed -n "s/^ *\(Updated\|Revision\|Last updated\) *: *//p" | paste -sd" ")"
+      done
+      echo "security advisories with a newer fix than the image:"
+      dnf -q updateinfo list --security 2>/dev/null | sed "s/^/  /" || true
+      echo "summary: $(dnf -q updateinfo list --security 2>/dev/null | wc -l) advisory lines"
+    '
+}
+for variant in base dev; do
+  echo "== Fedora advisories for aegis-${variant}" >> "${report}"
+  if ! fedora_advisories "${variant}" >> "${report}" 2> "${out}/dnf-errors-${variant}.txt"; then
+    echo "Fedora advisories: SCAN NOT RUN: $(tail -n 1 "${out}/dnf-errors-${variant}.txt")" >> "${report}"
+  fi
+done
+"${as_root[@]}" rm -rf "${out}/grype-db"
+echo "BEGIN VULNERABILITY REPORT"
+cat "${report}"
+echo "END VULNERABILITY REPORT"

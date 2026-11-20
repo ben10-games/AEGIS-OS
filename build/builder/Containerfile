@@ -7,20 +7,12 @@ FROM ${BASE_IMAGE}
 # (systemd-ukify, the systemd-boot stub, sbsigntools, binutils), and it prepares
 # firmware variables with Secure Boot keys and edits disk images for the tests
 # (python3-virt-firmware, mtools).
-RUN dnf -y install --setopt=install_weak_deps=False \
-      binutils \
-      edk2-ovmf \
-      mtools \
-      openssh-clients \
-      python3-pytest \
-      python3-virt-firmware \
-      qemu-img \
-      qemu-system-x86-core \
-      sbsigntools \
-      setools-console \
-      swtpm \
-      systemd-boot-unsigned \
-      systemd-ukify \
+# Locked inputs only (P1-15): the build context 'rpms' holds the verified RPMs of the
+# 'builder' step of image/packages/rpms.in.yaml; no network, no repositories.
+ARG SOURCE_DATE_EPOCH
+RUN --mount=type=bind,from=rpms,source=builder,target=/tmp/aegis-rpms \
+    --mount=type=bind,from=helpers,source=install-locked,target=/tmp/install-locked \
+    /tmp/install-locked /tmp/aegis-rpms \
     && dnf clean all
 
 WORKDIR /work

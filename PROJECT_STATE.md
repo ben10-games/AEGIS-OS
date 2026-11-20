@@ -26,13 +26,27 @@ only if it actually ran and passed, with the commit and where it ran.
 
 ### M5 progress (input pinning, reproducibility, SBOM)
 
-- P1-15, step 1: the RPM lock tooling. `image/packages/rpms.in.yaml` names what each
-  install step adds; `scripts/bump-inputs` resolves it on the pinned base into a
-  candidate `rpms.lock.yaml` (NEVRA, size, SHA-256, source repository) and publishes the
-  RPMs as an immutable cache image; `scripts/fetch-inputs` verifies size, SHA-256, RPM
-  header identity and the Fedora signature before any build; `scripts/test-inputs` holds
-  the negative tests on real RPMs; `.github/workflows/update-inputs.yml` runs them.
-  Static tests: `tests/static/test_rpm_lock.py`. Not yet run in CI.
+- **P1-15 lock and update workflow: verified in `update-inputs` run 44731157775 on
+  `25d2fba`.** 74 RPMs resolved on the pinned base (9 base, 1 dev, 12 dev-policy,
+  52 builder; 58 from `fedora`, 16 from `updates`), every one checked for size, SHA-256,
+  header identity and Fedora signature (`digests signatures OK` against
+  `RPM-GPG-KEY-fedora-45-primary` from the base image); published as
+  `ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:26253c2988b2…` (tag
+  `lock-dfe7456b76781d4d`, first pushed by run 44730882284), fetched back by digest and
+  verified again. The candidate is committed as `image/packages/rpms.lock.yaml`.
+- **Negative input tests on real RPMs, same run: all passed.** Changed byte (SHA-256),
+  changed byte with forged lock entry (signature: `DIGESTS SIGNATURES NOT OK`), missing
+  RPM, extra RPM, another genuine Fedora package under a locked name with forged lock
+  entry (header identity), stale lock, unavailable cache image, offline install with a
+  dependency removed (dnf refuses); positive controls for the intact set and the
+  complete offline install. `tests/static/test_rpm_lock.py` covers parser and checks.
+- Builds now install only the locked RPMs, without network, with all repositories
+  disabled and file times set to the commit time (`--timestamp`). First CI run of the
+  locked build, SBOM, vulnerability report and the double build: pending.
+- Iterations: dnf 5 has no `--destdir` for `install` (run 44729805862); repoquery
+  needs real tabs (44729967506); Fedora 45 keeps its release keys in
+  `/usr/share/pki/rpm-gpg` (44730219961); dnf reports mirror URLs (44730658638);
+  `openssh-clients` is already in the base (44730882284).
 
 ### M4 progress (signed updates and rollback)
 
@@ -184,7 +198,7 @@ image.
 | P1-12 | Tamper and negative boot tests | done | `3a07962`; `build` run 44300954850 |
 | P1-13 | Signing and signature policy | done | `7dd30ce`; `build` run 44330064081 (published to GHCR, signatures verified) |
 | P1-14 | Update and rollback tests | done | `a7cd392`; `build` run 44319072870 (V-09, V-13, V-14, V-15) |
-| P1-15 | Input pinning | in progress | lock tooling written; first CI resolution pending |
+| P1-15 | Input pinning | in progress | lock resolved and verified (`update-inputs` run 44731157775); locked builds pending |
 | P1-16 | Reproducibility, SBOM, vulnerability report | todo | |
 | P1-17 | Metrics baseline | todo | |
 | P1-18 | Operations and development documentation | todo | |
@@ -429,7 +443,7 @@ for each statement, and what it does not. In short:
 | A1 | GitHub-hosted Linux runners expose usable KVM | **confirmed** (QEMU started with `-accel kvm`, probe run 43459049502) |
 | A2 | `fedora-bootc:45` ships bootc 1.16 or newer | **confirmed** (bootc 1.17.1, probe run 43459049502) |
 | A3 | `bootc install to-disk` supports btrfs with the composefs backend | **confirmed** for both backends: ostree (run 43460695621) and composefs (B-08 asserts a btrfs root; passed in runs 44300954850 and 44319072870) |
-| A4 | Fedora's updates-archive repository is usable for locked RPMs | open (P1-15) |
+| A4 | Fedora's updates-archive repository is usable for locked RPMs | not needed: locked RPMs are kept in an immutable GHCR image (ADR-0006); not tested |
 | A5 | Container signature policy is enforced on the composefs backend | **confirmed** (run 44319072870, V-15: unsigned and wrongly signed images refused by the policy) |
 | A6 | SSH key injection through a systemd credential on the QEMU command line works | **confirmed** (run 43460695621) |
 

@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Record what tests/repro/test_double_build.py compares between two clean builds
+# (R-01, R-02, R-03). Run after scripts/build-image, in the build's own checkout.
+#
+#   scripts/repro-evidence OUTDIR
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+out="$1"
+mkdir -p "${out}"
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+lock=image/packages/rpms.lock.yaml
+base="$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
+inspect() { "${as_root[@]}" podman image inspect --format "$1" "$2"; }
+
+{
+  echo "revision=$(git rev-parse HEAD)"
+  echo "source_date_epoch=$(sed -n 's/^source_date_epoch=//p' out/build-info.txt)"
+  echo "base_image=${base}"
+  echo "base_image_id=$(inspect '{{ .Id }}' "${base}")"
+  echo "rpm_lock_sha256=$(sha256sum "${lock}" | cut -d' ' -f1)"
+  echo "rpm_inputs_sha256=$(cat out/inputs/rpms/*/SHA256SUMS | sha256sum | cut -d' ' -f1)"
+  echo "builder_inputs_sha256=$({ echo "${base}"; grep -F '{set: builder,' "${lock}"; \
+    cat build/builder/Containerfile image/build/install-locked; } | sha256sum | cut -d' ' -f1)"
+  echo "builder_image_id=$(inspect '{{ .Id }}' localhost/aegis-builder:latest)"
+  for variant in base dev; do
+    echo "composefs_${variant}_v1=$(cat "out/digests/${variant}.v1")"
+    echo "image_id_${variant}=$(inspect '{{ .Id }}' "localhost/aegis-${variant}:latest")"
+  done
+} > "${out}/evidence.txt"
+
+for image in builder base dev; do
+  "${as_root[@]}" podman run --rm --network=none "localhost/aegis-${image}:latest" \
+    rpm -qa --qf '%{NEVRA} %{SIGMD5}\n' | sort > "${out}/rpms-${image}.txt"
+  inspect '{{ range .RootFS.Layers }}{{ println . }}{{ end }}' "localhost/aegis-${image}:latest" \
+    | sed '/^$/d' > "${out}/layers-${image}.txt"
+done
+for variant in base dev; do
+  cp "out/digests/${variant}-final.dump" "${out}/${variant}.dump"
+done
+cat "${out}/evidence.txt"

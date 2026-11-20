@@ -4,6 +4,9 @@
 # show different directory metadata when several layers define the same directory).
 #
 #   scripts/storage-digest IMAGE v1|v2 [DUMPFILE]
+#
+# AEGIS_STORAGE_ROOT names podman's storage directory when it is not the default
+# (the second build of the reproducibility check uses its own storage).
 set -euo pipefail
 
 image="$1"
@@ -25,7 +28,7 @@ if [[ -n "${dump}" ]]; then
 fi
 
 "${as_root[@]}" podman run --rm --network=none --privileged \
-  -v /var/lib/containers:/var/lib/containers \
+  -v "${AEGIS_STORAGE_ROOT:-/var/lib/containers/storage}:/var/lib/containers/storage" \
   "${mounts[@]}" \
   "${image}" \
   bootc container compute-composefs-digest-from-storage \
