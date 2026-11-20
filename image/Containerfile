@@ -54,12 +54,20 @@ RUN AEGIS_VARIANT=base AEGIS_VERSION="${AEGIS_VERSION}" AEGIS_REVISION="${AEGIS_
 # The key is a build secret: it is mounted for this command only and never stored in
 # a layer. The signed boot loader replaces the unsigned one inside the root filesystem,
 # before the filesystem digest is computed.
+#
+# sbsign puts the current time into the signature (signingTime attribute), which made
+# two otherwise identical builds differ in this one file (R-02, run 44735052522). The
+# clock of sbsign alone is fixed at the commit time (SOURCE_DATE_EPOCH) with libfaketime;
+# Secure Boot does not evaluate the attribute, and the signature is verified below.
 FROM ${TOOLS} AS sdboot-signed
+ARG SOURCE_DATE_EPOCH
 RUN --mount=type=bind,from=rootfs-unsigned,source=/usr/lib/systemd/boot/efi,target=/unsigned \
     --mount=type=secret,id=secureboot_key \
     --mount=type=secret,id=secureboot_cert \
     mkdir /out \
-    && sbsign --key /run/secrets/secureboot_key --cert /run/secrets/secureboot_cert \
+    && test -n "${SOURCE_DATE_EPOCH}" \
+    && TZ=UTC faketime -f "$(date -u -d "@${SOURCE_DATE_EPOCH}" '+%Y-%m-%d %H:%M:%S')" \
+         sbsign --key /run/secrets/secureboot_key --cert /run/secrets/secureboot_cert \
          --output /out/systemd-bootx64.efi /unsigned/systemd-bootx64.efi \
     && sbverify --cert /run/secrets/secureboot_cert /out/systemd-bootx64.efi
 

@@ -30,6 +30,7 @@ dev-policy:
 builder:
   - binutils
   - edk2-ovmf
+  - libfaketime
   - mtools
   - python3-pytest
   - python3-virt-firmware
