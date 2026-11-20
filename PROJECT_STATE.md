@@ -38,8 +38,21 @@ without the owner's authorisation.
 
 - Integration (merge commit): the Plasma packages become the `gui` install step of
   `image/packages/rpms.in.yaml`; the QEMU virtio display modules join the `builder` step;
-  `scripts/seal-image` is folded back into `scripts/build-image`. State: lock
-  regeneration pending (`update-inputs`), then the first GUI run on locked inputs.
+  `scripts/seal-image` is folded back into `scripts/build-image`.
+- First resolution (`update-inputs` run 44748085322): 589 RPMs, all verified; review
+  found `openh264` from the Cisco-hosted `fedora-cisco-openh264` repository. Refused:
+  the resolver disables that repository, the `gui` step names Fedora's stub
+  `noopenh264`, and `scripts/rpmlock.py` now refuses any package not from `fedora` or
+  `updates`. Re-resolution pending.
+- Downloadable image (Stage B): `scripts/export-qcow2 --gui` → `out/release-gui/`
+  (QCOW2, `run-aegis-gui-vm.sh`, `LOCAL_GUI_VM_GUIDE.md`, `IMAGE-INFO.txt`,
+  `SHA256SUMS`), published as artifact `aegis-os-gui-qcow2` only after every test in
+  the GUI job passed. Login: the launcher creates user `aegis` (uid 1000, `wheel`) at
+  first boot through systemd credentials, with a random password kept next to the image
+  and only its SHA-512 hash passed to the VM; the image itself has no user. Tested by
+  `tests/static/test_local_gui_launcher.py` (fake QEMU) and in CI by
+  `tests/vm/test_local_gui_image.py` (the exported file booted with the launcher). Not
+  run yet.
 
 ### M4-GUI foundation (history), branch `claude/aegis-os-gui-foundation`
 

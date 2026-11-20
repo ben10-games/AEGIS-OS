@@ -38,6 +38,8 @@ BASE_LOCK = ROOT / "image" / "base.lock"
 
 CACHE_REPOSITORY = "ghcr.io/ben10-games/aegis-os/rpm-inputs"
 UNPUBLISHED = "unpublished"
+# Fedora's own repositories; packages from anywhere else are refused.
+ALLOWED_REPOS = {"fedora", "updates"}
 SIGNATURE_OK = "digests signatures OK"
 SUMS = "SHA256SUMS"
 
@@ -250,6 +252,12 @@ def check_lock(lock: Lock, inputs_data: bytes, base_lock_text: str) -> None:
         )
     if not DIGEST_REF.match(lock.base):
         raise InputError(f"rpms.lock.yaml: 'base' is not pinned by digest: {lock.base}")
+    foreign = sorted(f"{p.path} ({p.repo})" for p in lock.packages if p.repo not in ALLOWED_REPOS)
+    if foreign:
+        raise InputError(
+            f"rpms.lock.yaml: packages from repositories other than {sorted(ALLOWED_REPOS)}: "
+            + ", ".join(foreign)
+        )
     requested = parse_inputs(inputs_data.decode())
     locked: dict[str, set[str]] = {}
     for package in lock.packages:

@@ -328,6 +328,17 @@ jobs:
         if: ${{ !cancelled() && steps.disk.outcome == 'success' }}
         run: make gui-test
 
+      # GUI v1: the downloadable image, booted with the published launcher before it is
+      # offered (OVMF without Secure Boot keys, as on a user's machine).
+      - name: Export the graphical image for local use (QCOW2)
+        id: export-gui
+        if: ${{ !cancelled() && steps.disk.outcome == 'success' }}
+        run: make export-gui
+
+      - name: Boot the exported image with the Linux launcher
+        if: ${{ !cancelled() && steps.export-gui.outcome == 'success' }}
+        run: make gui-local-test
+
       - name: Collect results
         if: always()
         run: |
@@ -342,7 +353,20 @@ jobs:
           name: gui-${{ github.sha }}
           path: |
             out/summary-gui.txt
-            out/junit-gui.xml
+            out/junit-gui*.xml
             out/vm-gui/logs/
           if-no-files-found: warn
+          retention-days: 14
+
+      # Only an image whose every test in this job passed is offered for download.
+      - name: Publish the tested graphical image
+        if: >-
+          ${{ success() && (github.event_name == 'workflow_dispatch'
+          || contains(github.event.head_commit.message, '[publish-image]')) }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aegis-os-gui-qcow2
+          path: out/release-gui/
+          if-no-files-found: error
+          compression-level: 0
           retention-days: 14

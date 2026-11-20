@@ -63,6 +63,14 @@ image-gui: ## M4-GUI: build and seal the base, development and graphical images
 disk-gui: ## M4-GUI: install the graphical image into out/disk-gui.raw
 	AEGIS_DISK_SIZE=20G scripts/build-disk localhost/aegis-gui:latest out/disk-gui.raw
 
+.PHONY: export-gui
+export-gui: ## GUI v1: export out/disk-gui.raw as a compressed QCOW2 with launcher and guide
+	scripts/export-qcow2 --gui
+
+.PHONY: gui-local-test
+gui-local-test: ## GUI v1: boot the exported GUI QCOW2 with the published Linux launcher
+	scripts/run-gui-local-test
+
 .PHONY: gui-test
 gui-test: ## M4-GUI: boot the graphical image under Secure Boot and run the GUI tests
 	scripts/run-gui-tests

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# GUI v1: boot the exported graphical QCOW2 (out/release-gui) with the published Linux
+# launcher, as a user would, and run tests/vm/test_local_gui_image.py. Offline.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+if ! compgen -G "out/release-gui/*.qcow2" > /dev/null; then
+  echo "error: no exported image in out/release-gui; run 'make export-gui' first" >&2
+  exit 1
+fi
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+kvm_args=()
+accel=tcg
+if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+  accel=kvm
+  kvm_args=(--device /dev/kvm)
+fi
+
+mkdir -p out/vm-gui
+"${as_root[@]}" podman run --rm \
+  "${kvm_args[@]}" \
+  --network=none \
+  --security-opt label=disable \
+  -v "${PWD}:/work" \
+  -w /work \
+  -e "AEGIS_VM_ACCEL=${accel}" \
+  localhost/aegis-builder:latest \
+  python3 -m pytest tests/vm/test_local_gui_image.py \
+  -p no:cacheprovider \
+  -v \
+  --workdir out/vm-gui \
+  --junitxml out/junit-gui-local.xml \
+  "$@"

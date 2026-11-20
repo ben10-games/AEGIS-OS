@@ -2,7 +2,8 @@
 # Export the development disk image for local testing: a compressed QCOW2 plus its
 # checksum, the launchers and the guide, in out/release/.
 #
-#   scripts/export-qcow2 [RAW_DISK]
+#   scripts/export-qcow2 [RAW_DISK]            development image -> out/release/
+#   scripts/export-qcow2 --gui [RAW_DISK]      graphical image -> out/release-gui/
 #
 # The export is what gets published as a CI artifact, and what the VM test
 # tests/vm/test_local_image.py boots with the documented launcher before publication.
@@ -10,7 +11,24 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-raw="${1:-out/disk.raw}"
+variant=dev
+if [[ "${1:-}" == "--gui" ]]; then
+  variant=gui
+  shift
+fi
+if [[ "${variant}" == gui ]]; then
+  raw="${1:-out/disk-gui.raw}"
+  release=out/release-gui
+  guide=LOCAL_GUI_VM_GUIDE.md
+  launchers=(local-vm/run-aegis-gui-vm.sh)
+  description="aegis-gui (graphical development image: KDE Plasma 6, Wayland; not a release)"
+else
+  raw="${1:-out/disk.raw}"
+  release=out/release
+  guide=LOCAL_VM_GUIDE.md
+  launchers=(local-vm/run-aegis-vm.sh local-vm/run-aegis-vm.ps1)
+  description="aegis-dev (development; not a release)"
+fi
 if [[ ! -f "${raw}" ]]; then
   echo "error: ${raw} not found; run 'make disk' first" >&2
   exit 1
@@ -23,8 +41,7 @@ fi
 
 version="${AEGIS_VERSION:-0.1.0-dev}"
 revision="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
-name="aegis-os-dev-${version}-${revision:0:7}.qcow2"
-release=out/release
+name="aegis-os-${variant}-${version}-${revision:0:7}.qcow2"
 
 rm -rf "${release}"
 mkdir -p "${release}"
@@ -39,10 +56,10 @@ mkdir -p "${release}"
          && qemu-img info '${release}/${name}'" | tee "${release}/qemu-img.txt"
 "${as_root[@]}" chown "$(id -u):$(id -g)" "${release}/${name}"
 
-cp LOCAL_VM_GUIDE.md local-vm/run-aegis-vm.sh local-vm/run-aegis-vm.ps1 "${release}/"
+cp "${guide}" "${launchers[@]}" "${release}/"
 {
   echo "image=${name}"
-  echo "variant=aegis-dev (development; not a release)"
+  echo "variant=${description}"
   echo "version=${version}"
   echo "revision=${revision}"
   echo "base_image=$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
@@ -52,7 +69,11 @@ cp LOCAL_VM_GUIDE.md local-vm/run-aegis-vm.sh local-vm/run-aegis-vm.ps1 "${relea
 rm -f "${release}/qemu-img.txt"
 
 # Checksums last, over every file a user downloads.
-(cd "${release}" && sha256sum "${name}" run-aegis-vm.sh run-aegis-vm.ps1 > SHA256SUMS)
+launcher_names=()
+for launcher in "${launchers[@]}"; do
+  launcher_names+=("$(basename "${launcher}")")
+done
+(cd "${release}" && sha256sum "${name}" "${launcher_names[@]}" "${guide}" IMAGE-INFO.txt > SHA256SUMS)
 
 cat "${release}/IMAGE-INFO.txt"
 cat "${release}/SHA256SUMS"

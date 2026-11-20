@@ -17,6 +17,9 @@
 # A name the starting state already has is not listed (the resolver refuses it): the
 # builder's SSH client (openssh-clients) comes with the base image.
 #
+# The gui step names noopenh264 (Fedora's stub for the OpenH264 library) so that no package
+# comes from the Cisco-hosted fedora-cisco-openh264 repository, which the resolver disables.
+#
 # Changing this file makes the lock stale; the static tests then fail until the lock is
 # regenerated (docs/operations/inputs.md).
 base:
@@ -52,6 +55,7 @@ gui:
   - kf6-kirigami
   - mesa-dri-drivers
   - google-noto-sans-fonts
+  - noopenh264
 builder:
   - binutils
   - edk2-ovmf

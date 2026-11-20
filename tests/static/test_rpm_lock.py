@@ -303,3 +303,11 @@ def test_the_repository_lock_is_current(rpmlock, root):
         (root / "image/base.lock").read_text(),
     )
     assert {p.set for p in lock.packages} == {"base", "dev", "dev-policy", "gui", "builder"}
+
+
+def test_a_package_from_another_repository_is_refused(rpmlock, tree):
+    tree["lock"].packages[0] = rpmlock.Package(
+        **{**tree["lock"].packages[0].__dict__, "repo": "fedora-cisco-openh264"}
+    )
+    with pytest.raises(rpmlock.InputError, match="other than"):
+        rpmlock.check_lock(tree["lock"], INPUTS, BASE_LOCK)

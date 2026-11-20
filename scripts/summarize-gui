@@ -77,7 +77,7 @@ def half_png(width, height, pixels):
             + chunk(b"IDAT", zlib.compress(bytes(rows), 9)) + chunk(b"IEND", b""))
 
 for path in sorted(Path(sys.argv[1]).glob("gui-*.ppm")):
-    if path.stem in ("gui-before-click",):
+    if path.stem in ("gui-before-click", "gui-local-resolution"):
         continue
     try:
         png = half_png(*read_ppm(path))
@@ -93,7 +93,7 @@ for path in sorted(Path(sys.argv[1]).glob("gui-*.ppm")):
     print(f"AEGIS-SCREENSHOT END {name}")
 PYTHON
 
-for report in out/junit-gui.xml; do
+for report in out/junit-gui.xml out/junit-gui-local.xml; do
   [[ -f "${report}" ]] || continue
   echo "=== test report ${report}"
   grep -o 'errors="[0-9]*" failures="[0-9]*" skipped="[0-9]*" tests="[0-9]*" time="[0-9.]*"' \
