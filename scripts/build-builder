@@ -42,6 +42,8 @@ locked=(
   build/builder
 
 mkdir -p out
+echo "builder /etc/resolv.conf: $("${as_root[@]}" podman run --rm --network=none \
+  localhost/aegis-builder:latest cat /etc/resolv.conf 2>&1 | paste -sd'|' || true)"
 "${as_root[@]}" podman run --rm localhost/aegis-builder:latest \
   rpm -q qemu-system-x86-core edk2-ovmf swtpm openssh-clients python3-pytest setools-console \
     systemd-ukify systemd-boot-unsigned sbsigntools python3-virt-firmware mtools \

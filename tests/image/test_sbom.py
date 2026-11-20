@@ -52,10 +52,29 @@ def document(variant: str) -> dict:
     return json.loads(path.read_text())
 
 
-def rpms(doc: dict) -> dict[str, str]:
-    """name.arch -> version-release (epoch-less), from the packages' purls."""
+RPMDB = "/usr/lib/sysimage/rpm/rpmdb.sqlite"
+
+
+def rpm_packages(doc: dict) -> list[dict]:
+    return [
+        package
+        for package in doc["packages"]
+        if any(
+            ref.get("referenceLocator", "").startswith("pkg:rpm/")
+            for ref in package.get("externalRefs", [])
+        )
+    ]
+
+
+def rpms(doc: dict, installed: bool = True) -> dict[str, str]:
+    """name.arch -> version-release (epoch-less), from the packages' purls. With
+    installed=True only packages read from the image's RPM database: syft also reports
+    RPM records found elsewhere (for example rpm-ostree's copy of the base image's
+    database), which describe no installed software."""
     found = {}
-    for package in doc["packages"]:
+    for package in rpm_packages(doc):
+        if installed and RPMDB not in package.get("sourceInfo", ""):
+            continue
         for ref in package.get("externalRefs", []):
             locator = ref.get("referenceLocator", "")
             if ref.get("referenceType") != "purl" or not locator.startswith("pkg:rpm/"):
@@ -95,11 +114,30 @@ def test_sbom_is_valid_spdx(variant):
 @pytest.mark.parametrize("variant", ["base", "dev"])
 def test_sbom_lists_exactly_the_golden_packages(variant):
     """B-07: the SPDX file lists the same packages as B-02 (count and names)."""
-    listed = set(rpms(document(variant)))
+    doc = document(variant)
+    listed = set(rpms(doc))
     expected = golden_packages(variant)
     missing, extra = sorted(expected - listed), sorted(listed - expected)
-    assert not missing and not extra, f"missing from SBOM: {missing}; not golden: {extra}"
+    elsewhere = sorted(
+        f"{p['name']} {p.get('versionInfo', '')} ({p.get('sourceInfo', 'no sourceInfo')})"
+        for p in rpm_packages(doc)
+        if RPMDB not in p.get("sourceInfo", "")
+    )
+    assert not missing and not extra, (
+        f"missing from SBOM: {missing}; not golden: {extra}; "
+        f"RPM records not from {RPMDB}: {elsewhere[:20]}"
+    )
     assert len(listed) == len(expected)
+
+
+@pytest.mark.parametrize("variant", ["base", "dev"])
+def test_rpm_records_outside_the_package_database_are_listed(variant):
+    """Reported, not a failure: RPM records syft finds outside the RPM database."""
+    doc = document(variant)
+    others = [p for p in rpm_packages(doc) if RPMDB not in p.get("sourceInfo", "")]
+    sources = sorted({p.get("sourceInfo", "?") for p in others})
+    print(f"aegis-{variant}: {len(others)} RPM records outside {RPMDB}: {sources[:5]}")
+    assert len(rpms(doc)) > 300, "the image's own RPM database was not catalogued"
 
 
 @pytest.mark.parametrize(("variant", "steps"), [("base", ["base"]), ("dev", ["base", "dev"])])

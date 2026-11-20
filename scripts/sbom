@@ -81,10 +81,20 @@ for variant in ("base", "dev"):
     print(f"grype findings for aegis-{variant}: {len(matches)} "
           f"(by package type: {dict(sorted(by_type.items())) or 'none'}; "
           f"by severity: {dict(sorted(severities.items())) or 'none'})")
-    for m in sorted(matches, key=lambda m: (m["vulnerability"].get("severity", ""), m["vulnerability"]["id"]))[:40]:
-        a, v = m["artifact"], m["vulnerability"]
-        fix = ",".join(v.get("fix", {}).get("versions", [])) or "-"
-        print(f"  {v.get('severity', '?'):<10} {v['id']:<22} {a['name']} {a['version']} ({a['type']}) fixed in {fix}")
+    # One line per vulnerability and package version; the count is how many files
+    # (for example Go binaries) carry that package.
+    rows = collections.Counter(
+        (m["vulnerability"].get("severity", "?"), m["vulnerability"]["id"], m["artifact"]["name"],
+         m["artifact"]["version"], m["artifact"]["type"],
+         ",".join(m["vulnerability"].get("fix", {}).get("versions", [])) or "-")
+        for m in matches
+    )
+    order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
+    for (sev, vid, name, version, kind, fix), count in sorted(
+        rows.items(), key=lambda r: (order.get(r[0][0], 4), r[0][1], r[0][2])
+    )[:40]:
+        print(f"  {sev:<9} {vid:<20} {name} {version} ({kind}, {count} files) fixed in {fix}")
+    print(f"  ({len(rows)} distinct vulnerability/package pairs)")
 print("note: grype matches RPMs against distribution advisory feeds; Fedora has none in")
 print("      grype's database, so RPM findings are expected to be incomplete. The Fedora")
 print("      advisory report below is the authoritative list for RPMs.")
@@ -108,7 +118,7 @@ fedora_advisories() {
       done
       echo "security advisories with a newer fix than the image:"
       dnf -q updateinfo list --security 2>/dev/null | sed "s/^/  /" || true
-      echo "summary: $(dnf -q updateinfo list --security 2>/dev/null | wc -l) advisory lines"
+      echo "summary: $(dnf -q updateinfo list --security 2>/dev/null | grep -c "^FEDORA-" || true) package updates in security advisories"
     '
 }
 for variant in base dev; do
