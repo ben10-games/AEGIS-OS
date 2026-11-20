@@ -256,11 +256,14 @@ def check_lock(lock: Lock, inputs_data: bytes, base_lock_text: str) -> None:
         raise InputError(
             f"rpms.lock.yaml has steps {sorted(locked)}, rpms.in.yaml has {sorted(requested)}"
         )
-    for step, entries in requested.items():
-        for entry in entries:
-            name = entry.split("@", 1)[0]
-            if name not in locked[step]:
-                raise InputError(f"rpms.lock.yaml: '{name}' requested for {step} but not locked")
+    missing = [
+        f"'{entry.split('@', 1)[0]}' requested for {step} but not locked"
+        for step, entries in requested.items()
+        for entry in entries
+        if entry.split("@", 1)[0] not in locked[step]
+    ]
+    if missing:
+        raise InputError("rpms.lock.yaml: " + "; ".join(missing))
 
 
 # --- writing ----------------------------------------------------------------------------

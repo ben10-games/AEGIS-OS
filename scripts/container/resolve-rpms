@@ -29,8 +29,20 @@ expand() {
 }
 
 download() {
-  local step="$1" packages
+  local step="$1" packages present=() name
   mapfile -t packages < <(expand "${step}")
+  # A requested name that the starting state already has would not be locked, and the
+  # lock could not show that it is present; rpms.in.yaml must not list it.
+  for name in "${packages[@]}"; do
+    if rpm -q --quiet "${name}"; then
+      present+=("${name}")
+    fi
+  done
+  if [[ "${#present[@]}" -gt 0 ]]; then
+    echo "error: ${step}: already installed in the starting state: ${present[*]}" >&2
+    echo "       remove these names from that step in rpms.in.yaml" >&2
+    exit 1
+  fi
   echo "== ${step}: ${packages[*]}"
   mkdir -p "/out/rpms/${step}"
   # dnf 5 has no --destdir for install: the packages are taken from its cache, which is

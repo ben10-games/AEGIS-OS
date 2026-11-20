@@ -13,6 +13,9 @@
 # "name@other" means: the version and release of 'other' as installed in that step's
 # starting state (the SELinux policy compiler must match the policy in the base).
 #
+# A name the starting state already has is not listed (the resolver refuses it): the
+# builder's SSH client (openssh-clients) comes with the base image.
+#
 # Changing this file makes the lock stale; the static tests then fail until the lock is
 # regenerated (docs/operations/inputs.md).
 base:
@@ -28,7 +31,6 @@ builder:
   - binutils
   - edk2-ovmf
   - mtools
-  - openssh-clients
   - python3-pytest
   - python3-virt-firmware
   - qemu-img
