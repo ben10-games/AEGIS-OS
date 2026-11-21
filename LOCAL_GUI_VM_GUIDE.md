@@ -173,8 +173,9 @@ before it is offered for download (KVM; no window, no host sound, OVMF without S
 keys): the account is created as described, `sudo` accepts the generated password and
 refuses a wrong one, root stays locked, the desktop logs in on Wayland at 1920x1080, a
 command typed into Konsole runs as the user, networking is connected, an audio device
-exists, SELinux is enforcing with no denials, and power-off ends the launcher. Results and
-screenshots: `PROJECT_STATE.md` (GUI v1 track).
+exists, SELinux is enforcing with no denials, and power-off ends the launcher. First
+verified in `build` run 44751864651; results and screenshots: `PROJECT_STATE.md` (GUI v1
+track) and `docs/architecture/gui-architecture.md`.
 
 Not tested by the project: Linux Mint itself (the CI runner is Ubuntu 24.04 with QEMU
 from Fedora), the GTK and SDL windows, `--gl`, host sound through PulseAudio/PipeWire, and

@@ -2,7 +2,9 @@
 # Print the evidence of the M4-GUI test run (scripts/run-gui-tests) to the job log.
 # Screenshots are converted from PPM to half-size PNG and printed as base64 between
 # markers, so they can be recovered from the log where artifacts cannot be downloaded:
-#   sed -n '/^AEGIS-SCREENSHOT BEGIN NAME$/,/^AEGIS-SCREENSHOT END/p' log | sed '1d;$d' | base64 -d
+#   sed -E 's/^\xEF\xBB\xBF//; s/^[0-9-]+T[0-9:.]+Z ?//' log \\
+#     | sed -n '/^AEGIS-SCREENSHOT BEGIN NAME$/,/^AEGIS-SCREENSHOT END/p' | sed '1d;$d' | base64 -d
+# (GitHub logs can carry a byte-order mark at chunk boundaries; strip it with the timestamp.)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

@@ -163,6 +163,26 @@ Observed: AEGIS wallpaper and colour scheme applied; floating, centred, content-
 panel with launcher, pinned Files/Terminal/Settings, tray and clock; legible text, no
 clipping, no error dialogs. Measurements are in `PROJECT_STATE.md`.
 
+## GUI v1 results (`build` run 44860719246 on `1aa082e`)
+
+All 31 GUI tests pass (21 on the harness VM under Secure Boot, 10 on the exported QCOW2
+started with `run-aegis-gui-vm.sh`). Rendered in CI with software rendering, screenshots
+recovered from the job log and inspected:
+
+| Exported image, 1920x1080, via the Linux launcher | Konsole: command typed on the virtual keyboard |
+|---|---|
+| ![Desktop](gui-screenshots/gui-v1-local-desktop.png) | ![Konsole](gui-screenshots/gui-v1-local-konsole.png) |
+| **AEGIS Security Dashboard v0** | **System Settings** |
+| ![Security dashboard](gui-screenshots/gui-v1-security-dashboard.png) | ![System Settings](gui-screenshots/gui-v1-systemsettings.png) |
+
+Observed: AEGIS wallpaper with tonal depth; floating dock with the AEGIS launcher mark,
+pinned applications with a running indicator, the AEGIS Security shield, tray and clock;
+the dashboard shows the true state of the machine (SELinux Enforcing, Secure Boot
+enabled, sealed composefs root with its digest, command-line check active, firewall
+active, lockdown integrity), the deployment and a read-only footer. Defects found by
+inspection and fixed on the way: dashboard showed only its icon (run 44749833133);
+dashboard clipped its last rows (run 44751864651).
+
 ## Known limitations (GUI v1)
 
 - Software rendering only (llvmpipe in a VM; the launcher's `--gl` path is untested).

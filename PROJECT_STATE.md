@@ -13,7 +13,9 @@ only if it actually ran and passed, with the commit and where it ran.
   44738358019 on `cd9bf7c`. See sections 4 and 5 and
   `docs/architecture/security-baseline.md`.
 - **Next task:** M6 (P1-17 metrics baseline V-12, P1-18 operations documentation,
-  P1-19 exit review); needs the owner's go-ahead. Input updates follow
+  P1-19 exit review) on the security branch; needs the owner's go-ahead. GUI v1 is
+  verified on `claude/aegis-os-gui-v1` (not merged; merging needs the owner's
+  authorisation); its next tasks are in `docs/architecture/gui-architecture.md`. Input updates follow
   `docs/operations/inputs.md`. The GUI foundation (M4-GUI) is on branch
   `claude/aegis-os-gui-foundation`; GUI v1 continues on `claude/aegis-os-gui-v1`
   (see "GUI v1 track" below).
@@ -105,6 +107,23 @@ without the owner's authorisation.
   plasmashell 407 MiB, idle CPU 0.8 %; three applications open 1143 MiB. Screenshot
   inspection found the dashboard window clipping its last rows; fixed in the next commit
   (scrollable rows, larger default size).
+- **Final verification, `build` run 44860719246 and `lint` run 44860719262 on
+  `1aa082e`: every job green.** GUI job 31 of 31 (21 + 10, as above); main job (M1 to M5
+  on base and dev); R-01 and R-02; Windows launcher. Screenshots inspected (dashboard no
+  longer clipped; rows scroll, footer and Refresh visible) and kept in
+  `docs/architecture/gui-screenshots/gui-v1-*.png`. Published artifact
+  **`aegis-os-gui-qcow2`**: `aegis-os-gui-0.1.0-dev-1aa082e.qcow2`, SHA-256
+  `8f0e589d89bb203185a560002e721ef349c6ec8aefb45bc819b1b42aab6eda5a`, retained 14 days.
+  Measurements (4 GiB VM, llvmpipe software rendering, KVM): idle after login 903 MiB,
+  KWin 259 MiB, plasmashell 408 MiB, on-screen keyboard not running, idle CPU 0.7 %
+  over 20 s; with Konsole, Dolphin and System Settings open about 1145 MiB (M4-GUI:
+  1250 to 1267 MiB); systemd startup 10.2 s; Wayland session within seconds of SSH being
+  reachable. Not measured: frame times and window-visible application start times (the
+  recorded start times are process start only).
+- Skills used for GUI v1: `aegis-os-gui-engineering-toolkit` (Slot A; its five project
+  skills from M4-GUI are in `.claude/skills/`) and `liquid-glass-ui` (Slot B; its
+  material model was translated to QML tokens and KWin settings, its web code was not
+  used). Slots C and D were not provided.
 
 ### M4-GUI foundation (history), branch `claude/aegis-os-gui-foundation`
 
