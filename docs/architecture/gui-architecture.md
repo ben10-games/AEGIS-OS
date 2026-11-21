@@ -1,11 +1,9 @@
-# AEGIS OS graphical desktop: architecture (M4-GUI foundation)
+# AEGIS OS graphical desktop: architecture (GUI v1)
 
-Status: first functional graphical image on branch `claude/aegis-os-gui-foundation`
-(CI run 44315378122 on `aa805e4`: 9 of 9 GUI tests and 8 of 8 Secure Boot tests on the
-GUI image). The
-security milestone M4 (signed updates, manual rollback, gate G1) is **not** complete and
-is not affected by this track. Results are recorded in `PROJECT_STATE.md` only once a CI
-run has shown them.
+Status: GUI v1 on branch `claude/aegis-os-gui-v1`, which merges the security branch
+(M4 signed updates and rollback, M5 locked inputs and reproducibility) into the M4-GUI
+foundation. Results are recorded in `PROJECT_STATE.md` ("GUI v1 track") only once a CI
+run has shown them. The M4-GUI foundation's results (run 44315378122) are history.
 
 ## Decision
 
@@ -43,6 +41,63 @@ Kirigami, Mesa drivers (software rendering in VMs), Noto Sans.
 `plasma-login-manager`. SDDM 0.21 is still packaged, and its configuration (including
 the test-time autologin drop-in) is documented and stable. To be revisited when the
 login screen gets AEGIS branding.
+
+## GUI v1: design system and Liquid Glass foundation
+
+### Design tokens: `org.aegisos.style`
+
+A QML module in the image (`/usr/lib64/qt6/qml/org/aegisos/style`) that every AEGIS
+component imports. `Tokens` (singleton) holds colour (graphite, midnight, deep blue,
+cyan and silver accents, text, status colours), opacity, blur, radii, spacing,
+typography, shadow and motion (durations 120/200/320 ms, ease-out, a mild overshoot only
+for expansion). Materials are limited to three: **regular**, **elevated**, **control**.
+`GlassSurface` is the one glass primitive; `StatusRow` shows a state with a dot *and*
+text, never by colour alone.
+
+### What "glass" is here, and what it is not
+
+| Layer | How it is produced |
+|---|---|
+| Background-aware translucency and backdrop blur | KWin's own **blur effect** behind translucent panels, popups and windows that request it (`/etc/xdg/kwinrc`: strength 12, noise 2). The dock and Plasma popups request it. |
+| Tint, fine light-facing border, inner highlight, soft shadow | `GlassSurface` (plain rectangles and a gradient; no shader passes) |
+| Depth and motion | Floating dock, elevated popups, Plasma's own open/close animations; hover feedback through a brighter inner fill (`Tokens.motion.fast`) |
+
+Not provided, and not claimed: refraction, optical distortion, lens or specular
+effects, or sampling of the background inside QML. A Qt Quick item cannot read what is
+behind its window; only the compositor can, and KWin's public effects offer blur, not
+refraction. A custom KWin effect would be the place for that and needs a design note
+first (sealed image, GPU budget, software fallback).
+
+Fallbacks: `Tokens.reducedTransparency` is on under Qt Quick's software renderer and
+gives every material an opaque equivalent with the same contrast; `Tokens.duration()`
+returns 0 when motion is reduced. KWin itself turns blur off when the compositor cannot
+run it. In a VM without 3D (the CI and the default launcher) everything runs on llvmpipe
+(software OpenGL): blur works, at a CPU cost that is measured (idle CPU in
+`PROJECT_STATE.md`).
+
+### Components
+
+| Component | GUI v1 state |
+|---|---|
+| Dock | Plasma panel configured as the AEGIS dock: floating, centred, fit to content, translucent with blur; AEGIS mark on the launcher; pinned Files, Terminal, Settings with running indicators and window activation (icon task manager); AEGIS Security; tray; clock |
+| Launcher | Kickoff (application discovery, search, keyboard navigation) with the AEGIS mark. No AEGIS-written launcher yet |
+| Settings | KDE System Settings (display, network, sound, appearance, users) |
+| Control Center | Plasma system tray (network, volume, power and brightness where the hardware has it). No AEGIS control panel yet |
+| Security Dashboard v0 | `org.aegisos.security` Plasma widget, read-only: SELinux mode, Secure Boot, sealed root and digest, command-line check, firewall, lockdown, running image. Data from `/usr/libexec/aegis/security-status`, run as the desktop user; update state needs root (`bootc status`) and is shown as unavailable rather than guessed |
+| On-screen keyboard | Installed, not started (`/etc/xdg/kwinrc` `InputMethod` empty); can be enabled in System Settings |
+
+### Downloadable image and launcher
+
+`scripts/export-qcow2 --gui` packages the tested disk as `aegis-os-gui-*.qcow2` with
+`run-aegis-gui-vm.sh`, `LOCAL_GUI_VM_GUIDE.md`, `IMAGE-INFO.txt` and `SHA256SUMS`
+(artifact `aegis-os-gui-qcow2`). The launcher gives the VM only the image file
+(refuses devices, directories and non-qcow2 files), virtio-vga at 1920x1080 (or
+`--gl` virtio-vga-gl, untested), USB keyboard and tablet, HDA sound through the host's
+PulseAudio/PipeWire, user-mode networking with SSH on loopback, snapshot mode, and OVMF
+**without Secure Boot keys** (the local VM does not verify the boot chain; CI does).
+The login is created at first boot from systemd credentials: user `aegis`, uid 1000, in
+`wheel`, random password generated on the host and kept next to the image, only its
+SHA-512 crypt hash passed to the VM. The image itself contains no user.
 
 ## Configuration placement (ADR-0014)
 
@@ -108,32 +163,34 @@ Observed: AEGIS wallpaper and colour scheme applied; floating, centred, content-
 panel with launcher, pinned Files/Terminal/Settings, tray and clock; legible text, no
 clipping, no error dialogs. Measurements are in `PROJECT_STATE.md`.
 
-## Known limitations
+## Known limitations (GUI v1)
 
-- Software rendering only (llvmpipe in a VM); no GPU acceleration, frame times not
-  measured yet.
-- The launcher button shows the generic start icon, not an AEGIS mark.
-- Dolphin's "Devices" shows one volume with a full (red) usage bar, most likely the
-  read-only composefs root reporting itself as full. Cosmetic; to be hidden or labelled.
-- `plasma-keyboard` (on-screen keyboard) runs and uses about 266 MB; it is not needed
-  on this image.
+- Software rendering only (llvmpipe in a VM; the launcher's `--gl` path is untested).
+  Frame times are not measured: KWin offers no stable interface for them that runs in
+  CI, so animation smoothness is not verified beyond screenshots.
+- Glass is blur plus tint, border, highlight and shadow; no refraction (see above).
+- The dock is a configured Plasma panel; there is no AEGIS-written dock applet, launcher
+  or control center yet. The Security Dashboard is the first AEGIS QML component.
+- The dashboard cannot show update state or the deployment list: `bootc status` needs
+  root, and the read-only D-Bus service that would provide it is not designed yet.
+- Dolphin's "Devices" shows the read-only composefs root as a full volume (cosmetic).
 - XWayland runs for compatibility; no X11 session is offered.
-- The GUI image is not yet covered by golden manifests (packages, units, `/etc`).
+- The GUI image is not covered by golden manifests (packages, units, `/etc`); its `/etc`
+  changes are `/etc/xdg/kdeglobals`, `/etc/xdg/kwinrc` and the display-manager links.
 - SDDM shows the stock Breeze login screen when autologin is off; no AEGIS branding.
-- Only one test user, created at boot by the test harness; there is no user setup flow.
+- The development login is created by the launcher (or the test harness); there is no
+  first-boot user setup flow.
+- The local VM has no Secure Boot keys, so nothing verifies the boot chain there.
 
 ## Next GUI tasks, in order
 
 1. Golden manifests for `aegis-gui` (packages, units, `/etc`), like base and dev.
-2. Remove or disable the on-screen keyboard; measure memory again.
-3. AEGIS mark for the launcher button and the SDDM theme; hide the composefs root in
-   Dolphin's Places.
-4. Frame-time measurement (KWin's FPS/latency output) on the software renderer, as the
-   baseline for the Phase 4 frame-time budget.
-5. AEGIS QML design tokens module (colours, spacing, radii, motion) shared by future
-   components (`aegis-ui-designer`, `aegis-qt-developer` skills).
-6. Security dashboard v0: read-only Kirigami application showing Secure Boot, sealed
-   root, SELinux and lockdown state from `/sys`; design note for the D-Bus service that
-   later exposes `bootc status`.
-7. Dock v1: an AEGIS QML applet replacing the task manager in the floating panel.
-8. Decide plasma-login-manager versus SDDM once the login screen is branded.
+2. Design note and implementation: read-only, polkit-guarded D-Bus service for
+   `bootc status` (deployments, staged update), then show it in the dashboard.
+3. AEGIS dock applet (QML, on `org.aegisos.style`) replacing the icon task manager;
+   AEGIS launcher after it.
+4. AEGIS SDDM / plasma-login-manager theme; decide between the two.
+5. GPU path: test `--gl` (virtio-vga-gl) and record frame timing with KWin's debug
+   output where available; then decide whether a custom KWin effect is justified.
+6. Visual regression baseline: keep reference screenshots per resolution and compare
+   them in CI (perceptual difference, not byte equality).

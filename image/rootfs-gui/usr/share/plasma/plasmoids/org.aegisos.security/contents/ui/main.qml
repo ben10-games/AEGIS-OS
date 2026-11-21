@@ -79,7 +79,9 @@ PlasmoidItem {
 
     fullRepresentation: GlassSurface {
         Layout.minimumWidth: Kirigami.Units.gridUnit * 20
-        Layout.minimumHeight: Kirigami.Units.gridUnit * 24
+        Layout.minimumHeight: Kirigami.Units.gridUnit * 20
+        Layout.preferredWidth: Kirigami.Units.gridUnit * 22
+        Layout.preferredHeight: Kirigami.Units.gridUnit * 32
         material: "elevated"
         radius: Tokens.radius.large
         padding: Tokens.spacing.large
@@ -119,6 +121,16 @@ PlasmoidItem {
                 color: Qt.rgba(0.62, 0.95, 1.0, 0.18)
             }
 
+            PlasmaComponents.ScrollView {
+                id: rows
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                contentWidth: availableWidth
+
+                ColumnLayout {
+                    width: rows.availableWidth
+                    spacing: Tokens.spacing.medium
+
             StatusRow { Layout.fillWidth: true; label: "SELinux"; value: root.facts.selinux || "…"; state: root.stateOf("selinux") }
             StatusRow {
                 Layout.fillWidth: true
@@ -141,8 +153,8 @@ PlasmoidItem {
             StatusRow { Layout.fillWidth: true; label: "Kernel lockdown"; value: root.facts.lockdown || "…"; state: root.stateOf("lockdown") }
             StatusRow { Layout.fillWidth: true; label: "Running deployment"; value: root.facts.deployment || "…"; state: "unknown" }
             StatusRow { Layout.fillWidth: true; label: "Updates"; value: root.facts.updates || "…"; state: "unknown" }
-
-            Item { Layout.fillHeight: true }
+                }
+            }
 
             RowLayout {
                 Layout.fillWidth: true

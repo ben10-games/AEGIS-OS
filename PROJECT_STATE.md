@@ -93,6 +93,18 @@ without the owner's authorisation.
   plasmashell 405 MiB, on-screen keyboard 0 (not started), idle CPU 0.8 %; with
   Konsole, Dolphin and System Settings open 1147 MiB (M4-GUI: 1250-1267 MiB); systemd
   startup 10.6 s.
+- **Second run, `build` run 44751864651 on `16afffe`: every job green.** GUI job 31 of
+  31 (21 on the harness VM under Secure Boot including the 8 M3 Secure Boot / sealed-root
+  tests; 10 on the exported QCOW2 through `run-aegis-gui-vm.sh`: account with working
+  `sudo` and refused wrong password, root locked, Wayland desktop at 1920x1080, typed
+  input, network, audio device, SELinux enforcing without denials, clean power-off);
+  main job (all M1 to M5 tests on base and dev); R-01 and R-02 from two independent
+  builds; Windows launcher. Artifact `aegis-os-gui-qcow2` published by that run
+  (`aegis-os-gui-0.1.0-dev-16afffe.qcow2`, 2.36 GiB, SHA-256
+  `0aa793081bc938e1…`). Measurements: idle after login 910 MiB, KWin 260 MiB,
+  plasmashell 407 MiB, idle CPU 0.8 %; three applications open 1143 MiB. Screenshot
+  inspection found the dashboard window clipping its last rows; fixed in the next commit
+  (scrollable rows, larger default size).
 
 ### M4-GUI foundation (history), branch `claude/aegis-os-gui-foundation`
 
