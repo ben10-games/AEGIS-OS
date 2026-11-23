@@ -17,7 +17,7 @@
 # starting state (the SELinux policy compiler must match the policy in the base).
 #
 # A name the starting state already has is not listed (the resolver refuses it): the
-# builder's SSH client (openssh-clients) comes with the base image.
+# builder's SSH client (openssh-clients) and squashfs-tools come with the base image.
 #
 # The gui step names noopenh264 (Fedora's stub for the OpenH264 library) so that no package
 # comes from the Cisco-hosted fedora-cisco-openh264 repository, which the resolver disables.
@@ -73,7 +73,6 @@ builder:
   - qemu-system-x86-core
   - sbsigntools
   - setools-console
-  - squashfs-tools
   - swtpm
   - systemd-boot-unsigned
   - systemd-ukify
