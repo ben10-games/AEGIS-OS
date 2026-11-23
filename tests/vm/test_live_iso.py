@@ -49,8 +49,11 @@ child = pexpect.spawn("su -c 'id -u' root", timeout=20)
 child.expect("Password:")
 child.sendline(sys.argv[1])
 child.expect(pexpect.EOF)
-lines = child.before.decode().strip().splitlines()
-print(lines[-1].strip() if lines else "")
+import re
+text = re.sub(r"\\x1b\\][^\\x07\\x1b]*(?:\\x07|\\x1b\\\\)|\\x1b\\[[0-9;?]*[A-Za-z]", "",
+              child.before.decode())
+lines = [line.strip() for line in text.splitlines() if line.strip()]
+print(lines[-1] if lines else "")
 """
 PASSWORD = re.compile(r"password: ([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})")
 

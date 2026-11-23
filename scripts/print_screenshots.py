@@ -35,25 +35,22 @@ def read_ppm(path):
     return width, height, data[position + 1 :]
 
 
-def half_png(width, height, pixels):
-    w, h = width // 2, height // 2
+def scaled_png(width, height, pixels, factor=2):
+    """PNG of the image reduced by an integer factor (box average)."""
+    w, h = width // factor, height // factor
     rows = bytearray()
+    area = factor * factor
     for y in range(h):
         rows.append(0)
-        top = (2 * y) * width * 3
-        bottom = top + width * 3
+        lines = [(factor * y + dy) * width * 3 for dy in range(factor)]
         for x in range(w):
-            i = 6 * x
+            base = factor * x * 3
             for c in range(3):
-                rows.append(
-                    (
-                        pixels[top + i + c]
-                        + pixels[top + i + 3 + c]
-                        + pixels[bottom + i + c]
-                        + pixels[bottom + i + 3 + c]
-                    )
-                    // 4
-                )
+                total = 0
+                for line in lines:
+                    for dx in range(factor):
+                        total += pixels[line + base + 3 * dx + c]
+                rows.append(total // area)
 
     def chunk(kind, body):
         return (
@@ -68,17 +65,31 @@ def half_png(width, height, pixels):
     )
 
 
+# Usage: LOG_DIR [PREFIX [NAME:FACTOR ...]]. Without names: every screenshot at half
+# size. With names: only those, in that order, at the given reduction (a job log is
+# read through a size-limited excerpt, so the important images go last).
 prefix = sys.argv[2] if len(sys.argv) > 2 else "gui"
-for path in sorted(Path(sys.argv[1]).glob(f"{prefix}-*.ppm")):
-    if path.stem.endswith(("-before-click", "-resolution")):
+logs = Path(sys.argv[1])
+if len(sys.argv) > 3:
+    wanted = [(name, int(factor)) for name, factor in (a.split(":") for a in sys.argv[3:])]
+    selection = [(logs / f"{prefix}-{name}.ppm", factor) for name, factor in wanted]
+else:
+    selection = [
+        (path, 2)
+        for path in sorted(logs.glob(f"{prefix}-*.ppm"))
+        if not path.stem.endswith(("-before-click", "-resolution"))
+    ]
+for path, factor in selection:
+    if not path.exists():
+        print(f"=== screenshot {path.name}: not recorded")
         continue
     try:
-        png = half_png(*read_ppm(path))
+        png = scaled_png(*read_ppm(path), factor)
     except Exception as error:  # evidence only; never fail the summary
         print(f"=== screenshot {path.name}: could not convert: {error}")
         continue
     name = path.stem.removeprefix(f"{prefix}-")
-    print(f"=== screenshot {name}: {len(png)} bytes (half size)")
+    print(f"=== screenshot {name}: {len(png)} bytes (1/{factor} size)")
     print(f"AEGIS-SCREENSHOT BEGIN {name}")
     encoded = base64.b64encode(png).decode()
     for start in range(0, len(encoded), 120):

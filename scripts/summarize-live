@@ -7,6 +7,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 logs=out/vm-live/logs
 
+# Screenshots first and the text last: the log is read through an excerpt of its end.
+# All screenshots are in the uploaded log artifact; the log carries the key ones.
+python3 scripts/print_screenshots.py "${logs}" live konsole:4 desktop:4 security-dashboard:2
+
 section() {
   echo "=== $1"
   if [[ -s "$2" ]]; then head -n "${3:-40}" "$2"; else echo "(not recorded: $2)"; fi
@@ -41,7 +45,6 @@ else
 fi
 echo
 
-python3 scripts/print_screenshots.py "${logs}" live
 
 report=out/junit-live.xml
 if [[ -f "${report}" ]]; then
