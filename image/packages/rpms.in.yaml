@@ -9,6 +9,8 @@
 #   dev         image/Containerfile.dev, on top of aegis-base
 #   dev-policy  the policy compiler stage of image/Containerfile.dev, on top of aegis-base
 #   gui         image/Containerfile.gui (graphical development image), on top of aegis-dev
+#   live        the initramfs stage of image/Containerfile.live (Live ISO), on top of
+#               aegis-gui; only the generated initramfs leaves that stage
 #   builder     build/builder/Containerfile (tools and test container), on the base
 #
 # "name@other" means: the version and release of 'other' as installed in that step's
@@ -56,6 +58,8 @@ gui:
   - mesa-dri-drivers
   - google-noto-sans-fonts
   - noopenh264
+live:
+  - dracut-live
 builder:
   - binutils
   - edk2-ovmf
@@ -69,6 +73,8 @@ builder:
   - qemu-system-x86-core
   - sbsigntools
   - setools-console
+  - squashfs-tools
   - swtpm
   - systemd-boot-unsigned
   - systemd-ukify
+  - xorriso

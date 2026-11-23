@@ -73,6 +73,10 @@ case "${mode}" in
     # resolve the gui step on that state.
     dnf "${dnf_opts[@]}" --disablerepo='*' install /out/rpms/dev/*.rpm
     download gui
+    # The Live ISO's initramfs stage is built on aegis-gui: install the gui step offline,
+    # then resolve the live step on that state.
+    dnf "${dnf_opts[@]}" --disablerepo='*' install /out/rpms/gui/*.rpm
+    download live
     ;;
   builder)
     download builder
@@ -89,7 +93,7 @@ nevras=()
 for file in /out/rpms/*/*.rpm; do
   step="$(basename "$(dirname "${file}")")"
   case "${mode}:${step}" in
-    os:base | os:dev | os:dev-policy | os:gui | builder:builder) ;;
+    os:base | os:dev | os:dev-policy | os:gui | os:live | builder:builder) ;;
     *) continue ;;
   esac
   header="$(rpm -qp --nosignature --nodigest \
