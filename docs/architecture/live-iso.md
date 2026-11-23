@@ -61,3 +61,15 @@ machine is a throw-away SSH key for root (a systemd credential in SMBIOS); the a
 automatic login and administrator password come from the ISO. VirtualBox itself is not
 available on the CI runners and is therefore unverified; running it there would need
 its packages from a new download host (owner decision).
+
+## Results
+
+`live-iso` run 45200734168 on `8609b75`: 16 of 16 tests passed; ISO 1.39 GiB. Details
+and the bugs found on the way: `PROJECT_STATE.md` (Live ISO track). Screenshots
+(inspected): `live-iso-screenshots/live-desktop-quarter.png` (desktop, quarter size),
+`live-iso-screenshots/live-security-dashboard.png` (dashboard over Konsole, Dolphin and
+System Settings, half size).
+
+The ostree object store under `/sysroot/ostree` is removed before labelling: its objects
+are hard links to the system files, and setfiles would otherwise give them `default_t`
+(run 45194735654).

@@ -135,7 +135,7 @@ The `live-iso` workflow builds the ISO and, before offering it for download:
 - **Graphics:** these interactive checks use QEMU's standard VGA, because QEMU's emulation
   of the VMware SVGA II device (the device VirtualBox's VMSVGA presents) does not show what
   a current desktop draws. A second boot with that device checks only that the desktop
-  session starts and records which kernel driver took it.
+  session starts (it did; which kernel driver took the device was not recorded).
 
 **Not verified: Oracle VirtualBox itself.** The CI runners have no VirtualBox, so the
 ISO has not been booted in VirtualBox by the project. VirtualBox's EFI firmware, its

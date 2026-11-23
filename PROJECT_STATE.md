@@ -49,8 +49,25 @@ not merged anywhere (merging needs the owner's authorisation).
 - **CI:** workflow `live-iso` (build, structure checks, boot in QEMU on VirtualBox-like
   hardware: i440FX, SATA CD-ROM, VMware SVGA II 128 MB, e1000, PS/2 + USB tablet, HDA).
   The ISO is published as `aegis-os-gui-live-iso` only after every test passed.
-- **Status:** implementation pushed; verification results are recorded here once a run
-  has passed. VirtualBox itself is **not** tested (no VirtualBox on the CI runners).
+- **Verified:** `live-iso` run 45200734168 on `8609b75`, 16 of 16 tests (KVM). ISO 1.39 GiB
+  (1,487,904,768 bytes). UEFI El Torito image with Fedora-signed shim/GRUB; power-on to
+  SSH 23 s. Live root on overlay over SquashFS, SELinux enforcing with correct labels, zero
+  denials, zero failed units; `aegis` (uid 1000, not in wheel, password locked) logged
+  in to Plasma on Wayland by SDDM; 1920x1080 (bochs-drm, set by the login helper);
+  Ctrl+Alt+T and typing into Konsole; right click opens the desktop menu; Dolphin and
+  System Settings; dashboard values match the live state (no QML errors); e1000 network
+  connected; HDA sink present; per-boot root password: root-only issue file, `su`
+  accepts it and refuses a wrong one; clean power-off. Second boot with QEMU's VMware SVGA
+  II device: Plasma session started, no failed units; its driver was not recorded (the
+  diagnostic printed nothing). Screenshots inspected:
+  `docs/architecture/live-iso-screenshots/`.
+- **Not verified:** Oracle VirtualBox itself (no VirtualBox on the runners; would need a
+  new download host), the desktop as drawn on VMSVGA, Secure Boot, the `nomodeset` entry.
+- **Bugs fixed on the way:** CI runs 45185892320 (`/mnt` scratch disk absent),
+  45189500261 (QEMU's VMware SVGA emulation does not show the desktop; Secure Boot shown as
+  "unknown"; su check), 45194735654 (hard links of the ostree object store gave system
+  files `default_t`; the label check stopped the build), 45197563591 (escape sequence
+  in su output).
 
 ### GUI v1 track (bootable graphical desktop), branch `claude/aegis-os-gui-v1`
 
