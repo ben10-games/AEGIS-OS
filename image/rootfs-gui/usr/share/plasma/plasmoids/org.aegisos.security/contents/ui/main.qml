@@ -20,8 +20,10 @@ PlasmoidItem {
 
     readonly property bool healthy: facts.selinux === "Enforcing"
         && facts.root === "sealed-composefs" && facts.cmdline_check === "active"
+    readonly property bool live: facts.live === "yes"
     readonly property string summary: !loaded ? "Checking…"
         : healthy ? "Protected: SELinux enforcing, sealed root"
+        : live ? "Live session: SELinux " + (facts.selinux || "?") + ", root not sealed"
         : "Attention: see the AEGIS Security panel"
 
     Plasmoid.icon: "aegis-security"
@@ -69,8 +71,8 @@ PlasmoidItem {
         switch (key) {
         case "selinux": return v === "Enforcing" ? "ok" : "critical";
         case "secureboot": return v === "enabled" ? "ok" : "warning";
-        case "root": return v === "sealed-composefs" ? "ok" : "critical";
-        case "cmdline_check": return v === "active" ? "ok" : "critical";
+        case "root": return v === "sealed-composefs" ? "ok" : v === "live-overlay" ? "warning" : "critical";
+        case "cmdline_check": return v === "active" ? "ok" : v === "not-applicable-live" ? "warning" : "critical";
         case "firewall": return v === "active" ? "ok" : "warning";
         case "lockdown": return v === "none" ? "warning" : "ok";
         default: return "unknown";
@@ -143,12 +145,14 @@ PlasmoidItem {
             StatusRow {
                 Layout.fillWidth: true
                 label: "Root filesystem"
-                value: root.facts.root === "sealed-composefs" ? "Sealed (composefs, fs-verity)" : (root.facts.root || "…")
+                value: root.facts.root === "sealed-composefs" ? "Sealed (composefs, fs-verity)"
+                    : root.facts.root === "live-overlay" ? "Live: read-only image + RAM overlay (not sealed)"
+                    : (root.facts.root || "…")
                 state: root.stateOf("root")
                 detail: root.facts.root_digest && root.facts.root_digest !== "none"
                     ? "digest " + root.facts.root_digest.slice(0, 24) + "…" : ""
             }
-            StatusRow { Layout.fillWidth: true; label: "Kernel command line check"; value: root.facts.cmdline_check || "…"; state: root.stateOf("cmdline_check") }
+            StatusRow { Layout.fillWidth: true; label: "Kernel command line check"; value: root.facts.cmdline_check === "not-applicable-live" ? "Not used in the live session" : (root.facts.cmdline_check || "…"); state: root.stateOf("cmdline_check") }
             StatusRow { Layout.fillWidth: true; label: "Firewall"; value: root.facts.firewall || "…"; state: root.stateOf("firewall") }
             StatusRow { Layout.fillWidth: true; label: "Kernel lockdown"; value: root.facts.lockdown || "…"; state: root.stateOf("lockdown") }
             StatusRow { Layout.fillWidth: true; label: "Running deployment"; value: root.facts.deployment || "…"; state: "unknown" }

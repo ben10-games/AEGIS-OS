@@ -88,6 +88,12 @@ class VmConfig:
     # Development machines only: print the journal of core services to the serial
     # console late in boot, so a failure is visible even when SSH never answers.
     console_diagnostics: bool = True
+    # Live ISO tests: hardware like Oracle VirtualBox's defaults for a Linux guest with
+    # EFI. 'disk' is then the ISO, attached read-only as a CD-ROM on an AHCI (SATA)
+    # controller; i440FX/PIIX3 chipset, VMware SVGA II display (the device VirtualBox
+    # calls VMSVGA, driven by vmwgfx) with 128 MB, PS/2 keyboard, USB tablet, Intel
+    # PRO/1000 MT network card (e1000), Intel HD Audio. 'graphics' is implied.
+    virtualbox_like: bool = False
 
 
 DIAGNOSTIC_UNIT = """[Unit]
@@ -182,13 +188,22 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
         if "," in text:
             raise HarnessError(f"SMBIOS string contains a comma, which QEMU would split: {text}")
 
-    machine = f"q35,accel={cfg.accel}"
+    machine = f"{'pc' if cfg.virtualbox_like else 'q35'},accel={cfg.accel}"
     if cfg.secure_boot:
         machine += f",{SECURE_BOOT_MACHINE_OPTIONS}"
 
     forwards = f"hostfwd=tcp:127.0.0.1:{cfg.ssh_port}-:22"
     if cfg.probe_port is not None:
         forwards += f",hostfwd=tcp:127.0.0.1:{cfg.probe_port}-:{PROBE_GUEST_PORT}"
+
+    if cfg.virtualbox_like:
+        storage = [
+            "-device", "ahci,id=sata",
+            "-drive", f"id=cd0,if=none,media=cdrom,readonly=on,format=raw,file={cfg.disk}",
+            "-device", "ide-cd,drive=cd0,bus=sata.0,bootindex=0",
+        ]  # fmt: skip
+    else:
+        storage = ["-drive", f"if=virtio,format=qcow2,file={cfg.disk}"]
 
     command = [
         "qemu-system-x86_64",
@@ -205,14 +220,12 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
         f"file={cfg.firmware_code}",
         "-drive",
         f"if=pflash,unit=1,format={pflash_format(cfg.firmware_vars)},file={cfg.firmware_vars}",
-        "-drive",
-        f"if=virtio,format=qcow2,file={cfg.disk}",
+        *storage,
         "-netdev",
         f"user,id=net0,{forwards}",
         "-device",
-        "virtio-net-pci,netdev=net0",
-        "-device",
-        "virtio-rng-pci",
+        "e1000,netdev=net0" if cfg.virtualbox_like else "virtio-net-pci,netdev=net0",
+        *([] if cfg.virtualbox_like else ["-device", "virtio-rng-pci"]),
         "-serial",
         f"file:{cfg.serial_log}",
         "-display",
@@ -223,7 +236,16 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
     ]
     for text in strings:
         command += ["-smbios", f"type=11,value={text}"]
-    if cfg.graphics:
+    if cfg.virtualbox_like:
+        command += [
+            "-device", "vmware-svga,vgamem_mb=128",
+            "-device", "piix3-usb-uhci,id=usb",
+            "-device", "usb-tablet,bus=usb.0",
+            "-audiodev", "none,id=snd0",
+            "-device", "intel-hda",
+            "-device", "hda-duplex,audiodev=snd0",
+        ]  # fmt: skip
+    elif cfg.graphics:
         command += [
             "-device", "virtio-vga",
             "-device", "qemu-xhci",

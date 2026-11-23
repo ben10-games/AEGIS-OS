@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=AEGIS Live display size
+Comment=Sets 1920x1080 at login when the virtual display offers it (Live ISO only)
+Exec=/usr/libexec/aegis/live-display
+OnlyShowIn=KDE;
+NoDisplay=true
+X-KDE-autostart-phase=1

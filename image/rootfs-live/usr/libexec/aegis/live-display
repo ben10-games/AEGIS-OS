@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# AEGIS OS Live ISO only, run at login by the desktop session (as the live user).
+#
+# Virtual GPUs without guest tools (VirtualBox VMSVGA, VMware SVGA in QEMU) usually start
+# at a small preferred mode. If the first connected output offers 1920x1080 and its
+# current mode is smaller, switch to it. This changes only the live user's display
+# settings, which exist in memory for this session; System Settings > Display offers
+# the other sizes.
+set -uo pipefail
+
+width="${AEGIS_LIVE_WIDTH:-1920}"
+height="${AEGIS_LIVE_HEIGHT:-1080}"
+for _ in $(seq 1 20); do
+  json="$(kscreen-doctor --json 2> /dev/null)" && [[ -n "${json}" ]] && break
+  sleep 1
+done
+[[ -n "${json:-}" ]] || exit 0
+
+read -r output current_area wanted < <(jq -r --argjson w "${width}" --argjson h "${height}" '
+  [.outputs[] | select(.connected and .enabled)][0] // empty
+  | . as $o
+  | ([$o.modes[] | select((.id | tostring) == ($o.currentModeId | tostring))][0].size
+      | .width * .height) as $area
+  | ([$o.modes[] | select(.size.width == $w and .size.height == $h)]
+      | sort_by(-.refreshRate) | .[0].id // empty) as $mode
+  | "\($o.name) \($area) \($mode)"' <<< "${json}" 2> /dev/null)
+[[ -n "${output:-}" && -n "${wanted:-}" && "${current_area:-}" =~ ^[0-9]+$ ]] || exit 0
+if (( current_area < width * height )); then
+  kscreen-doctor "output.${output}.mode.${wanted}" > /dev/null 2>&1 || true
+fi
+exit 0

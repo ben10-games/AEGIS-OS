@@ -116,6 +116,13 @@ if [[ "${AEGIS_WITH_GUI:-0}" == 1 ]]; then
   variants+=(gui)
 fi
 
+# AEGIS_ROOTFS_ONLY=1 (Live ISO build): stop at the unsealed root filesystems. The live
+# boot does not use the sealed UKI, so sealing would only cost time.
+if [[ "${AEGIS_ROOTFS_ONLY:-0}" == 1 ]]; then
+  echo "== AEGIS_ROOTFS_ONLY=1: root filesystems built, sealing skipped"
+  exit 0
+fi
+
 # Each variant has its own root filesystem, so each gets its own digest and its own UKI.
 # The digest is computed from the root filesystem image in container storage, the way
 # 'bootc install' computes it (see image/Containerfile.seal).

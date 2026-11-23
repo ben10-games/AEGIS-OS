@@ -30,6 +30,28 @@ only if it actually ran and passed, with the commit and where it ran.
      "differences between the golden manifests and this build" block of the job log
      into `tests/golden/` in the same commit series.
 
+### Live ISO track (VirtualBox), branch `claude/aegis-os-gui-live-iso`
+
+Owner request: a UEFI-bootable graphical Live ISO (`AEGIS-OS-GUI-Live.iso`) that boots
+in Oracle VirtualBox straight into the AEGIS desktop. Branched from GUI v1 (`b7f76d4`);
+not merged anywhere (merging needs the owner's authorisation).
+
+- **Design** (`docs/architecture/live-iso.md`): the live root is the unsealed graphical
+  root filesystem `aegis-gui-rootfs` plus `image/rootfs-live` (`image/Containerfile.live`),
+  labelled with its own SELinux policy and packed into a SquashFS; dracut `dmsquash-live`
+  with an overlayfs RAM overlay; Fedora's signed shim and GRUB from the builder (same
+  pinned base) in an El Torito UEFI image; the AEGIS kernel arguments in the menu.
+  Unprivileged `aegis` account with automatic login; a per-boot random root password shown
+  only on the text console. Not sealed, no AEGIS Secure Boot chain, no updates: listed in
+  `VIRTUALBOX_GUIDE.md` section 7.
+- **Inputs:** `live` step (dracut-live, fuse, parted) and xorriso in the builder; lock
+  from `update-inputs` run 45184810800 (9 packages added, nothing else changed).
+- **CI:** workflow `live-iso` (build, structure checks, boot in QEMU on VirtualBox-like
+  hardware: i440FX, SATA CD-ROM, VMware SVGA II 128 MB, e1000, PS/2 + USB tablet, HDA).
+  The ISO is published as `aegis-os-gui-live-iso` only after every test passed.
+- **Status:** implementation pushed; verification results are recorded here once a run
+  has passed. VirtualBox itself is **not** tested (no VirtualBox on the CI runners).
+
 ### GUI v1 track (bootable graphical desktop), branch `claude/aegis-os-gui-v1`
 
 Authorised by the owner on 2026-11-20. This branch starts from the M4-GUI foundation

@@ -133,3 +133,22 @@ def test_find_firmware_reports_what_it_looked_for(tmp_path):
     missing = (str(tmp_path / "none_code.fd"), str(tmp_path / "none_vars.fd"))
     with pytest.raises(HarnessError, match="none_code.fd"):
         find_firmware((missing,))
+
+
+def test_virtualbox_like_machine_boots_the_iso_as_a_read_only_cd():
+    command = build_qemu_command(
+        config(disk=Path("/out/AEGIS-OS-GUI-Live.iso"), virtualbox_like=True, accel="kvm")
+    )
+    devices = [command[i + 1] for i, arg in enumerate(command) if arg == "-device"]
+    drives = [command[i + 1] for i, arg in enumerate(command) if arg == "-drive"]
+    assert "pc,accel=kvm" in command
+    assert (
+        "id=cd0,if=none,media=cdrom,readonly=on,format=raw,file=/out/AEGIS-OS-GUI-Live.iso"
+        in drives
+    )
+    assert not [d for d in drives if d.startswith("if=virtio")]
+    assert {"ahci,id=sata", "vmware-svga,vgamem_mb=128", "e1000,netdev=net0", "intel-hda"} <= set(
+        devices
+    )
+    assert "usb-tablet,bus=usb.0" in devices
+    assert not [d for d in devices if d.startswith("virtio")]

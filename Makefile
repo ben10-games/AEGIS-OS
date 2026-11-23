@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 
-SHELL_SCRIPTS := $(filter-out %.py,$(shell git ls-files 'scripts/*' 'image/build/*' 'local-vm/*.sh' 'image/rootfs/usr/libexec/aegis/*' 'image/rootfs-gui/usr/libexec/aegis/*'))
+SHELL_SCRIPTS := $(filter-out %.py,$(shell git ls-files 'scripts/*' 'image/build/*' 'local-vm/*.sh' 'image/rootfs/usr/libexec/aegis/*' 'image/rootfs-gui/usr/libexec/aegis/*' 'image/rootfs-live/usr/libexec/aegis/*'))
 YAML_FILES := $(shell git ls-files '*.yml' '*.yaml')
 
 .PHONY: help
@@ -70,6 +70,18 @@ export-gui: ## GUI v1: export out/disk-gui.raw as a compressed QCOW2 with launch
 .PHONY: gui-local-test
 gui-local-test: ## GUI v1: boot the exported GUI QCOW2 with the published Linux launcher
 	scripts/run-gui-local-test
+
+.PHONY: rootfs-gui
+rootfs-gui: ## Live ISO: build the unsealed graphical root filesystem only (no sealing)
+	AEGIS_WITH_GUI=1 AEGIS_ROOTFS_ONLY=1 AEGIS_SKIP_UPDATE_IMAGE=1 scripts/build-image
+
+.PHONY: live-iso
+live-iso: ## Live ISO: build out/release-live/AEGIS-OS-GUI-Live.iso (needs rootfs-gui)
+	scripts/build-live-iso
+
+.PHONY: live-test
+live-test: ## Live ISO: check the ISO and boot it on VirtualBox-like hardware in QEMU
+	scripts/run-live-tests
 
 .PHONY: gui-test
 gui-test: ## M4-GUI: boot the graphical image under Secure Boot and run the GUI tests

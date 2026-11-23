@@ -4,9 +4,9 @@
 # yamllint disable rule:line-length
 lockfileVersion: 1
 base: "ghcr.io/ben10-games/aegis-os/fedora-bootc@sha256:d70fb477a35612f651fcfa397f41e2945514374d3fdaaa64b0e75a3ca1da2bbc"
-inputs: "sha256:ed3088d348c96992a567305805f08eaa8cfbd65228aac3e09bfd1030b77fbcf4"
-resolved: "2026-11-20T13:58:17Z"
-cache: "ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:f231c1703d8f3ac100cefa75faf758e5a54bd06ffcbe0210aa138b630fe76c87"
+inputs: "sha256:97071494b8d67afd59344533515c401701428675057568be1309b6659a6b151a"
+resolved: "2026-11-23T13:33:36Z"
+cache: "ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:408aa35300d2fedd6eee37896b8d62323d41ad637c597ffb8fde52b280d81343"
 packages:
   - {set: base, name: audit, evr: "4.2.1-2.fc45", arch: x86_64, sha256: 43ec6cfb0392238dc59db9dc72c7e8ddaca9e5802504cddf4d942cfd139e7081, size: 229371, repo: fedora, location: "Packages/a/audit-4.2.1-2.fc45.x86_64.rpm"}
   - {set: base, name: audit-rules, evr: "4.2.1-2.fc45", arch: x86_64, sha256: f7c016911334b9a939fc68fff5128ede29da771a207db3371606fdba99857574, size: 71607, repo: fedora, location: "Packages/a/audit-rules-4.2.1-2.fc45.x86_64.rpm"}
@@ -24,8 +24,13 @@ packages:
   - {set: builder, name: edk2-ovmf, evr: "20260812-10.fc45", arch: noarch, sha256: b81ab0e9389a1939af5b7029be7d5ebda19bdab99b2c857497ca10a906f9d18c, size: 19137504, repo: updates, location: "Packages/e/edk2-ovmf-20260812-10.fc45.noarch.rpm"}
   - {set: builder, name: igvm-libs, evr: "0.4.0-11.fc45", arch: x86_64, sha256: b31e4e6529244d94462453df5b3c39f05af4566d76b9ffc0cc2c701316ffcf95, size: 235348, repo: fedora, location: "Packages/i/igvm-libs-0.4.0-11.fc45.x86_64.rpm"}
   - {set: builder, name: ipxe-roms-qemu, evr: "1:2.0.0^20260614git13a83f4-4.fc45", arch: noarch, sha256: 1ceb6e6ed1a45f07a41e4f3e7c56688c025e808d04687a85be01c7782d865bde, size: 1918528, repo: fedora, location: "Packages/i/ipxe-roms-qemu-2.0.0^20260614git13a83f4-4.fc45.noarch.rpm"}
+  - {set: builder, name: kde-filesystem, evr: "5-8.fc45", arch: x86_64, sha256: 266a43bad3e6e0169d1215e7f97fd2f739e9d381c4a0ab012f5ae7b1d60b952d, size: 38586, repo: fedora, location: "Packages/k/kde-filesystem-5-8.fc45.x86_64.rpm"}
+  - {set: builder, name: kf5-filesystem, evr: "5.116.0-7.fc45", arch: x86_64, sha256: 6a7a02b64a0b7897f8c6deb6774b1249f1544c4f8e9c8ea4066c061e74f4d53e, size: 9973, repo: fedora, location: "Packages/k/kf5-filesystem-5.116.0-7.fc45.x86_64.rpm"}
+  - {set: builder, name: libburn, evr: "1.5.8-2.fc45", arch: x86_64, sha256: fcc3e40b966a37db4cc356b46a8c16f8ac5294299d050743e7e6e6ff1a689eb4, size: 181953, repo: fedora, location: "Packages/l/libburn-1.5.8-2.fc45.x86_64.rpm"}
   - {set: builder, name: libfaketime, evr: "0.9.12-14.fc45", arch: x86_64, sha256: 890c032e1c7d92b56c261c0118910653dcb61b5c522aba564c1f4376e5edcfe4, size: 75613, repo: fedora, location: "Packages/l/libfaketime-0.9.12-14.fc45.x86_64.rpm"}
   - {set: builder, name: libfdt, evr: "1.8.1-6.fc45", arch: x86_64, sha256: 912294d75ff69a594f1c6af9eedf2bf984efc10a00f59cf8bac8e552cd67700a, size: 37283, repo: fedora, location: "Packages/l/libfdt-1.8.1-6.fc45.x86_64.rpm"}
+  - {set: builder, name: libisoburn, evr: "1.5.8-3.fc45", arch: x86_64, sha256: 65ad5c0e4a58faeff4cb143d6dffce3becad6450f4c10078a056c7b6e00d1b26, size: 479329, repo: fedora, location: "Packages/l/libisoburn-1.5.8-3.fc45.x86_64.rpm"}
+  - {set: builder, name: libisofs, evr: "1.5.8-4.fc45", arch: x86_64, sha256: 23e84d76dec001ce7418e447d6edf637d0607c5e731c41f58597417a22071d0f, size: 259349, repo: fedora, location: "Packages/l/libisofs-1.5.8-4.fc45.x86_64.rpm"}
   - {set: builder, name: libjpeg-turbo, evr: "3.1.4.1-2.fc45", arch: x86_64, sha256: 2450cb5857f0304265c30a908669c93199cc9457b34fc3d8381563d813932e7c, size: 248418, repo: fedora, location: "Packages/l/libjpeg-turbo-3.1.4.1-2.fc45.x86_64.rpm"}
   - {set: builder, name: libpng, evr: "2:1.6.59-1.fc45", arch: x86_64, sha256: 81e1d7cb71d001c9e96acb50687622bb801a86b4d0618896618dfc291d97a4d6, size: 132286, repo: updates, location: "Packages/l/libpng-1.6.59-1.fc45.x86_64.rpm"}
   - {set: builder, name: librdmacm, evr: "64.0-3.fc45", arch: x86_64, sha256: 429888fa5db65393a6c9739aea238dd235add4218cd9a82d7897f0e7b15d0d58, size: 80873, repo: fedora, location: "Packages/l/librdmacm-64.0-3.fc45.x86_64.rpm"}
@@ -72,6 +77,7 @@ packages:
   - {set: builder, name: virt-sb-certs, evr: "26.10-2.fc45", arch: noarch, sha256: 67358209d9fd83fa7160a662c59c9b187179d9ddb47cd86251c1715500ba52b3, size: 60578, repo: updates, location: "Packages/v/virt-sb-certs-26.10-2.fc45.noarch.rpm"}
   - {set: builder, name: xen-libs, evr: "4.21.2-7.fc45", arch: x86_64, sha256: 176ee2b5769c9ca6b10ef623e820e2f84ac4d3061e9fbcefa2020db1df805097, size: 692178, repo: updates, location: "Packages/x/xen-libs-4.21.2-7.fc45.x86_64.rpm"}
   - {set: builder, name: xen-licenses, evr: "4.21.2-7.fc45", arch: x86_64, sha256: c4960f1f91ba0767cb97495db554b0576799d435ce70df435e7f4213718b2089, size: 47215, repo: updates, location: "Packages/x/xen-licenses-4.21.2-7.fc45.x86_64.rpm"}
+  - {set: builder, name: xorriso, evr: "1.5.8-3.fc45", arch: x86_64, sha256: 4e191138f8435cbc204e6b491f54e693d4016809ea3477b99e9f48c539f88a26, size: 358557, repo: fedora, location: "Packages/x/xorriso-1.5.8-3.fc45.x86_64.rpm"}
   - {set: dev, name: openssh-server, evr: "10.5p1-1.fc45", arch: x86_64, sha256: c350b8ebb9598d425077028cd72f2a7ac2cc82cc6741060f334c0ba1af3c0bee, size: 665222, repo: fedora, location: "Packages/o/openssh-server-10.5p1-1.fc45.x86_64.rpm"}
   - {set: dev-policy, name: checkpolicy, evr: "3.11-2.fc45", arch: x86_64, sha256: 745514fcd0960728efcd6ac26db94b26cb13e5e4aaf694470957bb39bd0e4d91, size: 391288, repo: fedora, location: "Packages/c/checkpolicy-3.11-2.fc45.x86_64.rpm"}
   - {set: dev-policy, name: m4, evr: "1.4.21-3.fc45", arch: x86_64, sha256: 15ae5a2e6504b7715fb11be1ae0170778ddc83ce3c274c8a9c1817b278a1cbdc, size: 355497, repo: fedora, location: "Packages/m/m4-1.4.21-3.fc45.x86_64.rpm"}
@@ -597,3 +603,6 @@ packages:
   - {set: gui, name: zix, evr: "0.8.0-3.fc45", arch: x86_64, sha256: dad8f41438ef1b91cd5ef59f2bbeee0433220fca4d4cc62820edcce02faa1152, size: 36415, repo: fedora, location: "Packages/z/zix-0.8.0-3.fc45.x86_64.rpm"}
   - {set: gui, name: zvbi, evr: "0.2.46-1.fc45", arch: x86_64, sha256: 9ff5171ef7b002e433bdc7151f44a15ee670c3b17a2ee51864c813c1f3bfe1ee, size: 453940, repo: updates, location: "Packages/z/zvbi-0.2.46-1.fc45.x86_64.rpm"}
   - {set: gui, name: zxing-cpp, evr: "2.2.1-9.fc45", arch: x86_64, sha256: 3259a94c631427e209d7854bbf81df9f1f33f71f22725ee03da8349f665249f3, size: 645574, repo: fedora, location: "Packages/z/zxing-cpp-2.2.1-9.fc45.x86_64.rpm"}
+  - {set: live, name: dracut-live, evr: "111-5.fc45", arch: x86_64, sha256: c6122fa8c520802409f8bb03079b6ab35d21337342711da76704f5846cd82c34, size: 26400, repo: updates, location: "Packages/d/dracut-live-111-5.fc45.x86_64.rpm"}
+  - {set: live, name: fuse, evr: "2.9.9-26.fc45", arch: x86_64, sha256: 23105340f6ef69cafc68d2e685ed36bf208f9cff58c721bf2de59977a1c6125d, size: 81759, repo: fedora, location: "Packages/f/fuse-2.9.9-26.fc45.x86_64.rpm"}
+  - {set: live, name: parted, evr: "3.7.13-1.fc45", arch: x86_64, sha256: 35c80aa2a9a662588baac3ee151b7e40e5c9422e8400996ed040088b020f5309, size: 646290, repo: fedora, location: "Packages/p/parted-3.7.13-1.fc45.x86_64.rpm"}

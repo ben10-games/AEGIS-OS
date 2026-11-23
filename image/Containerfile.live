@@ -1,0 +1,57 @@
+# AEGIS OS graphical Live ISO (development): the two inputs of scripts/build-live-iso.
+#
+# The live root filesystem is the unsealed graphical root filesystem (aegis-gui-rootfs,
+# the same one that is sealed into aegis-gui) plus a small live layer. It boots from a
+# read-only SquashFS with a RAM overlay (dracut dmsquash-live), not as a bootc
+# deployment: there is no composefs digest, no signed UKI and no update path. The
+# differences are documented in docs/architecture/live-iso.md.
+ARG BASE=localhost/aegis-gui-rootfs:latest
+
+# --- boot: the stock Fedora kernel of the image and a live initramfs -------------------
+# dracut-live (the 'live' step of rpms.in.yaml, locked like every package) adds the
+# dmsquash-live module. Only /live (kernel, initramfs) is taken from this stage; the
+# package itself never reaches the live root filesystem.
+FROM ${BASE} AS boot
+ARG SOURCE_DATE_EPOCH
+RUN --mount=type=bind,from=rpms,source=live,target=/tmp/aegis-rpms \
+    --mount=type=bind,source=image/build,target=/tmp/aegis-build \
+    /tmp/aegis-build/install-locked /tmp/aegis-rpms \
+    && kver="$(ls /usr/lib/modules)" \
+    && test "$(printf '%s\n' "${kver}" | wc -l)" -eq 1 \
+    && mkdir -p /live \
+    && dracut --no-hostonly --no-hostonly-cmdline --reproducible --zstd \
+         --add "dmsquash-live" --omit "ostree bootc" \
+         --add-drivers "ahci ata_piix sr_mod cdrom isofs squashfs overlay loop" \
+         --kver "${kver}" /live/initrd.img \
+    && lsinitrd /live/initrd.img | grep -q 'dmsquash-live-root' \
+    && cp "/usr/lib/modules/${kver}/vmlinuz" /live/vmlinuz \
+    && printf '%s\n' "${kver}" > /live/kernel-version
+
+# --- root: the graphical root filesystem plus the live layer -------------------------
+FROM ${BASE} AS root
+
+# Live layer: the unprivileged autologin account, its home, no screen lock (it has no
+# password), the per-boot administrator password service, the 1920x1080 login helper.
+COPY image/rootfs-live/ /
+
+# Units of the sealed boot that have no meaning in a live session are removed here, in
+# the live root only (the sealed images keep them, and their tests check that):
+# - aegis-verify-cmdline: compares the command line with the one sealed into the UKI and
+#   powers the machine off otherwise; a live boot has no sealed command line.
+# - aegis-journal-relinquish and the var.mount ordering: for the /var bind mount of
+#   bootc's composefs backend; in the live root /var is part of the overlay.
+# The bootc initramfs is not used by the live boot.
+RUN rm -v /usr/lib/systemd/system/sysinit.target.wants/aegis-verify-cmdline.service \
+          /usr/lib/systemd/system/local-fs.target.wants/aegis-journal-relinquish.service \
+    && rm -rv /usr/lib/systemd/system/var.mount.d \
+    && rm -fv /usr/lib/modules/*/initramfs.img \
+    && systemctl enable aegis-live-admin.service \
+    && os_release="$(realpath /usr/lib/os-release)" \
+    && sed -i -e 's|^VARIANT=.*|VARIANT="Graphical Live (development)"|' \
+              -e 's|^VARIANT_ID=.*|VARIANT_ID=live|' \
+              -e 's|^IMAGE_ID=.*|IMAGE_ID=aegis-gui-live|' "${os_release}" \
+    && grep -q '^IMAGE_ID=aegis-gui-live$' "${os_release}" \
+    && ! id -nG aegis 2> /dev/null | grep -qw wheel \
+    && test ! -e /etc/sudoers.d/aegis
+
+LABEL org.opencontainers.image.title="AEGIS OS (graphical Live ISO root, development)"

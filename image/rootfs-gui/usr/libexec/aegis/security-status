@@ -30,15 +30,27 @@ else
   echo "secureboot=no-uefi"
 fi
 
+# A Live ISO session (dracut dmsquash-live) runs from a read-only SquashFS with a RAM
+# overlay: not sealed, and there is no sealed command line to check.
+live=no
+if tr ' ' '\n' < /proc/cmdline | grep -qx 'rd.live.image'; then
+  live=yes
+fi
+echo "live=${live}"
 root_source="$(findmnt -no SOURCE / 2> /dev/null)"
-case "${root_source}" in
-  composefs*) echo "root=sealed-composefs" ;;
-  "") echo "root=unknown" ;;
+case "${live}:${root_source}" in
+  yes:*) echo "root=live-overlay" ;;
+  *:composefs*) echo "root=sealed-composefs" ;;
+  *:) echo "root=unknown" ;;
   *) echo "root=${root_source}" ;;
 esac
 digest="$(tr ' ' '\n' < /proc/cmdline | sed -n 's/^composefs\.digest=//p' | head -n 1)"
 echo "root_digest=${digest:-none}"
-value cmdline_check systemctl is-active aegis-verify-cmdline.service
+if [[ "${live}" == yes ]]; then
+  echo "cmdline_check=not-applicable-live"
+else
+  value cmdline_check systemctl is-active aegis-verify-cmdline.service
+fi
 value firewall systemctl is-active firewalld.service
 lockdown="$(sed -n 's/.*\[\(.*\)\].*/\1/p' /sys/kernel/security/lockdown 2> /dev/null)"
 echo "lockdown=${lockdown:-unknown}"

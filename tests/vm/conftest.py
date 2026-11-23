@@ -30,6 +30,9 @@ def pytest_addoption(parser):
     parser.addoption("--workdir", default="out/vm", help="directory for logs and scratch files")
     parser.addoption("--gui-disk", default="out/disk-gui.raw", help="aegis-gui disk image")
     parser.addoption(
+        "--live-iso", default="out/release-live/AEGIS-OS-GUI-Live.iso", help="Live ISO"
+    )
+    parser.addoption(
         "--sealed-variant", default="dev", help="variant whose sealed command line --disk carries"
     )
     parser.addoption(

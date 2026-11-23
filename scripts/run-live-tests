@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Live ISO: check out/release-live/AEGIS-OS-GUI-Live.iso and boot it in QEMU on
+# VirtualBox-like hardware (tests/vm/test_live_iso.py). Offline.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+if [[ ! -f out/release-live/AEGIS-OS-GUI-Live.iso ]]; then
+  echo "error: no Live ISO in out/release-live; run 'make live-iso' first" >&2
+  exit 1
+fi
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+kvm_args=()
+accel=tcg
+if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+  accel=kvm
+  kvm_args=(--device /dev/kvm)
+fi
+
+mkdir -p out/vm-live
+"${as_root[@]}" podman run --rm \
+  "${kvm_args[@]}" \
+  --network=none \
+  --security-opt label=disable \
+  -v "${PWD}:/work" \
+  -w /work \
+  -e "AEGIS_VM_ACCEL=${accel}" \
+  localhost/aegis-builder:latest \
+  python3 -m pytest tests/vm/test_live_iso.py \
+  -p no:cacheprovider \
+  -v \
+  --workdir out/vm-live \
+  --junitxml out/junit-live.xml \
+  "$@"
