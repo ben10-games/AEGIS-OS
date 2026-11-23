@@ -152,3 +152,11 @@ def test_virtualbox_like_machine_boots_the_iso_as_a_read_only_cd():
     )
     assert "usb-tablet,bus=usb.0" in devices
     assert not [d for d in devices if d.startswith("virtio")]
+
+
+def test_virtualbox_like_machine_can_use_standard_vga():
+    command = build_qemu_command(
+        config(disk=Path("/out/live.iso"), virtualbox_like=True, vbox_display="VGA")
+    )
+    devices = [command[i + 1] for i, arg in enumerate(command) if arg == "-device"]
+    assert "VGA,vgamem_mb=128" in devices and "vmware-svga,vgamem_mb=128" not in devices

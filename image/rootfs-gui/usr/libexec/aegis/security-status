@@ -24,6 +24,9 @@ if [[ -r "${efivar}" ]]; then
     0) echo "secureboot=disabled" ;;
     *) echo "secureboot=unknown" ;;
   esac
+elif [[ -d /sys/firmware/efi/efivars ]]; then
+  # UEFI without a SecureBoot variable: the firmware does not support Secure Boot.
+  echo "secureboot=disabled"
 elif [[ -d /sys/firmware/efi ]]; then
   echo "secureboot=unknown"
 else
@@ -61,8 +64,10 @@ image_version="$(sed -n 's/^IMAGE_VERSION=//p' /usr/lib/os-release | tr -d '"')"
 build_id="$(sed -n 's/^BUILD_ID=//p' /usr/lib/os-release | tr -d '"')"
 echo "deployment=${image_id:-unknown} ${image_version:-?} (${build_id:0:12})"
 
-# Update state needs bootc, which only root may ask.
-if bootc status --booted --format=json > /dev/null 2>&1; then
+# Update state needs bootc, which only root may ask. A live session has no updates.
+if [[ "${live}" == yes ]]; then
+  echo "updates=not-applicable-live"
+elif bootc status --booted --format=json > /dev/null 2>&1; then
   echo "updates=$(bootc status --format=json 2> /dev/null | grep -o '"staged":[^,]*' | head -n 1)"
 else
   echo "updates=unavailable (needs administrator rights)"

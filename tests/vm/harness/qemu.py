@@ -94,6 +94,10 @@ class VmConfig:
     # calls VMSVGA, driven by vmwgfx) with 128 MB, PS/2 keyboard, USB tablet, Intel
     # PRO/1000 MT network card (e1000), Intel HD Audio. 'graphics' is implied.
     virtualbox_like: bool = False
+    # Display of a VirtualBox-like machine: "vmware-svga" (VMSVGA's register interface)
+    # or "VGA" (QEMU's standard VGA). QEMU's VMware SVGA II emulation does not show what
+    # a modern guest draws, so the interactive tests use "VGA" (see test_live_iso.py).
+    vbox_display: str = "vmware-svga"
 
 
 DIAGNOSTIC_UNIT = """[Unit]
@@ -238,7 +242,8 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
         command += ["-smbios", f"type=11,value={text}"]
     if cfg.virtualbox_like:
         command += [
-            "-device", "vmware-svga,vgamem_mb=128",
+            "-device",
+            f"{'vmware-svga' if cfg.vbox_display == 'vmware-svga' else 'VGA'},vgamem_mb=128",
             "-device", "piix3-usb-uhci,id=usb",
             "-device", "usb-tablet,bus=usb.0",
             "-audiodev", "none,id=snd0",

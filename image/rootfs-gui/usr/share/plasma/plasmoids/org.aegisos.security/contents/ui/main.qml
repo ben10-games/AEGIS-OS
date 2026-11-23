@@ -156,7 +156,7 @@ PlasmoidItem {
             StatusRow { Layout.fillWidth: true; label: "Firewall"; value: root.facts.firewall || "…"; state: root.stateOf("firewall") }
             StatusRow { Layout.fillWidth: true; label: "Kernel lockdown"; value: root.facts.lockdown || "…"; state: root.stateOf("lockdown") }
             StatusRow { Layout.fillWidth: true; label: "Running deployment"; value: root.facts.deployment || "…"; state: "unknown" }
-            StatusRow { Layout.fillWidth: true; label: "Updates"; value: root.facts.updates || "…"; state: "unknown" }
+            StatusRow { Layout.fillWidth: true; label: "Updates"; value: root.facts.updates === "not-applicable-live" ? "None in a live session" : (root.facts.updates || "…"); state: "unknown" }
                 }
             }
 

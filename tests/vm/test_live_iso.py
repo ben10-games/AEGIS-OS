@@ -8,6 +8,12 @@ VMSVGA uses the same guest driver, vmwgfx), PS/2 keyboard, USB tablet, Intel PRO
 network card, Intel HD Audio, 4 GiB of memory, 2 CPUs, OVMF without Secure Boot keys.
 This is not VirtualBox itself; see VIRTUALBOX_GUIDE.md for what that leaves unverified.
 
+The display is the one exception. QEMU's VMware SVGA II emulation does not show what a
+current guest draws (CI run 45189500261: the screen kept the boot messages while the
+desktop ran), so the interactive tests use QEMU's standard VGA. A second, shorter boot
+with the VMware SVGA II device then checks that the desktop session starts there too
+and records which kernel driver took the device.
+
 The only thing the test adds to the machine is a throw-away SSH key for root (a systemd
 credential in the firmware tables, test access only). The desktop account, its automatic
 login and the administrator password come from the ISO alone.
@@ -15,6 +21,8 @@ login and the administrator password come from the ISO alone.
 
 from __future__ import annotations
 
+import base64
+import contextlib
 import hashlib
 import re
 import shutil
@@ -33,6 +41,17 @@ LABEL = "AEGIS_LIVE"
 SSH_DEADLINE_S = 300
 SESSION_DEADLINE_S = 300
 ISSUE = "/etc/issue.d/50-aegis-live-admin.issue"
+# Runs in the guest as the desktop user: su to root with a password typed on a terminal.
+SU_CHECK = """
+import sys
+import pexpect
+child = pexpect.spawn("su -c 'id -u' root", timeout=20)
+child.expect("Password:")
+child.sendline(sys.argv[1])
+child.expect(pexpect.EOF)
+lines = child.before.decode().strip().splitlines()
+print(lines[-1].strip() if lines else "")
+"""
 PASSWORD = re.compile(r"password: ([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})")
 
 
@@ -68,8 +87,8 @@ def extracted(iso, tmp_path_factory) -> Path:
     return target
 
 
-@pytest.fixture(scope="module")
-def live(iso, workdir, logdir, accel):
+@contextlib.contextmanager
+def booted(iso, workdir, logdir, accel, display: str, name: str):
     """The ISO booted on VirtualBox-like hardware, reachable over SSH as root (test key)."""
     secrets = Path(tempfile.mkdtemp(prefix="aegis-live-key-"))
     key, public_key = generate_ssh_key(secrets)
@@ -82,7 +101,7 @@ def live(iso, workdir, logdir, accel):
         firmware_code=code,
         firmware_vars=firmware_vars,
         ssh_port=free_local_port(),
-        serial_log=logdir / "live-serial.log",
+        serial_log=logdir / f"{name}-serial.log",
         authorized_key=public_key,
         accel=accel,
         cpus=2,
@@ -90,18 +109,25 @@ def live(iso, workdir, logdir, accel):
         qmp_socket=scratch / "qmp.sock",
         graphics=True,
         virtualbox_like=True,
+        vbox_display=display,
         console_diagnostics=False,
     )
     vm = Vm(cfg, key, timeout_scale=10.0 if accel == "tcg" else 1.0)
     try:
         vm.start()
         seconds = vm.wait_for_ssh(SSH_DEADLINE_S)
-        (logdir / "live-timings.txt").write_text(f"power-on to SSH: {seconds:.1f} s\n")
+        log(logdir, "timings", f"{name} ({display}): power-on to SSH: {seconds:.1f} s")
         yield vm
     finally:
         vm.kill()
         shutil.rmtree(secrets, ignore_errors=True)
         shutil.rmtree(scratch, ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def live(iso, workdir, logdir, accel):
+    with booted(iso, workdir, logdir, accel, "VGA", "live") as vm:
+        yield vm
 
 
 def as_user(vm, command: str, check: bool = True, timeout: float = 60):
@@ -231,13 +257,18 @@ def test_unprivileged_account_logs_in_automatically(live, logdir, record_propert
     shot(live, logdir, "desktop")
 
 
+DRM = (
+    "for c in /sys/class/drm/card*; do [ -e $c/device ] || continue; "
+    "echo $(basename $c) $(basename $(readlink -f $c/device/driver) 2>/dev/null); done; "
+    "dmesg | grep -iE 'vmwgfx|bochs|simpledrm|efifb|drm' | tail -n 30"
+)
+
+
 def test_display_driver_and_size(live, logdir):
-    driver = live.ssh(
-        "for c in /sys/class/drm/card[0-9]; do basename $(readlink $c/device/driver); done"
-    ).stdout.split()
+    drm = live.ssh(DRM, check=False).stdout
     outputs = as_user(live, "kscreen-doctor --outputs", check=False).stdout
-    log(logdir, "display", f"drivers: {driver}\n{outputs}")
-    assert "vmwgfx" in driver, f"the VMware SVGA driver is not in use: {driver}"
+    log(logdir, "display", f"{drm}\n{outputs}")
+    assert "bochs" in drm, f"QEMU's standard VGA is not driven by bochs-drm:\n{drm}"
     width, height = ppm_size(shot(live, logdir, "resolution"))
     log(logdir, "display", f"screen: {width}x{height}")
     assert (width, height) == (1920, 1080), f"screen is {width}x{height}"
@@ -334,12 +365,16 @@ def test_administrator_password_is_per_boot_and_console_only(live, logdir):
     password = match.group(1)
     assert live.ssh(f"runuser -u {USER} -- cat {ISSUE}", check=False).returncode != 0
     assert live.ssh("passwd -S root").stdout.split()[1] == "P"
-    su = "script -qec \"su -c 'id -u' root\" /dev/null"
-    good = live.ssh(f"printf '%s\\n' '{password}' | runuser -u {USER} -- {su}", check=False)
-    bad = live.ssh(f"printf 'wrong-pass\\n' | runuser -u {USER} -- {su}", check=False)
+    script = base64.b64encode(SU_CHECK.encode()).decode()
+    live.ssh(f"echo {script} | base64 -d > /tmp/aegis-su-check.py")
+    good = live.ssh(
+        f"runuser -u {USER} -- python3 /tmp/aegis-su-check.py '{password}'", check=False
+    )
+    bad = live.ssh(f"runuser -u {USER} -- python3 /tmp/aegis-su-check.py wrong-pass", check=False)
     log(logdir, "account", f"su with the console password: {good.stdout.strip()[-40:]}")
-    assert good.stdout.strip().splitlines()[-1].strip() == "0", good.stdout + good.stderr
-    assert "0" not in [line.strip() for line in bad.stdout.splitlines()], bad.stdout
+    log(logdir, "account", f"su with a wrong password: {bad.stdout.strip()[-60:]}")
+    assert good.stdout.strip() == "0", good.stdout + good.stderr
+    assert bad.stdout.strip() != "0", bad.stdout
     assert live.ssh("grep -c . /etc/sudoers.d/* 2>/dev/null || true").stdout.strip() in ("", "0")
 
 
@@ -357,3 +392,22 @@ def test_shuts_down_cleanly(live, logdir):
     status = live.wait_for_exit(180)
     assert status == 0, f"QEMU did not exit cleanly after power-off (status {status})"
     assert "reboot: Power down" in live.serial_text()
+
+
+def test_desktop_session_with_the_vmware_svga_device(iso, workdir, logdir, accel):
+    """Second boot with VMSVGA's device model: the session starts; the driver is recorded.
+    The screen content is not checked (QEMU's emulation does not show it)."""
+    with booted(iso, workdir, logdir, accel, "vmware-svga", "live-vmsvga") as vm:
+        seconds = wait_for(
+            vm,
+            f"pgrep -u {USER} -x plasmashell && pgrep -u {USER} -x kwin_wayland",
+            SESSION_DEADLINE_S,
+            "a Plasma Wayland session with the VMware SVGA II device",
+        )
+        time.sleep(15)
+        drm = vm.ssh(DRM, check=False).stdout
+        outputs = as_user(vm, "kscreen-doctor --outputs", check=False).stdout
+        failed = vm.ssh("systemctl --failed --no-legend --plain").stdout.strip()
+        log(logdir, "vmsvga", f"session after {seconds:.1f} s\n{drm}\n{outputs}\nfailed: {failed}")
+        assert vm.ssh(f"pgrep -u {USER} -x kwin_wayland", check=False).returncode == 0
+        assert not failed, failed

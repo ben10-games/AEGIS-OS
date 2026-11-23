@@ -125,19 +125,22 @@ The `live-iso` workflow builds the ISO and, before offering it for download:
 - checks the ISO: checksums, the volume label, the UEFI El Torito boot image and the boot
   menu (default entry, five-second timeout, AEGIS kernel arguments, nothing weakened);
 - boots it in **QEMU/KVM on hardware chosen to resemble VirtualBox's defaults**: i440FX
-  chipset, the ISO as a SATA CD-ROM, OVMF UEFI without Secure Boot keys, VMware SVGA II
-  display with 128 MB (VirtualBox's VMSVGA is driven by the same guest driver, `vmwgfx`),
-  PS/2 keyboard, USB tablet, Intel PRO/1000 MT network card, Intel HD Audio, 4 GiB, 2 CPUs;
-- and checks: automatic login of the unprivileged `aegis` account into Plasma on
-  Wayland; 1920×1080; typing into Konsole; a right click opening the desktop menu;
-  Dolphin and System Settings; the AEGIS Security widget's values; networking; the audio
-  device; SELinux enforcing with no denials; no failed services; the per-boot
-  administrator password; a clean power-off. Screenshots are in the run's log artifact.
+  chipset, the ISO as a SATA CD-ROM, OVMF UEFI without Secure Boot keys, PS/2 keyboard,
+  USB tablet, Intel PRO/1000 MT network card, Intel HD Audio, 4 GiB, 2 CPUs, and checks:
+  automatic login of the unprivileged `aegis` account into Plasma on Wayland; 1920×1080;
+  typing into Konsole; a right click opening the desktop menu; Dolphin and System
+  Settings; the AEGIS Security widget's values; networking; the audio device; SELinux
+  enforcing with no denials; no failed services; the per-boot administrator password; a
+  clean power-off. Screenshots are in the run's log artifact.
+- **Graphics:** these interactive checks use QEMU's standard VGA, because QEMU's emulation
+  of the VMware SVGA II device (the device VirtualBox's VMSVGA presents) does not show what
+  a current desktop draws. A second boot with that device checks only that the desktop
+  session starts and records which kernel driver took it.
 
 **Not verified: Oracle VirtualBox itself.** The CI runners have no VirtualBox, so the
 ISO has not been booted in VirtualBox by the project. VirtualBox's EFI firmware, its
 VMSVGA device and its storage controllers are close to, but not the same as, what was
-tested. Also not tested: Secure Boot, the "basic graphics" menu entry, 3D acceleration,
+tested. Also not tested: what the desktop looks like on VMSVGA, Secure Boot, the "basic graphics" menu entry, 3D acceleration,
 host sound output, Linux Mint as the host, and physical hardware.
 
 The run and commit that produced your ISO are in `BUILD-INFO.txt`.

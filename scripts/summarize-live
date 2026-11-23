@@ -16,7 +16,7 @@ section() {
 section "live: BUILD-INFO.txt" out/release-live/BUILD-INFO.txt
 section "live: SHA256SUMS" out/release-live/SHA256SUMS
 for name in iso grub boot timings account display pointer security-status network-audio \
-  qml-errors failed-units selinux-denials; do
+  qml-errors failed-units selinux-denials vmsvga; do
   section "live: ${name}" "${logs}/live-${name}.txt" 60
 done
 for qemu_log in "${logs}"/*qemu.log; do
