@@ -30,8 +30,15 @@ grep -haE 'FAILED|Failed to start|denied|dracut-initqueue.*timeout|Emergency' \
   | sort | uniq -c | sort -rn | head -n 20 || echo "(none)"
 echo
 echo "=== live: last console lines"
-tail -n 40 "$(ls -t "${logs}"/live-serial*.log 2> /dev/null | grep -v qemu | head -n 1)" 2> /dev/null \
-  | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' | cut -c1-200 || echo "(no console log)"
+console=""
+for candidate in "${logs}"/live-serial*.log; do
+  [[ "${candidate}" == *qemu.log ]] || console="${candidate}"
+done
+if [[ -n "${console}" && -s "${console}" ]]; then
+  tail -n 40 "${console}" | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' | cut -c1-200
+else
+  echo "(no console log)"
+fi
 echo
 
 python3 scripts/print_screenshots.py "${logs}" live

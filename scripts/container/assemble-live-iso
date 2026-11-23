@@ -22,7 +22,8 @@ here="$(cd "$(dirname "$0")" && pwd)"
 
 echo "== SELinux labels from the image's own policy"
 policy_dir="${rootfs}/etc/selinux/targeted"
-policy="$(ls "${policy_dir}"/policy/policy.* | sort -V | tail -n 1)"
+policies=("${policy_dir}"/policy/policy.*)
+policy="$(printf '%s\n' "${policies[@]}" | sort -V | tail -n 1)"
 setfiles -F -T 0 -r "${rootfs}" -c "${policy}" \
   "${policy_dir}/contexts/files/file_contexts" "${rootfs}"
 for check in usr/bin/bash:shell_exec_t etc/shadow:shadow_t usr/bin/sddm:xdm_exec_t \

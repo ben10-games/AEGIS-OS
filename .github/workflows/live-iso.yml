@@ -56,14 +56,6 @@ jobs:
           printf '%s' "${REGISTRY_TOKEN}" \
             | sudo podman login --username "${REGISTRY_USER}" --password-stdin ghcr.io
 
-      # The root filesystem copy and the SquashFS are large; the runner's second disk
-      # (/mnt) has room for them.
-      - name: Scratch space
-        run: |
-          df -h / /mnt || true
-          sudo mkdir -p /mnt/aegis-live-work
-          sudo chown "$(id -u):$(id -g)" /mnt/aegis-live-work
-
       - name: Fetch and verify the locked RPM inputs
         run: make inputs
 
@@ -74,9 +66,9 @@ jobs:
         run: make rootfs-gui
 
       - name: Build the Live ISO
-        env:
-          AEGIS_LIVE_WORKDIR: /mnt/aegis-live-work
-        run: make live-iso
+        run: |
+          df -h /
+          make live-iso
 
       - name: Check the ISO and boot it on VirtualBox-like hardware
         id: test
@@ -88,7 +80,7 @@ jobs:
           mkdir -p out
           sudo chown -R "$(id -u):$(id -g)" out
           scripts/summarize-live | tee out/summary-live.txt
-          df -h / /mnt || true
+          df -h / || true
 
       - name: Upload logs, screenshots and test report
         if: always()

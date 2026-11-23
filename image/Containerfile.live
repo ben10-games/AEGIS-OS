@@ -10,7 +10,8 @@ ARG BASE=localhost/aegis-gui-rootfs:latest
 # --- boot: the stock Fedora kernel of the image and a live initramfs -------------------
 # dracut-live (the 'live' step of rpms.in.yaml, locked like every package) adds the
 # dmsquash-live module. Only /live (kernel, initramfs) is taken from this stage; the
-# package itself never reaches the live root filesystem.
+# package itself never reaches the live root filesystem. /root links to /var/roothome,
+# which only exists on a booted system; dracut wants the link target to exist.
 FROM ${BASE} AS boot
 ARG SOURCE_DATE_EPOCH
 RUN --mount=type=bind,from=rpms,source=live,target=/tmp/aegis-rpms \
@@ -18,7 +19,7 @@ RUN --mount=type=bind,from=rpms,source=live,target=/tmp/aegis-rpms \
     /tmp/aegis-build/install-locked /tmp/aegis-rpms \
     && kver="$(ls /usr/lib/modules)" \
     && test "$(printf '%s\n' "${kver}" | wc -l)" -eq 1 \
-    && mkdir -p /live \
+    && mkdir -p /live /var/roothome \
     && dracut --no-hostonly --no-hostonly-cmdline --reproducible --zstd \
          --add "dmsquash-live" --omit "ostree bootc" \
          --add-drivers "ahci ata_piix sr_mod cdrom isofs squashfs overlay loop" \
