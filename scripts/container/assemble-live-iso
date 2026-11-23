@@ -20,6 +20,15 @@ iso="$4"
 label=AEGIS_LIVE
 here="$(cd "$(dirname "$0")" && pwd)"
 
+echo "== removing the ostree object store (not used by a live boot)"
+# The image carries the base image's ostree repository under /sysroot/ostree; its
+# objects are hard links to the files of the root filesystem. A file reachable under two
+# paths gets one SELinux label, and setfiles would pick the repository's (default_t)
+# for the system files (CI run 45194735654). The live boot never reads the repository.
+rm -rf "${rootfs}/sysroot/ostree"
+links="$(find "${rootfs}" -xdev -type f -links +1 | wc -l)"
+echo "files with more than one name after removal: ${links}"
+
 echo "== SELinux labels from the image's own policy"
 policy_dir="${rootfs}/etc/selinux/targeted"
 policies=("${policy_dir}"/policy/policy.*)
