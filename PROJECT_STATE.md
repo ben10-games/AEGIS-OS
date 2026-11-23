@@ -58,8 +58,13 @@ not merged anywhere (merging needs the owner's authorisation).
   System Settings; dashboard values match the live state (no QML errors); e1000 network
   connected; HDA sink present; per-boot root password: root-only issue file, `su`
   accepts it and refuses a wrong one; clean power-off. Second boot with QEMU's VMware SVGA
-  II device: Plasma session started, no failed units; its driver was not recorded (the
-  diagnostic printed nothing). Screenshots inspected:
+  II device: Plasma session started, no failed units; run 45204188680 shows why the
+  screen could not be checked there: `vmwgfx` refused QEMU's SVGA v2 device ("Hardware
+  has no pitchlock", probe error -38) and the session ran on simpledrm (firmware
+  framebuffer). Whether vmwgfx binds on VirtualBox's VMSVGA is not verified.
+- **Published:** `live-iso` run 45204188680 on `4e2fd10` (16/16), artifact
+  `aegis-os-gui-live-iso` (ISO SHA-256 `17abfe84533ecf45ea25faf99698dda089f45f9e3742f5e5e2cf19ee90dcb003`,
+  1,487,904,768 bytes), kept until 2026-12-07. Screenshots inspected:
   `docs/architecture/live-iso-screenshots/`.
 - **Not verified:** Oracle VirtualBox itself (no VirtualBox on the runners; would need a
   new download host), the desktop as drawn on VMSVGA, Secure Boot, the `nomodeset` entry.

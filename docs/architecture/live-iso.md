@@ -73,3 +73,7 @@ System Settings, half size).
 The ostree object store under `/sysroot/ostree` is removed before labelling: its objects
 are hard links to the system files, and setfiles would otherwise give them `default_t`
 (run 45194735654).
+
+With QEMU's VMware SVGA II device, `vmwgfx` loads but refuses the device ("Hardware has
+no pitchlock", probe error -38; run 45204188680), and the desktop runs on simpledrm, the
+firmware framebuffer. That is also the fallback on any VM where the GPU driver fails.
