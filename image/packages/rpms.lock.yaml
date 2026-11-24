@@ -4,9 +4,9 @@
 # yamllint disable rule:line-length
 lockfileVersion: 1
 base: "ghcr.io/ben10-games/aegis-os/fedora-bootc@sha256:d70fb477a35612f651fcfa397f41e2945514374d3fdaaa64b0e75a3ca1da2bbc"
-inputs: "sha256:97071494b8d67afd59344533515c401701428675057568be1309b6659a6b151a"
-resolved: "2026-11-23T13:33:36Z"
-cache: "ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:408aa35300d2fedd6eee37896b8d62323d41ad637c597ffb8fde52b280d81343"
+inputs: "sha256:3215bd16e4cf9306bc26d926bd594e31de23c9c1e705038a275a6f4de0c7c380"
+resolved: "2026-11-24T13:20:23Z"
+cache: "ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:6c30516fdc742a4628fc673a59c77352759e4eadc42e864abf66e5a00278ec49"
 packages:
   - {set: base, name: audit, evr: "4.2.1-2.fc45", arch: x86_64, sha256: 43ec6cfb0392238dc59db9dc72c7e8ddaca9e5802504cddf4d942cfd139e7081, size: 229371, repo: fedora, location: "Packages/a/audit-4.2.1-2.fc45.x86_64.rpm"}
   - {set: base, name: audit-rules, evr: "4.2.1-2.fc45", arch: x86_64, sha256: f7c016911334b9a939fc68fff5128ede29da771a207db3371606fdba99857574, size: 71607, repo: fedora, location: "Packages/a/audit-rules-4.2.1-2.fc45.x86_64.rpm"}
@@ -21,7 +21,7 @@ packages:
   - {set: builder, name: capstone, evr: "5.0.6-6.fc45", arch: x86_64, sha256: 574c8406c40c8dd4ac6a171289ce55701067c4b9687171da16a14cdccd85b01d, size: 1050759, repo: fedora, location: "Packages/c/capstone-5.0.6-6.fc45.x86_64.rpm"}
   - {set: builder, name: checkpolicy, evr: "3.11-2.fc45", arch: x86_64, sha256: 745514fcd0960728efcd6ac26db94b26cb13e5e4aaf694470957bb39bd0e4d91, size: 391288, repo: fedora, location: "Packages/c/checkpolicy-3.11-2.fc45.x86_64.rpm"}
   - {set: builder, name: daxctl-libs, evr: "85-2.fc45", arch: x86_64, sha256: aca3bb35bb3a469d33d70fc91d113b876a664db5cd9c088d5bb7064bf6724e31, size: 43531, repo: fedora, location: "Packages/d/daxctl-libs-85-2.fc45.x86_64.rpm"}
-  - {set: builder, name: edk2-ovmf, evr: "20260812-10.fc45", arch: noarch, sha256: b81ab0e9389a1939af5b7029be7d5ebda19bdab99b2c857497ca10a906f9d18c, size: 19137504, repo: updates, location: "Packages/e/edk2-ovmf-20260812-10.fc45.noarch.rpm"}
+  - {set: builder, name: edk2-ovmf, evr: "20260812-12.fc45", arch: noarch, sha256: 6e202c443e6deaa649e2b60db61844d5197354f7afadc87aa0b95506c7a99d1c, size: 19226755, repo: updates, location: "Packages/e/edk2-ovmf-20260812-12.fc45.noarch.rpm"}
   - {set: builder, name: igvm-libs, evr: "0.4.0-11.fc45", arch: x86_64, sha256: b31e4e6529244d94462453df5b3c39f05af4566d76b9ffc0cc2c701316ffcf95, size: 235348, repo: fedora, location: "Packages/i/igvm-libs-0.4.0-11.fc45.x86_64.rpm"}
   - {set: builder, name: ipxe-roms-qemu, evr: "1:2.0.0^20260614git13a83f4-4.fc45", arch: noarch, sha256: 1ceb6e6ed1a45f07a41e4f3e7c56688c025e808d04687a85be01c7782d865bde, size: 1918528, repo: fedora, location: "Packages/i/ipxe-roms-qemu-2.0.0^20260614git13a83f4-4.fc45.noarch.rpm"}
   - {set: builder, name: kde-filesystem, evr: "5-8.fc45", arch: x86_64, sha256: 266a43bad3e6e0169d1215e7f97fd2f739e9d381c4a0ab012f5ae7b1d60b952d, size: 38586, repo: fedora, location: "Packages/k/kde-filesystem-5-8.fc45.x86_64.rpm"}
@@ -78,7 +78,9 @@ packages:
   - {set: builder, name: xen-libs, evr: "4.21.2-7.fc45", arch: x86_64, sha256: 176ee2b5769c9ca6b10ef623e820e2f84ac4d3061e9fbcefa2020db1df805097, size: 692178, repo: updates, location: "Packages/x/xen-libs-4.21.2-7.fc45.x86_64.rpm"}
   - {set: builder, name: xen-licenses, evr: "4.21.2-7.fc45", arch: x86_64, sha256: c4960f1f91ba0767cb97495db554b0576799d435ce70df435e7f4213718b2089, size: 47215, repo: updates, location: "Packages/x/xen-licenses-4.21.2-7.fc45.x86_64.rpm"}
   - {set: builder, name: xorriso, evr: "1.5.8-3.fc45", arch: x86_64, sha256: 4e191138f8435cbc204e6b491f54e693d4016809ea3477b99e9f48c539f88a26, size: 358557, repo: fedora, location: "Packages/x/xorriso-1.5.8-3.fc45.x86_64.rpm"}
-  - {set: dev, name: openssh-server, evr: "10.5p1-1.fc45", arch: x86_64, sha256: c350b8ebb9598d425077028cd72f2a7ac2cc82cc6741060f334c0ba1af3c0bee, size: 665222, repo: fedora, location: "Packages/o/openssh-server-10.5p1-1.fc45.x86_64.rpm"}
+  - {set: dev, name: openssh, evr: "10.6p1-1.fc45", arch: x86_64, sha256: fce48605d74ec669de31cf1d240ad4771055c6ba9de64fa02e331bdad7a2a90b, size: 388011, repo: updates, location: "Packages/o/openssh-10.6p1-1.fc45.x86_64.rpm"}
+  - {set: dev, name: openssh-clients, evr: "10.6p1-1.fc45", arch: x86_64, sha256: f056455d54c38ffd4b0bad47458bda4bec863538679ea2298cf81c077fef2903, size: 850287, repo: updates, location: "Packages/o/openssh-clients-10.6p1-1.fc45.x86_64.rpm"}
+  - {set: dev, name: openssh-server, evr: "10.6p1-1.fc45", arch: x86_64, sha256: b386ddd0cce507833e0b747e5af6e37b8b68adab9a95f818f03a22105a404dd9, size: 671622, repo: updates, location: "Packages/o/openssh-server-10.6p1-1.fc45.x86_64.rpm"}
   - {set: dev-policy, name: checkpolicy, evr: "3.11-2.fc45", arch: x86_64, sha256: 745514fcd0960728efcd6ac26db94b26cb13e5e4aaf694470957bb39bd0e4d91, size: 391288, repo: fedora, location: "Packages/c/checkpolicy-3.11-2.fc45.x86_64.rpm"}
   - {set: dev-policy, name: m4, evr: "1.4.21-3.fc45", arch: x86_64, sha256: 15ae5a2e6504b7715fb11be1ae0170778ddc83ce3c274c8a9c1817b278a1cbdc, size: 355497, repo: fedora, location: "Packages/m/m4-1.4.21-3.fc45.x86_64.rpm"}
   - {set: dev-policy, name: make, evr: "1:4.4.1-13.fc45", arch: x86_64, sha256: 0396ed3a5009d229aa3f341fa28acdf943d5f2945601328aeeaa03914c44d630, size: 602439, repo: fedora, location: "Packages/m/make-4.4.1-13.fc45.x86_64.rpm"}
@@ -295,9 +297,9 @@ packages:
   - {set: gui, name: kscreenlocker, evr: "6.8.3-1.fc45", arch: x86_64, sha256: 8585342b82eda7171330c3250804192e6aa467d96703221ef242c62fd84d4c28, size: 380476, repo: updates, location: "Packages/k/kscreenlocker-6.8.3-1.fc45.x86_64.rpm"}
   - {set: gui, name: ksystemstats, evr: "6.8.3-1.fc45", arch: x86_64, sha256: 7ff7e358784e28fcaa821ff2506afebd9ef166702b92353e651305a3dc307231, size: 457976, repo: updates, location: "Packages/k/ksystemstats-6.8.3-1.fc45.x86_64.rpm"}
   - {set: gui, name: kwayland, evr: "6.8.3-1.fc45", arch: x86_64, sha256: dea35e94b9111c61d68b2878c1758a130c6e1d45c563b7d290251cc1222a1203, size: 249998, repo: updates, location: "Packages/k/kwayland-6.8.3-1.fc45.x86_64.rpm"}
-  - {set: gui, name: kwin, evr: "6.8.3-1.fc45", arch: x86_64, sha256: 3c7b906b4c63511c591823a03800950dd87c43fed397ebb4cd9109683c0d90c5, size: 536884, repo: updates, location: "Packages/k/kwin-6.8.3-1.fc45.x86_64.rpm"}
-  - {set: gui, name: kwin-common, evr: "6.8.3-1.fc45", arch: x86_64, sha256: d11600e708e1813fc4e5045e02dbf8c6ea4eaa7cb6c6984c13d19c07f33dd692, size: 3957167, repo: updates, location: "Packages/k/kwin-common-6.8.3-1.fc45.x86_64.rpm"}
-  - {set: gui, name: kwin-libs, evr: "6.8.3-1.fc45", arch: x86_64, sha256: 6bcd6a9e421d81fc998b7e8612b6105abebea4a2f33001386614679ed1d44493, size: 2962808, repo: updates, location: "Packages/k/kwin-libs-6.8.3-1.fc45.x86_64.rpm"}
+  - {set: gui, name: kwin, evr: "6.8.3-2.fc45", arch: x86_64, sha256: d13463816df5b11d6b390d18a94054c4af647d92cb3267587471cd397bfa7a4a, size: 536668, repo: updates, location: "Packages/k/kwin-6.8.3-2.fc45.x86_64.rpm"}
+  - {set: gui, name: kwin-common, evr: "6.8.3-2.fc45", arch: x86_64, sha256: ca155a03fb27ed1532406fdc0c562b0b444fd3379d4d485ffaa09472f31adaab, size: 3956647, repo: updates, location: "Packages/k/kwin-common-6.8.3-2.fc45.x86_64.rpm"}
+  - {set: gui, name: kwin-libs, evr: "6.8.3-2.fc45", arch: x86_64, sha256: 488640902c6896339dbd8f2cb2f5469da9706db8a50b1484453b676da29c28fa, size: 2963592, repo: updates, location: "Packages/k/kwin-libs-6.8.3-2.fc45.x86_64.rpm"}
   - {set: gui, name: kwrited, evr: "6.8.3-1.fc45", arch: x86_64, sha256: be6365e406094c289f01b454ac0bd9cd292a623b8bb9198cd4a0497070f8034d, size: 42138, repo: updates, location: "Packages/k/kwrited-6.8.3-1.fc45.x86_64.rpm"}
   - {set: gui, name: lame-libs, evr: "4.0-1.fc45", arch: x86_64, sha256: 55188b65329196087e5a2f41754714e0f77aa56a7c8401f4b7eb0ab08ea20d93, size: 283032, repo: fedora, location: "Packages/l/lame-libs-4.0-1.fc45.x86_64.rpm"}
   - {set: gui, name: layer-shell-qt, evr: "6.8.3-1.fc45", arch: x86_64, sha256: e82613efaf39feb934615e792e8ff0045681ff35a782fe1601901f34d46cda5d, size: 74839, repo: updates, location: "Packages/l/layer-shell-qt-6.8.3-1.fc45.x86_64.rpm"}
@@ -482,6 +484,7 @@ packages:
   - {set: gui, name: plasma-integration, evr: "6.8.3-1.fc45", arch: x86_64, sha256: 811dc95a994675a08146c77e689da81d539d7d30bcfa11f2a6ceef23c7419211, size: 204018, repo: updates, location: "Packages/p/plasma-integration-6.8.3-1.fc45.x86_64.rpm"}
   - {set: gui, name: plasma-keyboard, evr: "1:6.8.3-1.fc45", arch: x86_64, sha256: 3335a32abeb05cae4180ba7c559164410a0fdf935ead833480f49b13d1a31f75, size: 446905, repo: updates, location: "Packages/p/plasma-keyboard-6.8.3-1.fc45.x86_64.rpm"}
   - {set: gui, name: plasma-lookandfeel-fedora, evr: "6.8.3-1.fc45", arch: noarch, sha256: 1f71d35e4a32ecef86c898725d42317dc7e7c7f8a4378225dadca355e1402281, size: 886121, repo: updates, location: "Packages/p/plasma-lookandfeel-fedora-6.8.3-1.fc45.noarch.rpm"}
+  - {set: gui, name: plasma-milou, evr: "6.8.3-1.fc45", arch: x86_64, sha256: c0d18592f0bb058e92ab50f3b20c55dfcb297006dcd66e159c4a72e0beff40b2, size: 185004, repo: updates, location: "Packages/p/plasma-milou-6.8.3-1.fc45.x86_64.rpm"}
   - {set: gui, name: plasma-nm, evr: "6.8.3-1.fc45", arch: x86_64, sha256: 0aa5706b5a8335fbfef62fcc0190f63bedf838b91ae00c1bdd679d6cb4079e58, size: 1812465, repo: updates, location: "Packages/p/plasma-nm-6.8.3-1.fc45.x86_64.rpm"}
   - {set: gui, name: plasma-pa, evr: "6.8.3-1.fc45", arch: x86_64, sha256: 699809fe47b95f9b34aa1d102b3a392842ba71e78aa39985fc38a56da0e3b029, size: 675054, repo: updates, location: "Packages/p/plasma-pa-6.8.3-1.fc45.x86_64.rpm"}
   - {set: gui, name: plasma-systemsettings, evr: "6.8.3-1.fc45", arch: x86_64, sha256: 980916c3108d80e563147a6fe70bf95e0f97abf670f010a1d05d20c2a72f5a11, size: 482695, repo: updates, location: "Packages/p/plasma-systemsettings-6.8.3-1.fc45.x86_64.rpm"}
@@ -606,3 +609,20 @@ packages:
   - {set: live, name: dracut-live, evr: "111-5.fc45", arch: x86_64, sha256: c6122fa8c520802409f8bb03079b6ab35d21337342711da76704f5846cd82c34, size: 26400, repo: updates, location: "Packages/d/dracut-live-111-5.fc45.x86_64.rpm"}
   - {set: live, name: fuse, evr: "2.9.9-26.fc45", arch: x86_64, sha256: 23105340f6ef69cafc68d2e685ed36bf208f9cff58c721bf2de59977a1c6125d, size: 81759, repo: fedora, location: "Packages/f/fuse-2.9.9-26.fc45.x86_64.rpm"}
   - {set: live, name: parted, evr: "3.7.13-1.fc45", arch: x86_64, sha256: 35c80aa2a9a662588baac3ee151b7e40e5c9422e8400996ed040088b020f5309, size: 646290, repo: fedora, location: "Packages/p/parted-3.7.13-1.fc45.x86_64.rpm"}
+  - {set: live-apps, name: accountsservice-libs, evr: "26.27.3-2.fc45", arch: x86_64, sha256: bb6869added22faacc5e35e1c46d54e051db75371450bc430badc180c6c413e9, size: 55538, repo: fedora, location: "Packages/a/accountsservice-libs-26.27.3-2.fc45.x86_64.rpm"}
+  - {set: live-apps, name: checkpolicy, evr: "3.11-2.fc45", arch: x86_64, sha256: 745514fcd0960728efcd6ac26db94b26cb13e5e4aaf694470957bb39bd0e4d91, size: 391288, repo: fedora, location: "Packages/c/checkpolicy-3.11-2.fc45.x86_64.rpm"}
+  - {set: live-apps, name: dconf, evr: "51.0-1.fc45", arch: x86_64, sha256: 4a8689590be8ddfc8cf0a40e391b51e030a2cc360e44a1db739c5929144f0878, size: 118532, repo: fedora, location: "Packages/d/dconf-51.0-1.fc45.x86_64.rpm"}
+  - {set: live-apps, name: fedora-flathub-remote, evr: "1-20.fc45", arch: noarch, sha256: 65370f8a0b2aa78452bafb06576499393ac0d20697a5c4b75fe7ec80a22b2e63, size: 12625, repo: fedora, location: "Packages/f/fedora-flathub-remote-1-20.fc45.noarch.rpm"}
+  - {set: live-apps, name: fedora-third-party, evr: "0.11-1.fc45", arch: noarch, sha256: 76401dd40e369e05fa8f3b1a8d414e95710a0346224067cfd33af2e57f6d0bd3, size: 44675, repo: fedora, location: "Packages/f/fedora-third-party-0.11-1.fc45.noarch.rpm"}
+  - {set: live-apps, name: flatpak, evr: "1.19.0^really1.18.4-1.fc45", arch: x86_64, sha256: 9f419a9933e90ef885e581da7b1b944f8c044fa0df31c13676ccb881bd580b72, size: 2004893, repo: fedora, location: "Packages/f/flatpak-1.19.0^really1.18.4-1.fc45.x86_64.rpm"}
+  - {set: live-apps, name: flatpak-selinux, evr: "1.19.0^really1.18.4-1.fc45", arch: noarch, sha256: d3dcdbec872be64e214e531692871f3e0b75cbf02406bd201c29a7231e8da2c0, size: 25089, repo: fedora, location: "Packages/f/flatpak-selinux-1.19.0^really1.18.4-1.fc45.noarch.rpm"}
+  - {set: live-apps, name: malcontent-libs, evr: "0.14.0-8.fc45", arch: x86_64, sha256: f23bcc1997810526e4c0ccb42b72b67e6a895b2669d37428e78138e399c1c48b, size: 65531, repo: updates, location: "Packages/m/malcontent-libs-0.14.0-8.fc45.x86_64.rpm"}
+  - {set: live-apps, name: policycoreutils-python-utils, evr: "3.11-2.fc45", arch: noarch, sha256: 0bd2219c9938f1d78107e93f90401ff8b468d9fdd9df9e3d8a863dd9e8f3da32, size: 53290, repo: fedora, location: "Packages/p/policycoreutils-python-utils-3.11-2.fc45.noarch.rpm"}
+  - {set: live-apps, name: python3-audit, evr: "4.2.1-2.fc45", arch: x86_64, sha256: 68e662d94a5d8075f9efab1761aa2f140c947751ad5ea104fc345d01eed05f5b, size: 74743, repo: fedora, location: "Packages/p/python3-audit-4.2.1-2.fc45.x86_64.rpm"}
+  - {set: live-apps, name: python3-click, evr: "1:8.4.2-1.fc45", arch: noarch, sha256: 44cad74e0de2155b0ad4b580d1e703922aea8ec5271a820d404853b98f2303f7, size: 298471, repo: fedora, location: "Packages/p/python3-click-8.4.2-1.fc45.noarch.rpm"}
+  - {set: live-apps, name: python3-distro, evr: "1.9.0-13.fc45", arch: noarch, sha256: f75a4d1d7e59943a3965ebcd3b726e34471f046073b3e74762668a6443f29a4b, size: 48442, repo: fedora, location: "Packages/p/python3-distro-1.9.0-13.fc45.noarch.rpm"}
+  - {set: live-apps, name: python3-libselinux, evr: "3.11-5.fc45", arch: x86_64, sha256: 57d301e14cf6fb1a7c44103d726cb75f4ecf10faf09e1679cbaeb63af39ec2c6, size: 217017, repo: fedora, location: "Packages/p/python3-libselinux-3.11-5.fc45.x86_64.rpm"}
+  - {set: live-apps, name: python3-libsemanage, evr: "3.11-4.fc45", arch: x86_64, sha256: 852f072c8c864324311d28f2639e924d3039990c247cb6513ec12a61c8e923d0, size: 85957, repo: fedora, location: "Packages/p/python3-libsemanage-3.11-4.fc45.x86_64.rpm"}
+  - {set: live-apps, name: python3-policycoreutils, evr: "3.11-2.fc45", arch: noarch, sha256: b70741583a2e363285418831bf69c2e1b91d58b1d7d017b5fd005f372bafaa44, size: 2308140, repo: fedora, location: "Packages/p/python3-policycoreutils-3.11-2.fc45.noarch.rpm"}
+  - {set: live-apps, name: python3-setools, evr: "4.7.1-1.fc45", arch: x86_64, sha256: 6a0f029aaa3a854085c4c2c131cae770c33dd9172f48d03628dc447c079a8c03, size: 799497, repo: fedora, location: "Packages/p/python3-setools-4.7.1-1.fc45.x86_64.rpm"}
+  - {set: live-apps, name: xdg-dbus-proxy, evr: "0.1.9-1.fc45", arch: x86_64, sha256: 49b1f3736267d3035ef8e1e2c7f5bbad73d6bdebdc221bef59c0258cc892fee3, size: 48299, repo: fedora, location: "Packages/x/xdg-dbus-proxy-0.1.9-1.fc45.x86_64.rpm"}
