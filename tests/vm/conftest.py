@@ -171,3 +171,12 @@ def base_vm(request, base_disk, workdir, logdir, accel, secure_boot_firmware):
         base_disk, name, workdir, logdir, accel, secure_boot_firmware, developer_access=False
     ) as instance:
         yield instance
+
+
+@pytest.fixture(scope="session")
+def iso(request) -> Path:
+    """The Live ISO (out/release-live/AEGIS-OS-GUI-Live.iso by default)."""
+    path = Path(request.config.getoption("--live-iso")).resolve()
+    if not path.is_file():
+        pytest.fail(f"{path} not found; build it with 'make live-iso'")
+    return path

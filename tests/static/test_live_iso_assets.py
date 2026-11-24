@@ -84,3 +84,21 @@ def test_iso_assembly_labels_and_keeps_xattrs(root):
 def test_live_build_never_writes_devices(root, path):
     text = (root / path).read_text()
     assert "/dev/sd" not in text and "/dev/nvme" not in text and "of=/dev" not in text
+
+
+def test_flathub_is_a_user_remote_from_the_fedora_package(root):
+    unit = (root / LIVE / "usr/lib/systemd/user/aegis-flathub-user-remote.service").read_text()
+    assert "flatpak remote-add --user --if-not-exists" in unit
+    assert "/usr/share/aegis/flatpak/flathub.flatpakrepo" in unit
+    assert "http" not in unit.split("[Service]", 1)[1], "the unit must not download anything"
+    containerfile = (root / "image/Containerfile.live").read_text()
+    assert "from=rpms,source=live-apps" in containerfile
+    assert "rpm -ql fedora-flathub-remote" in containerfile
+    assert "rm -fv /usr/share/flatpak/remotes.d/*.flatpakrepo" in containerfile
+    assert "systemctl --global enable aegis-flathub-user-remote.service" in containerfile
+
+
+def test_network_tests_are_separate_from_the_offline_suite(root):
+    script = (root / "scripts/run-live-tests").read_text()
+    assert "run_suite none tests/vm/test_live_iso.py" in script
+    assert "run_suite bridge tests/vm/test_live_flatpak.py" in script

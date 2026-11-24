@@ -302,7 +302,15 @@ def test_the_repository_lock_is_current(rpmlock, root):
         (root / "image/packages/rpms.in.yaml").read_bytes(),
         (root / "image/base.lock").read_text(),
     )
-    assert {p.set for p in lock.packages} == {"base", "dev", "dev-policy", "gui", "live", "live-apps", "builder"}
+    assert {p.set for p in lock.packages} == {
+        "base",
+        "dev",
+        "dev-policy",
+        "gui",
+        "live",
+        "live-apps",
+        "builder",
+    }
 
 
 def test_a_package_from_another_repository_is_refused(rpmlock, tree):

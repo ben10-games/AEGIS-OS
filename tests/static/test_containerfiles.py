@@ -87,7 +87,7 @@ def test_locked_install_steps_match_the_inputs(root):
         "image/Containerfile": {"base"},
         "image/Containerfile.dev": {"dev", "dev-policy"},
         "image/Containerfile.gui": {"gui"},
-        "image/Containerfile.live": {"live"},
+        "image/Containerfile.live": {"live", "live-apps"},
         "build/builder/Containerfile": {"builder"},
     }
     for name, steps in mounts.items():

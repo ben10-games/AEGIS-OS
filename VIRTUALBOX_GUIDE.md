@@ -87,6 +87,40 @@ Whoever can use the virtual machine's console can read it; that is no more than 
 already control (the boot menu has no password either). Logging in as root over the
 network with a password is refused.
 
+## 5a. Installing applications with Flatpak (for example Google Chrome)
+
+Flatpak is included, and **Flathub** is set up as an application source for the live
+account. The account is not an administrator, so applications are installed for this
+user only (`--user`). In Konsole:
+
+```bash
+flatpak install --user flathub com.google.Chrome
+```
+
+```bash
+flatpak run com.google.Chrome
+```
+
+Confirm with `y` when asked. Installed applications also appear in the launcher
+(possibly only after the next login, which in a live session means after a restart, so
+use `flatpak run` instead). Other examples: `flatpak search firefox`,
+`flatpak list --user`.
+
+Important limits of the live session:
+
+- **Nothing you install is kept.** The live system writes into memory; at power-off every
+  installed application is gone and has to be installed again at the next start. (Keeping
+  changes is a separate, later milestone.)
+- **Memory is the storage.** Everything you download and install takes memory, and the
+  live system's writable space is limited to about half of the virtual machine's memory.
+  Google Chrome with its Flatpak runtime needs @CHROME_SPACE@; see the measurements in
+  section 8. Give the machine **8192 MB** if you want to install larger applications or
+  several of them; with 4096 MB, Chrome fits but little else does. `df -h /` in Konsole
+  shows the space left.
+- Installing needs internet access (NAT is enough). Flathub's applications are built and
+  published by their own developers (Chrome by Google, downloaded from Google's servers
+  during the installation), not by AEGIS OS or Fedora.
+
 ## 6. Troubleshooting
 
 | Symptom | Cause and fix |

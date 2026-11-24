@@ -71,14 +71,6 @@ def run(*command: str) -> str:
 
 
 @pytest.fixture(scope="module")
-def iso(request) -> Path:
-    path = Path(request.config.getoption("--live-iso")).resolve()
-    if not path.is_file():
-        pytest.fail(f"{path} not found; build it with 'make live-iso'")
-    return path
-
-
-@pytest.fixture(scope="module")
 def extracted(iso, tmp_path_factory) -> Path:
     target = tmp_path_factory.mktemp("iso")
     run(

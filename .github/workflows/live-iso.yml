@@ -3,7 +3,9 @@ name: live-iso
 # AEGIS OS graphical Live ISO (development) for VirtualBox and other UEFI VMs.
 # Builds the unsealed graphical root filesystem from the locked inputs, turns it into a
 # UEFI-bootable Live ISO, checks the ISO's structure and boots it in QEMU on hardware
-# chosen to match VirtualBox's defaults (tests/vm/test_live_iso.py). The ISO is
+# chosen to match VirtualBox's defaults (tests/vm/test_live_iso.py, offline), then once
+# more to install and start Google Chrome from Flathub as the live user
+# (tests/vm/test_live_flatpak.py; reaches Flathub and Google's download server). The ISO is
 # published as the artifact aegis-os-gui-live-iso only when every test passed, and only
 # on a manual start or when the head commit message contains [publish-iso].
 on:
@@ -16,6 +18,8 @@ on:
       - scripts/summarize-live
       - scripts/container/assemble-live-iso
       - tests/vm/test_live_iso.py
+      - tests/vm/test_live_flatpak.py
+      - tests/vm/conftest.py
       - tests/vm/harness/**
       - VIRTUALBOX_GUIDE.md
       - .github/workflows/live-iso.yml
@@ -89,7 +93,7 @@ jobs:
           name: live-iso-logs-${{ github.sha }}
           path: |
             out/summary-live.txt
-            out/junit-live.xml
+            out/junit-live*.xml
             out/vm-live/logs/
             out/release-live/BUILD-INFO.txt
             out/release-live/SHA256SUMS

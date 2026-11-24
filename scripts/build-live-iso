@@ -21,10 +21,12 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 inputs=out/inputs/rpms
-if [[ ! -s "${inputs}/live/SHA256SUMS" ]]; then
-  echo "INPUT ERROR: no verified 'live' RPM inputs in ${inputs}; run scripts/fetch-inputs" >&2
-  exit 1
-fi
+for step in live live-apps; do
+  if [[ ! -s "${inputs}/${step}/SHA256SUMS" ]]; then
+    echo "INPUT ERROR: no verified '${step}' RPM inputs in ${inputs}; run scripts/fetch-inputs" >&2
+    exit 1
+  fi
+done
 for image in localhost/aegis-gui-rootfs:latest localhost/aegis-builder:latest; do
   if ! "${as_root[@]}" podman image exists "${image}"; then
     echo "error: ${image} is missing (see the usage at the top of this script)" >&2
