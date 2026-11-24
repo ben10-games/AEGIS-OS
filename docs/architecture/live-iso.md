@@ -77,3 +77,22 @@ are hard links to the system files, and setfiles would otherwise give them `defa
 With QEMU's VMware SVGA II device, `vmwgfx` loads but refuses the device ("Hardware has
 no pitchlock", probe error -38; run 45204188680), and the desktop runs on simpledrm, the
 firmware framebuffer. That is also the fallback on any VM where the GPU driver fails.
+
+## Flatpak (owner request)
+
+- Packages (live root only, locked step `live-apps`): `flatpak`, `flatpak-selinux` (Fedora's
+  SELinux policy module for Flatpak), `fedora-flathub-remote` (Flathub's URL and signing
+  key in a Fedora-signed RPM).
+- Flathub is added to the live account's own installation at login
+  (`aegis-flathub-user-remote.service`, a user unit, from
+  `/usr/share/aegis/flatpak/flathub.flatpakrepo`, without Fedora's filter line). There is
+  no system-wide remote: Fedora's `fedora` remote is deleted at build time and
+  `flatpak-add-fedora-repos.service` is masked, so applications go to `--user`.
+- Writable space: `aegis-live-overlay-space.service` lets the RAM overlay (in `/run`) use
+  75% of memory instead of systemd's 20%; memory is used only by what is written.
+- KWallet is disabled in the live session (`/etc/xdg/kwalletrc`): the account has no
+  password, and Chrome otherwise opens the wallet assistant.
+- Verified in `live-iso` run 45412268908 (`tests/vm/test_live_flatpak.py`, with network):
+  Chrome installed with `--user` and started; 2.6 GB of overlay; SELinux enforcing, no
+  denials. Screenshot: `live-iso-screenshots/live-chrome-flatpak-quarter.png`.
+- Not provided: persistence; installations are lost at power-off.

@@ -66,6 +66,22 @@ not merged anywhere (merging needs the owner's authorisation).
   `aegis-os-gui-live-iso` (ISO SHA-256 `17abfe84533ecf45ea25faf99698dda089f45f9e3742f5e5e2cf19ee90dcb003`,
   1,487,904,768 bytes), kept until 2026-12-07. Screenshots inspected:
   `docs/architecture/live-iso-screenshots/`.
+- **Owner feedback:** the ISO booted in Oracle VirtualBox on Linux Mint (owner report).
+- **Flatpak (owner request):** `flatpak`, `flatpak-selinux` and `fedora-flathub-remote`
+  in the live root only (locked step `live-apps`, update-inputs run 45402156615, which also
+  took Fedora updates of kwin, openssh and edk2-ovmf). Flathub is a remote of the live
+  account's own installation (`aegis-flathub-user-remote`, a user unit, from the file in
+  Fedora's signed package; its Fedora filter line is dropped); no system remote (Fedora's
+  'fedora' remote deleted at build time, `flatpak-add-fedora-repos.service` masked).
+  The RAM overlay may use 75% of memory (`aegis-live-overlay-space.service`; systemd's
+  default 20% was 779 MB). KWallet is off in the live session. Verified: `live-iso` run
+  45412268908 on `3ca1749`, offline suite 16/16, network suite 4/4:
+  `flatpak install --user flathub com.google.Chrome` in 22 s (Chrome 158, installation
+  "user", 2.6 GB in the overlay of 2.9 GB in a 4 GiB VM), Chrome running in the session
+  (screenshot inspected), SELinux enforcing, zero denials, zero failed units. With Chrome
+  running only about 80 MB of memory remained available: 8 GiB is recommended. Installed
+  applications are lost at power-off (persistence is a separate milestone). The network
+  suite reaches dl.flathub.org and Google's download server (owner request).
 - **Not verified:** Oracle VirtualBox itself (no VirtualBox on the runners; would need a
   new download host), the desktop as drawn on VMSVGA, Secure Boot, the `nomodeset` entry.
 - **Bugs fixed on the way:** CI runs 45185892320 (`/mnt` scratch disk absent),
