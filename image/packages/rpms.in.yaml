@@ -11,6 +11,8 @@
 #   gui         image/Containerfile.gui (graphical development image), on top of aegis-dev
 #   live        the initramfs stage of image/Containerfile.live (Live ISO), on top of
 #               aegis-gui; only the generated initramfs leaves that stage
+#   live-apps   the root stage of image/Containerfile.live, on top of aegis-gui: Flatpak
+#               and Fedora's Flathub remote definition (signed by Fedora, like every RPM)
 #   builder     build/builder/Containerfile (tools and test container), on the base
 #
 # "name@other" means: the version and release of 'other' as installed in that step's
@@ -60,6 +62,9 @@ gui:
   - noopenh264
 live:
   - dracut-live
+live-apps:
+  - flatpak
+  - fedora-flathub-remote
 builder:
   - binutils
   - edk2-ovmf
