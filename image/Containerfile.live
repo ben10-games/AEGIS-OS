@@ -39,7 +39,8 @@ FROM ${BASE} AS root
 # the system installation would need administrator rights, which the live account does
 # not have. Fedora's flatpak package also registers its own system remote ('fedora',
 # Fedora's container registry) when installed; it is deleted for the same reason
-# (CI run 45403902691). Flatpak applications are installed with --user into the live account's home,
+# (CI run 45403902691), and the unit that adds it again at boot is masked (CI run
+# 45407725319). Flatpak applications are installed with --user into the live account's home,
 # which is in the RAM overlay and is lost at power-off.
 RUN --mount=type=bind,from=rpms,source=live-apps,target=/tmp/aegis-rpms \
     --mount=type=bind,source=image/build,target=/tmp/aegis-build \
@@ -57,6 +58,8 @@ RUN --mount=type=bind,from=rpms,source=live-apps,target=/tmp/aegis-rpms \
     && for remote in $(flatpak remotes --system --columns=name); do \
          flatpak remote-delete --system --force "${remote}"; done \
     && test -z "$(flatpak remotes --system --columns=name)" \
+    && for unit in $(systemctl list-unit-files 'flatpak-add-*' --no-legend | awk '{print $1}'); do \
+         systemctl mask "${unit}"; done \
     && flatpak --version
 
 # Live layer: the unprivileged autologin account, its home, no screen lock (it has no

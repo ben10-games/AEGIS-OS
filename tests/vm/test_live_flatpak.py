@@ -50,11 +50,17 @@ def test_flatpak_with_flathub_for_the_live_account_only(vm, logdir):
     user_remotes = as_user(vm, "flatpak remotes --user --columns=name,url").stdout
     system_remotes = vm.ssh("flatpak remotes --system --columns=name").stdout.strip()
     unit = as_user(vm, "systemctl --user is-active aegis-flathub-user-remote.service", False)
+    origin = vm.ssh(
+        "systemctl list-unit-files 'flatpak*' --no-legend; "
+        "grep -rls registry.fedoraproject.org /etc/flatpak /var/lib/flatpak/repo/config "
+        "/usr/share/flatpak /usr/lib/flatpak 2>/dev/null",
+        check=False,
+    ).stdout
     log(
         logdir,
         "flatpak",
         f"{version}\nuser remotes:\n{user_remotes}\nsystem remotes: {system_remotes or 'none'}\n"
-        f"remote unit: {unit.stdout.strip()}",
+        f"remote unit: {unit.stdout.strip()}\nflatpak units and remote files:\n{origin}",
     )
     assert re.search(r"^flathub\s+https://dl\.flathub\.org/repo/", user_remotes, re.M), user_remotes
     assert not system_remotes, "a system-wide remote would need administrator rights"

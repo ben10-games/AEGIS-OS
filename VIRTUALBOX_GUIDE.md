@@ -33,7 +33,7 @@ In VirtualBox Manager choose **Machine → New**:
 | ISO Image | `AEGIS-OS-GUI-Live.iso` |
 | Type / Subtype / Version | Linux / Fedora / Fedora (64-bit) |
 | Skip Unattended Installation | **on** (there is nothing to install) |
-| Base Memory | 4096 MB (more is better; 4096 MB is what was tested) |
+| Base Memory | 4096 MB for the desktop (tested); **8192 MB to install Google Chrome or other Flatpak applications** (section 5a) |
 | Processors | 2 to 4 |
 | **Enable EFI (special OSes only)** | **on** (required: the ISO boots with UEFI only) |
 | Hard Disk | **Do Not Add a Virtual Hard Disk** |
@@ -111,12 +111,13 @@ Important limits of the live session:
 - **Nothing you install is kept.** The live system writes into memory; at power-off every
   installed application is gone and has to be installed again at the next start. (Keeping
   changes is a separate, later milestone.)
-- **Memory is the storage.** Everything you download and install takes memory, and the
-  live system's writable space is limited to about half of the virtual machine's memory.
-  Google Chrome with its Flatpak runtime needs @CHROME_SPACE@; see the measurements in
-  section 8. Give the machine **8192 MB** if you want to install larger applications or
-  several of them; with 4096 MB, Chrome fits but little else does. `df -h /` in Konsole
-  shows the space left.
+- **Memory is the storage.** Everything you download and install is kept in memory. The
+  live system lets its writable space grow to 75% of the virtual machine's memory (about
+  2.9 GB with 4096 MB). Google Chrome with its Flatpak runtime takes **about 2.6 GB** of
+  it (measured in CI). With 4096 MB, Chrome installs and starts, but the machine is then
+  almost out of memory (about 75 MB left) and may become slow or close applications.
+  **Give the machine 8192 MB for Chrome**, more for several applications. `df -h /` in
+  Konsole shows the space left, `free -m` the memory.
 - Installing needs internet access (NAT is enough). Flathub's applications are built and
   published by their own developers (Chrome by Google, downloaded from Google's servers
   during the installation), not by AEGIS OS or Fedora.
@@ -166,6 +167,11 @@ The `live-iso` workflow builds the ISO and, before offering it for download:
   Settings; the AEGIS Security widget's values; networking; the audio device; SELinux
   enforcing with no denials; no failed services; the per-boot administrator password; a
   clean power-off. Screenshots are in the run's log artifact.
+- with internet access, in a second boot: Flatpak with Flathub as the live account's own
+  application source and no system-wide source; `flatpak install --user flathub
+  com.google.Chrome` succeeds (into the account's home in the RAM overlay); Chrome starts
+  in the desktop; SELinux enforcing with no denials afterwards. Persistence across a
+  restart is not tested and not provided.
 - **Graphics:** these interactive checks use QEMU's standard VGA, because QEMU's emulation
   of the VMware SVGA II device (the device VirtualBox's VMSVGA presents) does not show what
   a current desktop draws. A second boot with that device checks only that the desktop
