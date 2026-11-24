@@ -82,6 +82,11 @@ not merged anywhere (merging needs the owner's authorisation).
   running only about 80 MB of memory remained available: 8 GiB is recommended. Installed
   applications are lost at power-off (persistence is a separate milestone). The network
   suite reaches dl.flathub.org and Google's download server (owner request).
+- **Published with Flatpak:** `live-iso` run 45415843543 on `1883126` (16/16 offline, 4/4
+  Flatpak; Chrome 158.0.8127.88 installed with --user in 32 s), artifact
+  `aegis-os-gui-live-iso`, ISO SHA-256
+  `77d9168783459016e090756a111fa1a5421d4892366b61efd69798ab62014e7b`, 1,495,891,968 bytes,
+  kept until 2026-12-08.
 - **Not verified:** Oracle VirtualBox itself (no VirtualBox on the runners; would need a
   new download host), the desktop as drawn on VMSVGA, Secure Boot, the `nomodeset` entry.
 - **Bugs fixed on the way:** CI runs 45185892320 (`/mnt` scratch disk absent),
