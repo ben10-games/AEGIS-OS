@@ -220,6 +220,12 @@ def test_boots_as_a_live_system(live, logdir):
     assert "IMAGE_ID=aegis-gui-live" in release, release
     assert live.ssh("cat /sys/kernel/security/lockdown").stdout.count("[integrity]") == 1
     assert live.ssh("findmnt -rn -o FSTYPE /run/rootfsbase").stdout.strip() == "squashfs"
+    # The writable part of the overlay may use up to 75% of the memory
+    # (aegis-live-overlay-space.service), not systemd's default 20%.
+    memory = int(live.ssh("awk '/^MemTotal:/ {print $2}' /proc/meminfo").stdout) * 1024
+    size = int(live.ssh("df -B1 --output=size / | tail -n 1").stdout)
+    log(logdir, "boot", f"writable overlay: {size} bytes of {memory} bytes memory")
+    assert 0.70 * memory <= size <= 0.80 * memory, (size, memory)
 
 
 def test_selinux_enforcing_with_labelled_files(live, logdir):

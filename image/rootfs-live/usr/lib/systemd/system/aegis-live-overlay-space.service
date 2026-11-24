@@ -1,0 +1,21 @@
+# AEGIS OS Live ISO only. The live system writes into an overlay whose writable part is
+# kept in /run, a memory file system that systemd limits to 20% of the memory (779 MB in
+# a 4 GiB machine; CI run 45403902691: too little to install Google Chrome with
+# Flatpak). This raises the limit to 75% of the memory. It is a limit, not a
+# reservation: memory is used only by what is actually written, and what is written
+# competes with running applications for the same memory. Lost at power-off.
+[Unit]
+Description=AEGIS Live: let the RAM overlay use up to 75% of memory
+DefaultDependencies=no
+ConditionKernelCommandLine=rd.live.image
+After=systemd-remount-fs.service
+Before=local-fs.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/mount -o remount,size=75%% /run
+
+[Install]
+WantedBy=local-fs.target

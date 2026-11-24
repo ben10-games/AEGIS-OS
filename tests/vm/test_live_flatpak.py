@@ -41,7 +41,7 @@ def vm(iso, workdir, logdir, accel):
 def space(vm) -> str:
     """Free space of the root overlay and of /run, which holds the overlay, and memory."""
     return vm.ssh(
-        "df -h --output=target,size,used,avail / /run; free -m | head -n 2", check=False
+        "df -h --output=target,size,used,avail / /run; free -m; swapon --show", check=False
     ).stdout
 
 

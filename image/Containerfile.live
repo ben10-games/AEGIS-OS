@@ -37,7 +37,9 @@ FROM ${BASE} AS root
 # it is kept as a file for the per-user remote (aegis-flathub-user-remote, a user unit),
 # and removed from remotes.d, so that there is no system-wide remote: installing into
 # the system installation would need administrator rights, which the live account does
-# not have. Flatpak applications are installed with --user into the live account's home,
+# not have. Fedora's flatpak package also registers its own system remote ('fedora',
+# Fedora's container registry) when installed; it is deleted for the same reason
+# (CI run 45403902691). Flatpak applications are installed with --user into the live account's home,
 # which is in the RAM overlay and is lost at power-off.
 RUN --mount=type=bind,from=rpms,source=live-apps,target=/tmp/aegis-rpms \
     --mount=type=bind,source=image/build,target=/tmp/aegis-build \
@@ -52,6 +54,9 @@ RUN --mount=type=bind,from=rpms,source=live-apps,target=/tmp/aegis-rpms \
     && install -D -m 0644 "${repo}" /usr/share/aegis/flatpak/flathub.flatpakrepo \
     && sed -i '/^Filter=/d' /usr/share/aegis/flatpak/flathub.flatpakrepo \
     && rm -fv /usr/share/flatpak/remotes.d/*.flatpakrepo /etc/flatpak/remotes.d/*.flatpakrepo \
+    && for remote in $(flatpak remotes --system --columns=name); do \
+         flatpak remote-delete --system --force "${remote}"; done \
+    && test -z "$(flatpak remotes --system --columns=name)" \
     && flatpak --version
 
 # Live layer: the unprivileged autologin account, its home, no screen lock (it has no
@@ -71,6 +76,7 @@ RUN rm -v /usr/lib/systemd/system/sysinit.target.wants/aegis-verify-cmdline.serv
     && rm -fv /usr/lib/modules/*/initramfs.img \
     && systemctl enable aegis-live-admin.service \
     && systemctl --global enable aegis-flathub-user-remote.service \
+    && systemctl enable aegis-live-overlay-space.service \
     && os_release="$(realpath /usr/lib/os-release)" \
     && sed -i -e 's|^VARIANT=.*|VARIANT="Graphical Live (development)"|' \
               -e 's|^VARIANT_ID=.*|VARIANT_ID=live|' \
