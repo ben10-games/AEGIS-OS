@@ -61,6 +61,13 @@ authorisation). Design and diagnosis: `docs/architecture/gui-v2.md`; release not
   use; Chrome install and start; all earlier Live ISO checks (SELinux enforcing, no
   denials, security dashboard, admin password, network, audio, clean power-off). Sealed
   GUI image (`build`): blur loaded under Full Liquid Glass.
+- **Published:** `live-iso` run 45611819540 on `a0df15a`: offline suite 24/24, Flatpak
+  suite 5/5; artifact `aegis-os-gui-v2-live-iso` (ISO, SHA256SUMS, VIRTUALBOX_GUIDE.md,
+  CHANGELOG-GUI-v2.md, BUILD-INFO.txt, TEST-REPORT.txt), kept until 2026-12-09.
+  `AEGIS-OS-GUI-v2-Live.iso` SHA-256
+  `640aaae8a6827a358c6cabb558775b5c0bcf830828696df216614ed9f5678c02`, 1,497,243,648 bytes.
+  Same run: glass popup over animation KWin 117 % (Balanced) / 115 % (Full) against 45 %
+  (Performance); idle KWin 1.5 %, 1.35 GB used.
 - **Not verified:** real VirtualBox (resize with the guest tools, full screen, VMSVGA
   rendering, 3D acceleration), refraction (not implemented), hardware-GPU performance.
 - **Bugs found on the way:** Fedora's Qt drops `console.log` (run 45597365211);
