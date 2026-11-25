@@ -18,7 +18,7 @@ PlasmoidItem {
 
     switchWidth: Kirigami.Units.gridUnit * 16
     switchHeight: Kirigami.Units.gridUnit * 16
-    Plasmoid.icon: "aegis-os"
+    Plasmoid.icon: "preferences-desktop-theme-global"
 
     readonly property var profiles: [
         { id: "auto", title: "Automatic",

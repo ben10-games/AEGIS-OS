@@ -9,7 +9,7 @@ logs=out/vm-live/logs
 
 # Screenshots first and the text last: the log is read through an excerpt of its end.
 # All screenshots are in the uploaded log artifact; the log carries the key ones.
-python3 scripts/print_screenshots.py "${logs}" live res-1366x768:4 res-2560x1440:8 chrome:6 \
+python3 scripts/print_screenshots.py "${logs}" live res-1366x768:4 res-largest:8 chrome:6 \
   launcher:3 glass-performance:4 glass-full:3
 
 section() {

@@ -560,16 +560,16 @@ def dock_geometry(vm) -> tuple[int, ...]:
     raise AssertionError("KWin reported no dock window")
 
 
-def offered_mode(text: str, width: int, height: int) -> list[str]:
-    """[output name, mode id] for WIDTHxHEIGHT from 'kscreen-doctor --outputs' (the
-    '--json' variant aborted outside the session in CI run 45597365211)."""
+def offered_modes(text: str) -> tuple[str, list[tuple[str, int, int, float]]]:
+    """Output name and its modes (id, width, height, refresh) from 'kscreen-doctor
+    --outputs' (the '--json' variant aborted outside the session in CI run 45597365211)."""
     text = re.sub(r"\x1b\[[0-9;]*m", "", text)
     name = re.search(r"^Output:\s+\d+\s+(\S+)", text, re.M)
-    modes = re.findall(r"(\d+):(\d+)x(\d+)@([\d.]+)", text)
-    matching = sorted(
-        (m for m in modes if (int(m[1]), int(m[2])) == (width, height)), key=lambda m: -float(m[3])
-    )
-    return [name.group(1) if name else "none", matching[0][0] if matching else "none"]
+    modes = [
+        (m[0], int(m[1]), int(m[2]), float(m[3]))
+        for m in re.findall(r"(\d+):(\d+)x(\d+)@([\d.]+)", text)
+    ]
+    return (name.group(1) if name else "none"), modes
 
 
 def corner_is_drawn(path: Path) -> bool:
@@ -585,25 +585,42 @@ def corner_is_drawn(path: Path) -> bool:
     return False
 
 
-@pytest.mark.parametrize("size", ["1366x768", "2560x1440", "1920x1080"])
+@pytest.mark.parametrize("size", ["1366x768", "largest", "1920x1080"])
 def test_resolution_change_keeps_the_dock_in_place(live, logdir, size):
     """Display resizing: the output changes to SIZE (as when a VirtualBox window is resized
     or made full screen), the desktop fills the whole screen, and Plasma moves the dock to
-    the bottom centre of the new size."""
-    width, height = (int(v) for v in size.split("x"))
-    mode = offered_mode(in_session(live, "kscreen-doctor --outputs").stdout, width, height)
-    log(logdir, "resolutions", f"{size}: output and mode {mode}")
-    assert len(mode) == 2 and mode[1] != "none", f"{size} is not offered: {mode}"
-    in_session(live, f"kscreen-doctor output.{mode[0]}.mode.{mode[1]}")
+    the bottom centre of the new size. "largest" is the largest mode the virtual card
+    offers (QEMU's standard VGA offers no 2560x1440: CI run 45604938784)."""
+    output, modes = offered_modes(in_session(live, "kscreen-doctor --outputs").stdout)
+    sizes = sorted({(w, h) for _, w, h, _ in modes}, key=lambda s: -s[0] * s[1])
+    listing = " ".join(f"{w}x{h}" for w, h in sizes)
+    log(logdir, "resolutions", f"{size}: offered by {output}: {listing}")
+    if size == "largest":
+        chosen = max(modes, key=lambda m: (m[1] * m[2], m[3]))
+    else:
+        width, height = (int(v) for v in size.split("x"))
+        matching = sorted(
+            (m for m in modes if (m[1], m[2]) == (width, height)), key=lambda m: -m[3]
+        )
+        assert matching, f"{size} is not offered"
+        chosen = matching[0]
+    mode_id, width, height, _ = chosen
+    in_session(live, f"kscreen-doctor output.{output}.mode.{mode_id}")
     time.sleep(6)
     show_desktop(live, True)
     time.sleep(3)
     path = shot(live, logdir, f"res-{size}")
-    assert ppm_size(path) == (width, height)
+    shot_w, shot_h = ppm_size(path)
+    # A mode's framebuffer width can be rounded down to a multiple of 8 (1366 -> 1360).
+    assert width - 8 < shot_w <= width and shot_h == height, (shot_w, shot_h, width, height)
     assert corner_is_drawn(path), "black area at the bottom-right corner"
     sw, sh, x, y, w, h = dock_geometry(live)
-    log(logdir, "resolutions", f"{size}: screen {sw}x{sh}, dock at {x},{y} size {w}x{h}")
-    assert (sw, sh) == (width, height)
+    log(
+        logdir,
+        "resolutions",
+        f"{size} ({width}x{height}): screen {sw}x{sh}, dock at {x},{y} size {w}x{h}",
+    )
+    assert (sw, sh) == (shot_w, shot_h)
     assert abs((x + w / 2) - sw / 2) <= 4, "dock is not centred"
     assert sh - 40 <= y + h <= sh, "dock is not at the bottom"
     assert x >= 0 and x + w <= sw

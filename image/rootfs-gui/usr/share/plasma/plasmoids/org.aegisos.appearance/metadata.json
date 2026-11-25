@@ -5,7 +5,7 @@
         "Id": "org.aegisos.appearance",
         "Name": "AEGIS Appearance",
         "Description": "Choose the AEGIS Liquid Glass rendering profile",
-        "Icon": "aegis-os",
+        "Icon": "preferences-desktop-theme-global",
         "Category": "System Information",
         "Authors": [{"Name": "AEGIS OS"}],
         "License": "GPL-2.0-or-later",
