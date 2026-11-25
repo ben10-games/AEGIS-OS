@@ -34,7 +34,7 @@ In VirtualBox Manager choose **Machine → New**:
 | Type / Subtype / Version | Linux / Fedora / Fedora (64-bit) |
 | Skip Unattended Installation | **on** (there is nothing to install) |
 | Base Memory | 4096 MB for the desktop (tested); **8192 MB to install Google Chrome or other Flatpak applications** (section 5a) |
-| Processors | 2 to 4 |
+| Processors | **4** (software rendering spreads over all processors; 2 works) |
 | **Enable EFI (special OSes only)** | **on** (required: the ISO boots with UEFI only) |
 | Hard Disk | **Do Not Add a Virtual Hard Disk** |
 
@@ -43,7 +43,7 @@ Finish, then open **Settings** of the new machine and check:
 | Page | Setting |
 |---|---|
 | System → Motherboard | **Enable EFI** on; **Enable Secure Boot** off (see section 6) |
-| Display → Screen | Graphics Controller **VMSVGA**, Video Memory **128 MB**, **Enable 3D Acceleration off** |
+| Display → Screen | Graphics Controller **VMSVGA**, Video Memory **128 MB**, **Enable 3D Acceleration off** to start with (see section 3a) |
 | Storage | the controller's optical drive holds `AEGIS-OS-GUI-v2-Live.iso` |
 | Network → Adapter 1 | Enabled, Attached to **NAT** |
 | Audio | enabled (default) |
@@ -54,9 +54,50 @@ Press **Start**. A boot menu appears for five seconds and then starts
 **AEGIS OS Live (graphical desktop)** by itself. After about one to two minutes the AEGIS
 desktop appears, logged in as the user `aegis`. No password and no commands are needed.
 
-The desktop sets the screen to 1920×1080 at login when the virtual graphics card offers
-it. Other sizes: System Settings → Display & Monitor. Make the VirtualBox window large
-enough (View → Virtual Screen 1 → or full screen with Host+F).
+Inside VirtualBox the screen size follows the VirtualBox window (section 3a). Under other
+hypervisors the desktop starts at 1920×1080 when the virtual graphics card offers it.
+
+## 3a. Full screen, window resizing and graphics speed (GUI v2)
+
+**Full screen and resizing.** The ISO contains Fedora's VirtualBox guest tools
+(`virtualbox-guest-additions` 7.2: VBoxService, VBoxClient, VBoxDRMClient), which start
+only inside VirtualBox. With the VMSVGA graphics controller they pass the size of the
+VirtualBox window to the desktop:
+
+- **Host+F** (right Ctrl+F): full screen. **Host+C**: scaled mode. Resizing the window
+  changes the desktop size. View → **Auto-resize Guest Display** must be ticked.
+- The dock stays centred at the bottom at every size (tested in QEMU at 1366×768,
+  1920×1080 and the largest mode QEMU's card offers).
+- If the size does not follow the window: System Settings → Display & Monitor lists the
+  sizes the card offers (1366×768, 1920×1080, 2560×1440 and more).
+
+The automatic resizing itself has **not** been tested by the project: QEMU cannot
+simulate a VirtualBox window being resized. Please report whether it works.
+
+**Why the desktop was slow, and the rendering profiles.** Without 3D acceleration the
+VM has no graphics processor: every frame of the desktop is drawn by the CPU
+(Mesa's llvmpipe). Measured in QEMU (software rendering, 2 CPUs): drawing the glass blur
+behind a popup over moving content made KWin use **about 3 times the CPU** (111–116 % of
+one CPU against 37 % without blur) for the same frame rate. GUI v2 therefore picks a
+rendering profile automatically at login:
+
+| Profile | Blur | Animations | Chosen automatically when |
+|---|---|---|---|
+| Full Liquid Glass | strong, with grain | full length, magic-lamp minimise | never (choose it yourself) |
+| Balanced Glass | light | 75 % length | the graphics card renders (e.g. 3D acceleration on) |
+| Performance Glass | none (more opaque glass) | half length, fewer | software rendering (3D acceleration off) |
+
+Change it with **AEGIS Appearance** (in the dock, or search "Appearance" in the
+launcher). In Konsole, `/usr/libexec/aegis/graphics-report --measure` prints the
+renderer, the profile and a measured frame rate; please include it in reports.
+
+**3D acceleration.** VirtualBox's 3D acceleration for VMSVGA gives the VM a virtual GPU
+(Mesa's `svga` driver), which is much faster than software rendering when it works, but
+it depends on the host's graphics driver and is known to be unstable on some hosts.
+Start with it off; if you turn it on (Settings → Display → Enable 3D Acceleration), AEGIS
+detects the hardware renderer and switches to Balanced Glass. If the desktop shows
+glitches or does not start, turn it off again. 3D acceleration has not been tested by
+the project (the CI machines have no GPU).
 
 ## 4. What to try
 
@@ -128,7 +169,9 @@ Important limits of the live session:
 |---|---|
 | "No bootable medium found" or the EFI shell appears | EFI is off, or the ISO is not in the optical drive. Settings → System → Enable EFI; Settings → Storage. |
 | Secure Boot violation / boot refused | Turn **Enable Secure Boot** off (Settings → System). The ISO's boot loader is Fedora's signed shim and GRUB, but booting under Secure Boot was not tested. |
-| Black screen or a garbled desktop | In the boot menu (first five seconds, use the arrow keys) choose **AEGIS OS Live (basic graphics…)**. It uses the firmware's framebuffer (fixed size, slower). Also check that 3D acceleration is off. |
+| Black screen or a garbled desktop | Turn 3D acceleration off. Otherwise, in the boot menu (first five seconds, use the arrow keys) choose **AEGIS OS Live (basic graphics…)**: the firmware's framebuffer (fixed size, slower). |
+| Desktop still feels slow | Give the VM 4 processors; check in AEGIS Appearance that Performance Glass is in use; run `/usr/libexec/aegis/graphics-report --measure`. |
+| The size does not follow the window | View → Auto-resize Guest Display; or pick a size in System Settings → Display & Monitor. |
 | Very slow desktop | Give the machine 4 CPUs and more memory; make sure VirtualBox uses hardware virtualization (on Linux Mint, KVM must not hold it: VirtualBox 7.0/7.1 cannot run while another hypervisor such as a running QEMU/KVM machine uses VT-x). |
 | The screen stays at a small size | System Settings → Display & Monitor → choose 1920×1080. VirtualBox's automatic resizing needs the VirtualBox Guest Additions, which the ISO does not contain. |
 | No network | Settings → Network → Adapter 1 → NAT. |
