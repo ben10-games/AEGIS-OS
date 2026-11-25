@@ -24,7 +24,6 @@ from __future__ import annotations
 import base64
 import contextlib
 import hashlib
-import json
 import re
 import shutil
 import subprocess
@@ -452,8 +451,6 @@ def test_glass_profiles_switch_and_measure(live, logdir, record_property):
     """Each profile changes what KWin runs (blur loaded or not, animation length), and the
     frame meter measures frames and CPU under each. Numbers are recorded, not asserted:
     they describe QEMU with software rendering on a CI runner."""
-    live.send_keys("meta_l-d")
-    time.sleep(2)
     results = {}
     for profile in PROFILE_ORDER:
         out = as_user(live, f"{GLASS} apply {profile}").stdout
@@ -468,19 +465,28 @@ def test_glass_profiles_switch_and_measure(live, logdir, record_property):
         assert "fps=" in line, f"the frame meter reported nothing for {profile}"
         results[profile] = float(line.split("fps=")[1].split()[0])
         record_property(f"fps_{profile}", results[profile])
-        live.send_keys("meta_l-d")
         time.sleep(3)
         shot(live, logdir, f"glass-{profile}")
     as_user(live, f"{GLASS} apply auto")
     log(logdir, "performance", f"frames per second by profile: {results}")
 
 
+def show_desktop(vm, showing: bool) -> None:
+    as_user(
+        vm,
+        f"busctl --user call org.kde.KWin /KWin org.kde.KWin showDesktop b {str(showing).lower()}",
+        check=False,
+    )
+
+
 def test_launcher_opens_with_search(live, logdir):
-    """The AEGIS launcher (Application Dashboard) opens from the Meta key, finds an
-    application by typing, and closes with Escape."""
+    """The AEGIS launcher (Application Dashboard) opens with a click on the AEGIS mark at
+    the left end of the dock, finds an application by typing, and closes with Escape."""
+    show_desktop(live, True)
+    time.sleep(3)
+    sw, sh, x, y, w, h = dock_geometry(live)
     before = shot(live, logdir, "before-launcher").read_bytes()
-    started = time.monotonic()
-    live.send_keys("meta_l")
+    live.click((x + h / 2) / sw, (y + h / 2) / sh)
     time.sleep(3)
     opened = shot(live, logdir, "launcher").read_bytes()
     live.type_text("konsole")
@@ -489,13 +495,10 @@ def test_launcher_opens_with_search(live, logdir):
     live.send_keys("esc")
     time.sleep(1)
     live.send_keys("esc")
+    time.sleep(1)
+    show_desktop(live, False)
     changed = sum(1 for a, b in zip(before, opened, strict=False) if a != b)
-    log(
-        logdir,
-        "launcher",
-        f"pixels bytes changed by opening the launcher: {changed} "
-        f"({time.monotonic() - started:.1f} s incl. screenshots)",
-    )
+    log(logdir, "launcher", f"bytes changed by opening the launcher: {changed}")
     assert changed > 100000, "the launcher did not open"
 
 
@@ -539,6 +542,18 @@ def dock_geometry(vm) -> tuple[int, ...]:
     raise AssertionError("KWin reported no dock window")
 
 
+def offered_mode(text: str, width: int, height: int) -> list[str]:
+    """[output name, mode id] for WIDTHxHEIGHT from 'kscreen-doctor --outputs' (the
+    '--json' variant aborted outside the session in CI run 45597365211)."""
+    text = re.sub(r"\x1b\[[0-9;]*m", "", text)
+    name = re.search(r"^Output:\s+\d+\s+(\S+)", text, re.M)
+    modes = re.findall(r"(\d+):(\d+)x(\d+)@([\d.]+)", text)
+    matching = sorted(
+        (m for m in modes if (int(m[1]), int(m[2])) == (width, height)), key=lambda m: -float(m[3])
+    )
+    return [name.group(1) if name else "none", matching[0][0] if matching else "none"]
+
+
 def corner_is_drawn(path: Path) -> bool:
     """True if the bottom-right 16x16 pixels of a PPM screenshot are not pure black."""
     data = path.read_bytes()
@@ -558,22 +573,12 @@ def test_resolution_change_keeps_the_dock_in_place(live, logdir, size):
     or made full screen), the desktop fills the whole screen, and Plasma moves the dock to
     the bottom centre of the new size."""
     width, height = (int(v) for v in size.split("x"))
-    outputs = json.loads(as_user(live, "kscreen-doctor --json").stdout)["outputs"]
-    output = next(o for o in outputs if o.get("connected") and o.get("enabled"))
-    offered = sorted(
-        (
-            m
-            for m in output["modes"]
-            if (m["size"]["width"], m["size"]["height"]) == (width, height)
-        ),
-        key=lambda m: -m.get("refreshRate", 0),
-    )
-    mode = [output["name"], str(offered[0]["id"]) if offered else "none"]
+    mode = offered_mode(as_user(live, "kscreen-doctor --outputs").stdout, width, height)
     log(logdir, "resolutions", f"{size}: output and mode {mode}")
     assert len(mode) == 2 and mode[1] != "none", f"{size} is not offered: {mode}"
     as_user(live, f"kscreen-doctor output.{mode[0]}.mode.{mode[1]}")
     time.sleep(6)
-    live.send_keys("meta_l-d")
+    show_desktop(live, True)
     time.sleep(3)
     path = shot(live, logdir, f"res-{size}")
     assert ppm_size(path) == (width, height)
@@ -602,7 +607,7 @@ def test_virtualbox_guest_tools_present_and_idle_outside_virtualbox(live, logdir
 
 
 def test_idle_resource_usage(live, logdir, record_property):
-    live.send_keys("meta_l-d")
+    show_desktop(live, True)
     time.sleep(10)
     names = ("kwin_wayland", "plasmashell")
     before = cpu_ticks(live, names)

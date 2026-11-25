@@ -1,6 +1,6 @@
 /*
  * AEGIS Frame Meter (GUI v2). Animates a large part of its window continuously and
- * records the interval between frames that Qt Quick actually presented (frameSwapped),
+ * records the interval between the frames Qt Quick rendered (FrameAnimation ticks),
  * after a 3 s warm-up, over 10 s. Under Wayland a client may draw a frame only when the
  * compositor asks for one, so the rate it reaches measures the whole path: Qt Quick
  * rendering, KWin compositing and presentation. Results go to the window and, as one
@@ -8,7 +8,6 @@
  */
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Window
 import org.kde.plasma.plasmoid
 
 PlasmoidItem {
@@ -40,16 +39,17 @@ PlasmoidItem {
                 + " p50_ms=" + pick(0.5).toFixed(1) + " p95_ms=" + pick(0.95).toFixed(1)
                 + " max_ms=" + sorted[n - 1].toFixed(1) + " over_33ms=" + slow
                 + " backend=" + GraphicsInfo.api;
-            console.log("AEGIS-FRAMES " + result);
+            // Warning level: Fedora's Qt configuration drops debug-level (console.log) output.
+            console.warn("AEGIS-FRAMES " + result);
             done = true;
         }
 
-        Connections {
-            target: stage.Window.window
-            function onFrameSwapped() {
+        // One tick per frame the scene graph renders (Qt Quick's animation driver follows
+        // the render loop, which on Wayland waits for the compositor's frame callbacks).
+        FrameAnimation {
+            running: !stage.done
+            onTriggered: {
                 const now = Date.now();
-                if (stage.done)
-                    return;
                 if (stage.started === 0)
                     stage.started = now;
                 if (now - stage.started > 3000 && stage.last > 0)

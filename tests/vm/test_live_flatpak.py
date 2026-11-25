@@ -68,6 +68,16 @@ def test_flatpak_with_flathub_for_the_live_account_only(vm, logdir):
     assert "wheel" not in vm.ssh(f"id -nG {USER}").stdout.split()
 
 
+def test_frame_rate_with_four_cpus(vm, logdir, record_property):
+    """GUI v2: the frame meter under the automatic profile with 4 CPUs (software rendering
+    spreads over all CPUs); compared in the report with the 2-CPU offline suite. Runs before
+    Chrome is installed (CI run 45597365211: with Chrome running, memory was too short)."""
+    as_user(vm, "/usr/libexec/aegis/glass-profile apply auto")
+    line = frame_meter(vm, logdir, "4cpu-auto")
+    assert "fps=" in line
+    record_property("fps_4cpu_auto", float(line.split("fps=")[1].split()[0]))
+
+
 def test_chrome_installs_into_the_user_installation(vm, logdir, record_property):
     log(logdir, "flatpak", f"space before installing Chrome:\n{space(vm)}")
     started = time.monotonic()
@@ -131,12 +141,3 @@ def test_selinux_enforcing_without_denials_after_flatpak(vm, logdir):
     log(logdir, "flatpak", f"failed units: {failed or 'none'}")
     assert not denials.strip(), denials[:3000]
     assert not failed, failed
-
-
-def test_frame_rate_with_four_cpus(vm, logdir, record_property):
-    """GUI v2: the frame meter under the automatic profile with 4 CPUs (software rendering
-    spreads over all CPUs); compared in the report with the 2-CPU offline suite."""
-    as_user(vm, "/usr/libexec/aegis/glass-profile apply auto")
-    line = frame_meter(vm, logdir, "4cpu-auto")
-    assert "fps=" in line
-    record_property("fps_4cpu_auto", float(line.split("fps=")[1].split()[0]))
