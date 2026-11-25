@@ -12,7 +12,8 @@
 #   live        the initramfs stage of image/Containerfile.live (Live ISO), on top of
 #               aegis-gui; only the generated initramfs leaves that stage
 #   live-apps   the root stage of image/Containerfile.live, on top of aegis-gui: Flatpak
-#               and Fedora's Flathub remote definition (signed by Fedora, like every RPM)
+#               and Fedora's Flathub remote definition (signed by Fedora, like every RPM),
+#               and Fedora's VirtualBox guest tools (display resizing in VirtualBox)
 #   builder     build/builder/Containerfile (tools and test container), on the base
 #
 # "name@other" means: the version and release of 'other' as installed in that step's
@@ -65,6 +66,7 @@ live:
 live-apps:
   - flatpak
   - fedora-flathub-remote
+  - virtualbox-guest-additions
 builder:
   - binutils
   - edk2-ovmf
