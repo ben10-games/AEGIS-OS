@@ -220,10 +220,19 @@ The `live-iso` workflow builds the ISO and, before offering it for download:
   a current desktop draws. A second boot with that device checks only that the desktop
   session starts (it did; which kernel driver took the device was not recorded).
 
+- GUI v2, in the same QEMU machine: the renderer is identified (software, llvmpipe) and
+  Performance Glass is chosen automatically; each profile switches KWin's blur and the
+  animation length as described in section 3a; frame rate and CPU are measured under each
+  (see `TEST-REPORT.txt`); the launcher opens and searches; the screen is changed to
+  1366×768, 4096×2160 and 1920×1080 and the dock stays centred at the bottom with the
+  desktop filling the screen; the VirtualBox guest tools are installed and stay inactive
+  outside VirtualBox.
+
 **Not verified: Oracle VirtualBox itself.** The CI runners have no VirtualBox, so the
 ISO has not been booted in VirtualBox by the project. VirtualBox's EFI firmware, its
 VMSVGA device and its storage controllers are close to, but not the same as, what was
-tested. Also not tested: what the desktop looks like on VMSVGA, Secure Boot, the "basic graphics" menu entry, 3D acceleration,
+tested. Also not tested: automatic resizing and full screen through the VirtualBox guest
+tools, 3D acceleration, what the desktop looks like on VMSVGA, Secure Boot, the "basic graphics" menu entry, 3D acceleration,
 host sound output, Linux Mint as the host, and physical hardware.
 
 The run and commit that produced your ISO are in `BUILD-INFO.txt`.

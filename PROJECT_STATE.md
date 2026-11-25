@@ -30,6 +30,44 @@ only if it actually ran and passed, with the commit and where it ran.
      "differences between the golden manifests and this build" block of the job log
      into `tests/golden/` in the same commit series.
 
+### GUI v2 track (Liquid Glass 2.0, VirtualBox display, performance), branch `claude/aegis-os-gui-v2`
+
+Owner request after VirtualBox use: laggy desktop, basic look, no full-screen resizing.
+Branched from the Live ISO branch (`89cff21`); not merged anywhere (needs the owner's
+authorisation). Design and diagnosis: `docs/architecture/gui-v2.md`; release notes:
+`CHANGELOG-GUI-v2.md`; user guide: `VIRTUALBOX_GUIDE.md` sections 3a and 8.
+
+- **Diagnosis (QEMU, VirtualBox-like hardware, 2 CPUs; not VirtualBox):** KWin composites
+  with OpenGL ES on llvmpipe (no render node). With a glass popup over moving content KWin
+  used 113–116 % of one CPU in Balanced/Full Glass against 39 % in Performance Glass
+  (runs 45604938784 and 45608395419), 95th-percentile frame time 23–25 ms against 18 ms,
+  worst frame 100–109 ms against 57 ms; frame rate 57–59 fps in all. Without glass over
+  the animation: 33–35 % in every profile. 4 CPUs: 59.6 fps. Idle: KWin 1.8 %,
+  plasmashell 0.1 %, 1.34 GB used. The QEMU card's `vmwgfx` refusal and simpledrm fallback
+  were recorded earlier (run 45204188680). Plasma 6.8 has no X11 session.
+- **Implemented:** rendering profiles (Full Liquid Glass, Balanced Glass, Performance
+  Glass, Automatic: Performance on llvmpipe, Balanced otherwise) applied at login, AEGIS
+  Appearance utility, graphics-report and AEGIS Frame Meter; Baloo off; AEGIS Glass
+  Plasma theme (generated, adaptive to AEGIS Dark/Light, translucent and opaque variants,
+  edge highlights, sheen, shadows, task indicators), AEGIS Light scheme, wallpaper accent,
+  borderless Breeze with large shadows, dock that dodges windows; Kickoff launcher (the
+  Application Dashboard is not in this Plasma build); Fedora's VirtualBox guest tools 7.2.22
+  in the Live ISO (update-inputs run 45596097400) and the live 1920x1080 helper skipped
+  inside VirtualBox.
+- **Tested in CI (QEMU):** renderer identification and automatic profile; switching all
+  profiles (KWin blur loaded or not, animation factor); launcher click and search;
+  resolution changes 1366x768, 4096x2160 (largest offered) and 1920x1080 with the dock
+  centred at the bottom; VirtualBox units installed and skipped outside VirtualBox; idle
+  use; Chrome install and start; all earlier Live ISO checks (SELinux enforcing, no
+  denials, security dashboard, admin password, network, audio, clean power-off). Sealed
+  GUI image (`build`): blur loaded under Full Liquid Glass.
+- **Not verified:** real VirtualBox (resize with the guest tools, full screen, VMSVGA
+  rendering, 3D acceleration), refraction (not implemented), hardware-GPU performance.
+- **Bugs found on the way:** Fedora's Qt drops `console.log` (run 45597365211);
+  `kscreen-doctor` aborts outside the session environment (45601312768); the Application
+  Dashboard is absent (45601312768); QEMU's standard VGA rounds 1366 to a 1360-pixel
+  framebuffer (45608395419).
+
 ### Live ISO track (VirtualBox), branch `claude/aegis-os-gui-live-iso`
 
 Owner request: a UEFI-bootable graphical Live ISO (`AEGIS-OS-GUI-Live.iso`) that boots

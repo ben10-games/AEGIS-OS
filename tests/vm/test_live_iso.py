@@ -620,7 +620,10 @@ def test_resolution_change_keeps_the_dock_in_place(live, logdir, size):
         "resolutions",
         f"{size} ({width}x{height}): screen {sw}x{sh}, dock at {x},{y} size {w}x{h}",
     )
-    assert (sw, sh) == (shot_w, shot_h)
+    # KWin's screen is the mode; QEMU's standard VGA stores lines in multiples of 8 pixels,
+    # so its framebuffer (the screenshot) can be up to 7 pixels narrower (1366 -> 1360,
+    # CI run 45608395419). VirtualBox's VMSVGA has no such limit.
+    assert (sw, sh) == (width, height)
     assert abs((x + w / 2) - sw / 2) <= 4, "dock is not centred"
     assert sh - 40 <= y + h <= sh, "dock is not at the bottom"
     assert x >= 0 and x + w <= sw

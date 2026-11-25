@@ -7,13 +7,13 @@ lags in VirtualBox, looks basic, and does not resize to full screen. User guide:
 ## Phase A: what makes the desktop slow
 
 Measured in CI (QEMU/KVM on a GitHub runner, VirtualBox-like hardware, 2 CPUs, 4 GiB;
-`tests/vm/test_live_iso.py`, run 45604938784). Real VirtualBox was not available.
+`tests/vm/test_live_iso.py`, runs 45604938784 and 45608395419, which agree). Real VirtualBox was not available.
 
 | Question | Finding |
 |---|---|
 | Hardware or software rendering? | Software. KWin reports `Compositing Type: OpenGL ES`, renderer `llvmpipe (LLVM 23.1.5, 256 bits)`, Mesa 26.2.7. The VM has no render node (`/dev/dri` holds only `card0`). VirtualBox without 3D acceleration is in the same situation: VMSVGA without 3D gives no GPU. |
 | VMware SVGA / vmwgfx | In QEMU, `vmwgfx` refuses QEMU's old SVGA v2 device ("Hardware has no pitchlock", probe error -38) and the desktop runs on simpledrm (Live ISO run 45204188680). In VirtualBox, `vmwgfx` drives VMSVGA (the owner's boots worked); not measurable here. |
-| Cost of the glass | Frame meter animating under the launcher popup (KWin must re-blur changing content every frame): KWin used 111 % (Balanced) and 116 % (Full) of one CPU, against 37 % with Performance Glass (no blur); frame rate 58–59 fps in all three. Without anything blurred over the animation: 32–34 % in every profile. On a runner CPU the cost shows as CPU time; on a slower host or with fewer cores it becomes dropped frames (lag). |
+| Cost of the glass | Frame meter animating under the launcher popup (KWin must re-blur changing content every frame): KWin used 111–113 % (Balanced) and 116 % (Full) of one CPU, against 37–39 % with Performance Glass (no blur); 95th-percentile frame time 19–25 ms against 18 ms, worst frame 100–136 ms against 57–58 ms; frame rate 57–59 fps in all three. Without anything blurred over the animation: 32–34 % in every profile. On a runner CPU the cost shows as CPU time; on a slower host or with fewer cores it becomes dropped frames (lag). |
 | Frame pacing | Frame meter (Qt Quick frames, 10 s): 59–60 fps, median 17 ms, 95th percentile 17–20 ms, 0–5 frames over 33 ms per 10 s in every profile once warmed up. The first measurement after login was worse (49.9 fps, 48 frames over 33 ms in run 45601312768): startup work competes. |
 | CPUs | 4 CPUs: 59.8 fps, KWin 45 % of one CPU for the same animation (llvmpipe spreads work over all CPUs). |
 | Idle | After login, desktop shown: KWin 1.9 %, plasmashell 0.1 % of one CPU; 1.3 GB of memory used. |
@@ -83,3 +83,11 @@ and memory, plus all earlier Live ISO checks (security dashboard, SELinux, admin
 network, audio, clean power-off). `tests/vm/test_live_flatpak.py` (network, 4 CPUs):
 frame meter with 4 CPUs, Flathub, Chrome install and start. `tests/vm/test_gui.py` (the
 sealed QCOW2 GUI image): Full Liquid Glass loads KWin's blur.
+
+## Screenshots (CI, inspected)
+
+`gui-v2-screenshots/`: `full-glass-third.png` (Full Liquid Glass with Konsole, Dolphin
+and System Settings), `performance-glass-quarter.png` (Performance Glass, same scene),
+`launcher-third.png` (Kickoff in AEGIS Glass), `1366x768-quarter.png` (after switching
+to 1366x768: dock centred), `chrome-sixth.png` (Google Chrome from Flathub). Resolution
+tests also covered 4096x2160, the largest mode QEMU's card offers (no 2560x1440 there).
