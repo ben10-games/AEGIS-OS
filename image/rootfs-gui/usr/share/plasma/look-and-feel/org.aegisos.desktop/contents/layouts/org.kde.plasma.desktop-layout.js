@@ -6,8 +6,8 @@
 // it ("dodge windows") and comes back when the pointer reaches the bottom edge. Plasma
 // keeps it centred and at the bottom at every screen size.
 //
-// Contents: the launcher (Application Dashboard: a full-screen glass overlay with search,
-// recent applications and keyboard navigation) with the AEGIS mark, pinned applications
+// Contents: the launcher (Kickoff: a glass popup with search, favourites in a grid, all
+// applications and keyboard navigation) with the AEGIS mark, pinned applications
 // with running indicators, the AEGIS Security status, the system tray (network, volume,
 // quick settings) and the clock.
 
@@ -20,12 +20,13 @@ panel.lengthMode = "fit";
 panel.hiding = "dodgewindows";
 panel.opacity = "adaptive";
 
-const launcher = panel.addWidget("org.kde.plasma.kickerdash");
+// (The Application Dashboard, org.kde.plasma.kickerdash, is not part of this Plasma
+// build: CI run 45601312768 showed "Could not find requested component".)
+const launcher = panel.addWidget("org.kde.plasma.kickoff");
 launcher.currentConfigGroup = ["General"];
 launcher.writeConfig("icon", "aegis-os");
-launcher.writeConfig("showRecentApps", true);
-launcher.writeConfig("showRecentDocs", false);
-launcher.writeConfig("alphaSort", true);
+launcher.writeConfig("favoritesDisplay", 0);
+launcher.writeConfig("applicationsDisplay", 0);
 
 const tasks = panel.addWidget("org.kde.plasma.icontasks");
 tasks.currentConfigGroup = ["General"];

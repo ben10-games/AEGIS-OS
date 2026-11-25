@@ -42,8 +42,10 @@ results and what was and was not verified are in `TEST-REPORT.txt` (this CI run)
   the active app), hides when a window would cover it and returns at the bottom edge,
   stays centred at every screen size. Pinned: Files, Terminal, System Settings, AEGIS
   Appearance.
-- **Launcher**: Application Dashboard (full-screen glass overlay) with search, recent
-  applications and keyboard navigation, behind the AEGIS mark.
+- **Launcher**: Kickoff in an AEGIS Glass popup, with search, favourites and all
+  applications as icon grids and keyboard navigation, behind the AEGIS mark. (A list of
+  recently used applications is not offered: the Application Dashboard, which has one,
+  is not part of this Plasma build.)
 - **Windows**: borderless Breeze decorations with larger, softer shadows and centred
   titles.
 

@@ -194,7 +194,7 @@ def test_gui_dock_layout(gui, logdir):
     ).stdout
     (logdir / "gui-applets.txt").write_text(applets)
     for plugin in (
-        "org.kde.plasma.kickerdash",
+        "org.kde.plasma.kickoff",
         "org.kde.plasma.icontasks",
         "org.aegisos.security",
         "org.kde.plasma.systemtray",

@@ -405,9 +405,11 @@ def cpu_ticks(vm, names: tuple[str, ...]) -> dict[str, int]:
     return {k: int(v) for k, v in (line.split() for line in vm.ssh(script).stdout.splitlines())}
 
 
-def frame_meter(vm, logdir: Path, label: str) -> str:
+def frame_meter(vm, logdir: Path, label: str, launcher: bool = False) -> str:
     """Run the AEGIS frame meter for one measurement; returns its AEGIS-FRAMES line and logs
-    the CPU share of the compositor, the shell and the meter while it ran."""
+    the CPU share of the compositor, the shell and the meter while it ran. With launcher,
+    the launcher popup is opened over the animation during the measurement, so KWin has
+    to blur changing content behind a glass surface on every frame (where blur is on)."""
     since = vm.ssh("date '+%Y-%m-%d %H:%M:%S'").stdout.strip()
     names = ("kwin_wayland", "plasmashell", "plasmawindowed")
     before = cpu_ticks(vm, names)
@@ -416,6 +418,10 @@ def frame_meter(vm, logdir: Path, label: str) -> str:
         f"systemd-run --user --collect --unit=aegis-meter-{label} plasmawindowed "
         "org.aegisos.framemeter",
     )
+    if launcher:
+        time.sleep(2)
+        sw, sh, x, y, w, h = dock_geometry(vm)
+        vm.click((x + h / 2) / sw, (y + h / 2) / sh)
     line = ""
     deadline = time.monotonic() + 60
     while time.monotonic() < deadline and not line:
@@ -424,6 +430,8 @@ def frame_meter(vm, logdir: Path, label: str) -> str:
         line = next((x for x in out.splitlines() if "AEGIS-FRAMES" in x), "")
     after = cpu_ticks(vm, names)
     shot(vm, logdir, f"meter-{label}")
+    if launcher:
+        vm.send_keys("esc")
     as_user(vm, f"systemctl --user stop aegis-meter-{label}.service", check=False)
     cpus = int(vm.ssh("nproc").stdout)
     span = max(1, after["total"] - before["total"])
@@ -465,10 +473,20 @@ def test_glass_profiles_switch_and_measure(live, logdir, record_property):
         assert "fps=" in line, f"the frame meter reported nothing for {profile}"
         results[profile] = float(line.split("fps=")[1].split()[0])
         record_property(f"fps_{profile}", results[profile])
+        line = frame_meter(live, logdir, f"{profile}-glass-popup", launcher=True)
+        assert "fps=" in line, f"the frame meter reported nothing for {profile} (popup)"
+        results[f"{profile}-glass-popup"] = float(line.split("fps=")[1].split()[0])
+        record_property(f"fps_{profile}_glass_popup", results[f"{profile}-glass-popup"])
         time.sleep(3)
         shot(live, logdir, f"glass-{profile}")
     as_user(live, f"{GLASS} apply auto")
     log(logdir, "performance", f"frames per second by profile: {results}")
+
+
+def in_session(vm, command: str, check: bool = True):
+    """Run a command through the user's systemd manager, with the desktop session's
+    environment (kscreen-doctor aborts when started outside it: CI run 45601312768)."""
+    return as_user(vm, f"systemd-run --user --wait --pipe --quiet {command}", check=check)
 
 
 def show_desktop(vm, showing: bool) -> None:
@@ -573,10 +591,10 @@ def test_resolution_change_keeps_the_dock_in_place(live, logdir, size):
     or made full screen), the desktop fills the whole screen, and Plasma moves the dock to
     the bottom centre of the new size."""
     width, height = (int(v) for v in size.split("x"))
-    mode = offered_mode(as_user(live, "kscreen-doctor --outputs").stdout, width, height)
+    mode = offered_mode(in_session(live, "kscreen-doctor --outputs").stdout, width, height)
     log(logdir, "resolutions", f"{size}: output and mode {mode}")
     assert len(mode) == 2 and mode[1] != "none", f"{size} is not offered: {mode}"
-    as_user(live, f"kscreen-doctor output.{mode[0]}.mode.{mode[1]}")
+    in_session(live, f"kscreen-doctor output.{mode[0]}.mode.{mode[1]}")
     time.sleep(6)
     show_desktop(live, True)
     time.sleep(3)

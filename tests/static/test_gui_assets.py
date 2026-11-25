@@ -127,5 +127,5 @@ def test_glass_profiles_cover_every_choice(root):
     autostart = (root / GUI / "etc/xdg/autostart/aegis-glass-profile.desktop").read_text()
     assert "Exec=/usr/libexec/aegis/glass-profile session" in autostart
     layout = (root / LAYOUT).read_text()
-    assert 'panel.addWidget("org.kde.plasma.kickerdash")' in layout
+    assert 'panel.addWidget("org.kde.plasma.kickoff")' in layout
     assert 'panel.hiding = "dodgewindows"' in layout
