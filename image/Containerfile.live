@@ -60,7 +60,11 @@ RUN --mount=type=bind,from=rpms,source=live-apps,target=/tmp/aegis-rpms \
     && test -z "$(flatpak remotes --system --columns=name)" \
     && for unit in $(systemctl list-unit-files 'flatpak-add-*' --no-legend | awk '{print $1}'); do \
          systemctl mask "${unit}"; done \
-    && flatpak --version
+    && flatpak --version \
+    && echo "VirtualBox guest tools (virtualbox-guest-additions):" \
+    && rpm -ql virtualbox-guest-additions | grep -E '/(s?bin|systemd|autostart|udev|modules-load)' \
+    && for unit in $(rpm -ql virtualbox-guest-additions | grep -E '\.service$' | xargs -r -n1 basename); do \
+         systemctl enable "${unit}" || true; done
 
 # Live layer: the unprivileged autologin account, its home, no screen lock (it has no
 # password), the per-boot administrator password service, the 1920x1080 login helper.

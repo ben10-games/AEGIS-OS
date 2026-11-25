@@ -1,0 +1,7 @@
+# AEGIS Glass (GUI v2). Surfaces use the translucent/ files while KWin's blur
+# is available and the more opaque base files otherwise.
+[BlurBehindEffect]
+enabled=true
+
+[AdaptiveTransparency]
+enabled=true

@@ -30,7 +30,7 @@ def pytest_addoption(parser):
     parser.addoption("--workdir", default="out/vm", help="directory for logs and scratch files")
     parser.addoption("--gui-disk", default="out/disk-gui.raw", help="aegis-gui disk image")
     parser.addoption(
-        "--live-iso", default="out/release-live/AEGIS-OS-GUI-Live.iso", help="Live ISO"
+        "--live-iso", default="out/release-live/AEGIS-OS-GUI-v2-Live.iso", help="Live ISO"
     )
     parser.addoption(
         "--sealed-variant", default="dev", help="variant whose sealed command line --disk carries"
@@ -175,7 +175,7 @@ def base_vm(request, base_disk, workdir, logdir, accel, secure_boot_firmware):
 
 @pytest.fixture(scope="session")
 def iso(request) -> Path:
-    """The Live ISO (out/release-live/AEGIS-OS-GUI-Live.iso by default)."""
+    """The Live ISO (out/release-live/AEGIS-OS-GUI-v2-Live.iso by default)."""
     path = Path(request.config.getoption("--live-iso")).resolve()
     if not path.is_file():
         pytest.fail(f"{path} not found; build it with 'make live-iso'")

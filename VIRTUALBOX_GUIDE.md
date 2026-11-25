@@ -1,6 +1,6 @@
 # AEGIS OS Live ISO in Oracle VirtualBox
 
-`AEGIS-OS-GUI-Live.iso` starts the AEGIS OS graphical desktop (KDE Plasma 6 on Wayland
+`AEGIS-OS-GUI-v2-Live.iso` starts the AEGIS OS graphical desktop (KDE Plasma 6 on Wayland
 with the AEGIS look) straight from a virtual CD. Nothing is installed: everything you
 do lives in the virtual machine's memory and is gone when it is switched off.
 
@@ -13,7 +13,7 @@ is not" before relying on it for anything.
    tick that has an artifact named **`aegis-os-gui-live-iso`** (bottom of the run page;
    you must be signed in). GitHub deletes it after 14 days.
 2. Download it and extract the ZIP into an empty folder. It contains
-   `AEGIS-OS-GUI-Live.iso`, `VIRTUALBOX_GUIDE.md` (this file), `BUILD-INFO.txt` (commit,
+   `AEGIS-OS-GUI-v2-Live.iso`, `VIRTUALBOX_GUIDE.md` (this file), `BUILD-INFO.txt` (commit,
    kernel, inputs) and `SHA256SUMS`.
 3. In a terminal in that folder (Linux Mint):
 
@@ -30,7 +30,7 @@ In VirtualBox Manager choose **Machine → New**:
 | Setting | Value |
 |---|---|
 | Name | `AEGIS OS Live` |
-| ISO Image | `AEGIS-OS-GUI-Live.iso` |
+| ISO Image | `AEGIS-OS-GUI-v2-Live.iso` |
 | Type / Subtype / Version | Linux / Fedora / Fedora (64-bit) |
 | Skip Unattended Installation | **on** (there is nothing to install) |
 | Base Memory | 4096 MB for the desktop (tested); **8192 MB to install Google Chrome or other Flatpak applications** (section 5a) |
@@ -44,7 +44,7 @@ Finish, then open **Settings** of the new machine and check:
 |---|---|
 | System → Motherboard | **Enable EFI** on; **Enable Secure Boot** off (see section 6) |
 | Display → Screen | Graphics Controller **VMSVGA**, Video Memory **128 MB**, **Enable 3D Acceleration off** |
-| Storage | the controller's optical drive holds `AEGIS-OS-GUI-Live.iso` |
+| Storage | the controller's optical drive holds `AEGIS-OS-GUI-v2-Live.iso` |
 | Network → Adapter 1 | Enabled, Attached to **NAT** |
 | Audio | enabled (default) |
 

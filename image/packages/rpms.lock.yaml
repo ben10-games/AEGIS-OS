@@ -4,9 +4,9 @@
 # yamllint disable rule:line-length
 lockfileVersion: 1
 base: "ghcr.io/ben10-games/aegis-os/fedora-bootc@sha256:d70fb477a35612f651fcfa397f41e2945514374d3fdaaa64b0e75a3ca1da2bbc"
-inputs: "sha256:3215bd16e4cf9306bc26d926bd594e31de23c9c1e705038a275a6f4de0c7c380"
-resolved: "2026-11-24T13:20:23Z"
-cache: "ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:6c30516fdc742a4628fc673a59c77352759e4eadc42e864abf66e5a00278ec49"
+inputs: "sha256:b9b2052a43e64d24ca441959eb5fd0e3d456aac8410373c4110f96cd3f0c9e7a"
+resolved: "2026-11-25T10:34:44Z"
+cache: "ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:fce62df26efce08a74790fdc283d2d37f32fa2b6d33638bbf2847139215288f1"
 packages:
   - {set: base, name: audit, evr: "4.2.1-2.fc45", arch: x86_64, sha256: 43ec6cfb0392238dc59db9dc72c7e8ddaca9e5802504cddf4d942cfd139e7081, size: 229371, repo: fedora, location: "Packages/a/audit-4.2.1-2.fc45.x86_64.rpm"}
   - {set: base, name: audit-rules, evr: "4.2.1-2.fc45", arch: x86_64, sha256: f7c016911334b9a939fc68fff5128ede29da771a207db3371606fdba99857574, size: 71607, repo: fedora, location: "Packages/a/audit-rules-4.2.1-2.fc45.x86_64.rpm"}
@@ -625,4 +625,5 @@ packages:
   - {set: live-apps, name: python3-libsemanage, evr: "3.11-4.fc45", arch: x86_64, sha256: 852f072c8c864324311d28f2639e924d3039990c247cb6513ec12a61c8e923d0, size: 85957, repo: fedora, location: "Packages/p/python3-libsemanage-3.11-4.fc45.x86_64.rpm"}
   - {set: live-apps, name: python3-policycoreutils, evr: "3.11-2.fc45", arch: noarch, sha256: b70741583a2e363285418831bf69c2e1b91d58b1d7d017b5fd005f372bafaa44, size: 2308140, repo: fedora, location: "Packages/p/python3-policycoreutils-3.11-2.fc45.noarch.rpm"}
   - {set: live-apps, name: python3-setools, evr: "4.7.1-1.fc45", arch: x86_64, sha256: 6a0f029aaa3a854085c4c2c131cae770c33dd9172f48d03628dc447c079a8c03, size: 799497, repo: fedora, location: "Packages/p/python3-setools-4.7.1-1.fc45.x86_64.rpm"}
+  - {set: live-apps, name: virtualbox-guest-additions, evr: "7.2.22-1.fc45", arch: x86_64, sha256: 9fbd4ec7dbe79dcb9f5428e8cb5a61e8b85ed5b7da978d897709f14a3ff0ffef, size: 750772, repo: updates, location: "Packages/v/virtualbox-guest-additions-7.2.22-1.fc45.x86_64.rpm"}
   - {set: live-apps, name: xdg-dbus-proxy, evr: "0.1.9-1.fc45", arch: x86_64, sha256: 49b1f3736267d3035ef8e1e2c7f5bbad73d6bdebdc221bef59c0258cc892fee3, size: 48299, repo: fedora, location: "Packages/x/xdg-dbus-proxy-0.1.9-1.fc45.x86_64.rpm"}

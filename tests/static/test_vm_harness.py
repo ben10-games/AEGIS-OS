@@ -137,13 +137,13 @@ def test_find_firmware_reports_what_it_looked_for(tmp_path):
 
 def test_virtualbox_like_machine_boots_the_iso_as_a_read_only_cd():
     command = build_qemu_command(
-        config(disk=Path("/out/AEGIS-OS-GUI-Live.iso"), virtualbox_like=True, accel="kvm")
+        config(disk=Path("/out/AEGIS-OS-GUI-v2-Live.iso"), virtualbox_like=True, accel="kvm")
     )
     devices = [command[i + 1] for i, arg in enumerate(command) if arg == "-device"]
     drives = [command[i + 1] for i, arg in enumerate(command) if arg == "-drive"]
     assert "pc,accel=kvm" in command
     assert (
-        "id=cd0,if=none,media=cdrom,readonly=on,format=raw,file=/out/AEGIS-OS-GUI-Live.iso"
+        "id=cd0,if=none,media=cdrom,readonly=on,format=raw,file=/out/AEGIS-OS-GUI-v2-Live.iso"
         in drives
     )
     assert not [d for d in drives if d.startswith("if=virtio")]
@@ -159,4 +159,4 @@ def test_virtualbox_like_machine_can_use_standard_vga():
         config(disk=Path("/out/live.iso"), virtualbox_like=True, vbox_display="VGA")
     )
     devices = [command[i + 1] for i, arg in enumerate(command) if arg == "-device"]
-    assert "VGA,vgamem_mb=128" in devices and "vmware-svga,vgamem_mb=128" not in devices
+    assert "VGA,vgamem_mb=128,edid=off" in devices and "vmware-svga,vgamem_mb=128" not in devices

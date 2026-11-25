@@ -3,16 +3,19 @@ widgetStyle=Breeze
 
 [kdeglobals][General]
 ColorScheme=AEGISDark
+accentColorFromWallpaper=true
 
 [kdeglobals][Icons]
 Theme=breeze-dark
 
 [plasmarc][Theme]
-name=breeze-dark
+name=aegis-glass
 
 [kwinrc][org.kde.kdecoration2]
 library=org.kde.breeze
 theme=Breeze
+BorderSize=None
+BorderSizeAuto=false
 
 [Wallpaper]
 Image=AEGIS

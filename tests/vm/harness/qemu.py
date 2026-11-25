@@ -243,7 +243,11 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
     if cfg.virtualbox_like:
         command += [
             "-device",
-            f"{'vmware-svga' if cfg.vbox_display == 'vmware-svga' else 'VGA'},vgamem_mb=128",
+            "vmware-svga,vgamem_mb=128"
+            if cfg.vbox_display == "vmware-svga"
+            # Without EDID the guest's driver offers the standard VESA modes (1366x768 to
+            # 2560x1440 and more), as VirtualBox's VMSVGA does (GUI v2 resolution tests).
+            else "VGA,vgamem_mb=128,edid=off",
             "-device", "piix3-usb-uhci,id=usb",
             "-device", "usb-tablet,bus=usb.0",
             "-audiodev", "none,id=snd0",

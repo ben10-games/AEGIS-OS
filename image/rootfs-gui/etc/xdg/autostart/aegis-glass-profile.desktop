@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=AEGIS glass profile
+Comment=Applies the AEGIS Liquid Glass rendering profile for this machine's renderer
+Exec=/usr/libexec/aegis/glass-profile session
+OnlyShowIn=KDE;
+NoDisplay=true
+X-KDE-autostart-phase=1

@@ -81,3 +81,51 @@ def test_wallpaper_is_1920x1080_png(root):
     data = (root / GUI / "usr/share/wallpapers/AEGIS/contents/images/1920x1080.png").read_bytes()
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
     assert struct.unpack(">II", data[16:24]) == (1920, 1080)
+
+
+THEME = f"{GUI}/usr/share/plasma/desktoptheme/aegis-glass"
+PIECES = ("topleft", "top", "topright", "left", "center", "right",
+          "bottomleft", "bottom", "bottomright")  # fmt: skip
+
+
+def test_glass_theme_frames_are_complete(root):
+    """Every AEGIS Glass surface has all nine pieces, a blur mask and shadows, in both the
+    translucent (blur available) and the more opaque (no blur) variant."""
+    for variant in ("", "translucent/"):
+        for name in ("widgets/panel-background", "dialogs/background", "widgets/tooltip"):
+            ids = set(
+                re.findall(r'id="([^"]+)"', (root / THEME / f"{variant}{name}.svg").read_text())
+            )
+            for piece in PIECES:
+                assert piece in ids and f"mask-{piece}" in ids, (variant, name, piece)
+                if piece != "center":
+                    assert f"shadow-{piece}" in ids, (variant, name, piece)
+    tasks = set(re.findall(r'id="([^"]+)"', (root / THEME / "widgets/tasks.svg").read_text()))
+    for state in ("normal", "hover", "focus", "minimized", "attention"):
+        assert f"{state}-center" in tasks, state
+
+
+def test_glass_theme_is_the_default_and_regenerates_identically(root, tmp_path):
+    defaults = (
+        root / GUI / "usr/share/plasma/look-and-feel/org.aegisos.desktop/contents/defaults"
+    ).read_text()
+    assert "[plasmarc][Theme]\nname=aegis-glass" in defaults
+    before = {p: p.read_bytes() for p in (root / THEME).rglob("*") if p.is_file()}
+    import subprocess
+
+    subprocess.run(["python3", str(root / "scripts/make_plasma_theme.py")], check=True)
+    after = {p: p.read_bytes() for p in (root / THEME).rglob("*") if p.is_file()}
+    assert before == after, "the committed theme differs from scripts/make_plasma_theme.py"
+
+
+def test_glass_profiles_cover_every_choice(root):
+    tool = (root / GUI / "usr/libexec/aegis/glass-profile").read_text()
+    for profile in ("auto", "full", "balanced", "performance"):
+        assert f"{profile})" in tool or f"{profile} |" in tool, profile
+    assert "llvmpipe" in tool and "blurEnabled false" in tool
+    assert "sudo" not in tool and "pkexec" not in tool, "profiles must not need admin rights"
+    autostart = (root / GUI / "etc/xdg/autostart/aegis-glass-profile.desktop").read_text()
+    assert "Exec=/usr/libexec/aegis/glass-profile session" in autostart
+    layout = (root / LAYOUT).read_text()
+    assert 'panel.addWidget("org.kde.plasma.kickerdash")' in layout
+    assert 'panel.hiding = "dodgewindows"' in layout

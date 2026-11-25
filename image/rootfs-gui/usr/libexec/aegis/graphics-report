@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# AEGIS graphics report (GUI v2): what renders this desktop and how smoothly.
+# Runs as the desktop user; changes nothing. With --measure it also opens the AEGIS frame
+# meter for about 15 seconds and reports the frame rate it saw.
+#
+#   /usr/libexec/aegis/graphics-report [--measure]
+#
+# Useful in VirtualBox: the numbers it prints are what a bug report needs.
+set -uo pipefail
+
+echo "virtualization=$(systemd-detect-virt 2> /dev/null || echo none)"
+for card in /sys/class/drm/card[0-9]*; do
+  [[ -e "${card}/device/driver" ]] || continue
+  echo "drm_driver=$(basename "${card}") $(basename "$(readlink -f "${card}/device/driver")")"
+done
+nodes=(/dev/dri/*)
+echo "render_nodes=${nodes[*]}"
+info="$(busctl --user call org.kde.KWin /KWin org.kde.KWin supportInformation 2> /dev/null \
+  | sed -e 's/^s "//' -e 's/"$//' | sed 's/\\n/\n/g')"
+printf '%s\n' "${info}" | grep -E '^(Compositing Type|OpenGL (vendor|renderer|version) string|OpenGL platform|GLSL version string|Linux kernel version)' \
+  | sed 's/^/kwin: /'
+/usr/libexec/aegis/glass-profile status
+echo "cpus=$(nproc) memory_mib=$(awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo)"
+if command -v kscreen-doctor > /dev/null; then
+  kscreen-doctor --outputs 2> /dev/null | sed -E 's/\x1b\[[0-9;]*m//g' | head -n 4 | sed 's/^/display: /'
+fi
+
+if [[ "${1:-}" == --measure ]]; then
+  unit="aegis-frame-meter-$$"
+  since="$(date '+%Y-%m-%d %H:%M:%S')"
+  systemd-run --user --collect --quiet --unit="${unit}" plasmawindowed org.aegisos.framemeter
+  for _ in $(seq 1 40); do
+    line="$(journalctl --user --since "${since}" -o cat 2> /dev/null | grep -m1 'AEGIS-FRAMES')"
+    [[ -n "${line}" ]] && break
+    sleep 1
+  done
+  systemctl --user stop "${unit}" > /dev/null 2>&1 || true
+  echo "frames: ${line:-not measured}"
+fi

@@ -1,0 +1,16 @@
+{
+    "KPlugin": {
+        "Id": "aegis-glass",
+        "Name": "AEGIS Glass",
+        "Description": "AEGIS OS Liquid Glass 2.0: frosted, edge-lit surfaces that follow the colour scheme; translucent where KWin blurs, more opaque where it does not",
+        "Authors": [
+            {
+                "Name": "AEGIS OS"
+            }
+        ],
+        "License": "GPL-2.0-or-later",
+        "Version": "2.0",
+        "Website": "https://github.com/ben10-games/AEGIS-OS"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

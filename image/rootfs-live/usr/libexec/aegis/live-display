@@ -8,6 +8,13 @@
 # the other sizes.
 set -uo pipefail
 
+# In VirtualBox with the guest tools the host sets the screen size (the window size, or
+# full screen), and the size follows the window when it is resized; a fixed size here
+# would fight that. Only other hypervisors get the 1920x1080 start size.
+if [[ "$(systemd-detect-virt 2> /dev/null)" == oracle ]]; then
+  exit 0
+fi
+
 width="${AEGIS_LIVE_WIDTH:-1920}"
 height="${AEGIS_LIVE_HEIGHT:-1080}"
 for _ in $(seq 1 20); do

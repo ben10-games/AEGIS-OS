@@ -4,9 +4,9 @@
     "KPlugin": {
         "Id": "org.aegisos.desktop",
         "Name": "AEGIS OS",
-        "Description": "AEGIS OS development desktop: dark theme, AEGIS colours and wallpaper, floating dock-style panel",
+        "Description": "AEGIS OS Liquid Glass 2.0: AEGIS Glass Plasma theme, AEGIS colours (dark and light), wallpaper-tinted accent, floating dock",
         "Authors": [{"Name": "AEGIS OS"}],
         "License": "GPL-2.0-or-later",
-        "Version": "0.1"
+        "Version": "2.0"
     }
 }

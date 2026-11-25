@@ -1,0 +1,13 @@
+# AEGIS OS (GUI v2): window decoration defaults (Breeze). Larger, softer shadows for
+# depth, centred titles, a faint outline instead of borders (borders are off in
+# kwinrc). Users can change these in System Settings > Window Decorations.
+[Common]
+ShadowSize=ShadowLarge
+ShadowStrength=110
+OutlineIntensity=OutlineLow
+
+[Windeco]
+TitleAlignment=AlignCenterFullWidth
+DrawBackgroundGradient=false
+DrawBorderOnMaximizedWindows=false
+DrawTitleBarSeparator=false

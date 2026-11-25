@@ -9,7 +9,8 @@ Unlike tests/vm/test_live_iso.py this module needs the internet: Flathub
 (the Flathub package fetches Chrome itself at install time). It is run in its own
 container with network access by scripts/run-live-tests; everything else stays offline.
 
-One boot on the same VirtualBox-like hardware with 4 GiB of memory. Everything the
+One boot on the same VirtualBox-like hardware with 4 GiB of memory and 4 CPUs (the
+offline suite uses 2; the frame meter runs here too, to compare). Everything the
 test installs is written to the RAM overlay of the live system and is lost at
 power-off; this module does not test persistence (a separate milestone).
 """
@@ -20,7 +21,7 @@ import re
 import time
 
 import pytest
-from test_live_iso import USER, as_user, booted, log, shot, wait_for
+from test_live_iso import USER, as_user, booted, frame_meter, log, shot, wait_for
 
 CHROME = "com.google.Chrome"
 INSTALL_TIMEOUT_S = 1200
@@ -28,7 +29,7 @@ INSTALL_TIMEOUT_S = 1200
 
 @pytest.fixture(scope="module")
 def vm(iso, workdir, logdir, accel):
-    with booted(iso, workdir, logdir, accel, "VGA", "live-flatpak") as machine:
+    with booted(iso, workdir, logdir, accel, "VGA", "live-flatpak", cpus=4) as machine:
         wait_for(
             machine,
             f"pgrep -u {USER} -x plasmashell && pgrep -u {USER} -x kwin_wayland",
@@ -130,3 +131,12 @@ def test_selinux_enforcing_without_denials_after_flatpak(vm, logdir):
     log(logdir, "flatpak", f"failed units: {failed or 'none'}")
     assert not denials.strip(), denials[:3000]
     assert not failed, failed
+
+
+def test_frame_rate_with_four_cpus(vm, logdir, record_property):
+    """GUI v2: the frame meter under the automatic profile with 4 CPUs (software rendering
+    spreads over all CPUs); compared in the report with the 2-CPU offline suite."""
+    as_user(vm, "/usr/libexec/aegis/glass-profile apply auto")
+    line = frame_meter(vm, logdir, "4cpu-auto")
+    assert "fps=" in line
+    record_property("fps_4cpu_auto", float(line.split("fps=")[1].split()[0]))

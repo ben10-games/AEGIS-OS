@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Write out/release-live/TEST-REPORT.txt (GUI v2 Live ISO): the test results and
+# measurements of this CI run, without the screenshots, and add it to SHA256SUMS.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+release=out/release-live
+[[ -d "${release}" ]] || exit 0
+{
+  echo "AEGIS OS GUI v2 Live ISO: test report"
+  echo
+  echo "These are automated results from QEMU/KVM on a GitHub Actions runner, on hardware"
+  echo "chosen to resemble VirtualBox (see VIRTUALBOX_GUIDE.md). They are not results from"
+  echo "Oracle VirtualBox, which the CI runners do not have."
+  echo "Run: ${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-}/actions/runs/${GITHUB_RUN_ID:-local}"
+  echo
+  scripts/summarize-live | sed '/^AEGIS-SCREENSHOT BEGIN/,/^AEGIS-SCREENSHOT END/d' \
+    | grep -v '^=== screenshot '
+} > "${release}/TEST-REPORT.txt"
+(cd "${release}" && grep -v ' TEST-REPORT.txt$' SHA256SUMS > SHA256SUMS.new \
+  && sha256sum TEST-REPORT.txt >> SHA256SUMS.new && mv SHA256SUMS.new SHA256SUMS)
+echo "wrote ${release}/TEST-REPORT.txt ($(wc -l < "${release}/TEST-REPORT.txt") lines)"

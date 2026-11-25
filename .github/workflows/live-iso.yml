@@ -6,7 +6,7 @@ name: live-iso
 # chosen to match VirtualBox's defaults (tests/vm/test_live_iso.py, offline), then once
 # more to install and start Google Chrome from Flathub as the live user
 # (tests/vm/test_live_flatpak.py; reaches Flathub and Google's download server). The ISO is
-# published as the artifact aegis-os-gui-live-iso only when every test passed, and only
+# published as the artifact aegis-os-gui-v2-live-iso only when every test passed, and only
 # on a manual start or when the head commit message contains [publish-iso].
 on:
   push:
@@ -22,6 +22,9 @@ on:
       - tests/vm/conftest.py
       - tests/vm/harness/**
       - VIRTUALBOX_GUIDE.md
+      - CHANGELOG-GUI-v2.md
+      - scripts/live-test-report
+      - scripts/print_screenshots.py
       - .github/workflows/live-iso.yml
   workflow_dispatch:
 
@@ -84,6 +87,7 @@ jobs:
           mkdir -p out
           sudo chown -R "$(id -u):$(id -g)" out
           scripts/summarize-live | tee out/summary-live.txt
+          scripts/live-test-report
           df -h / || true
 
       - name: Upload logs, screenshots and test report
@@ -107,7 +111,7 @@ jobs:
           || contains(github.event.head_commit.message, '[publish-iso]')) }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: aegis-os-gui-live-iso
+          name: aegis-os-gui-v2-live-iso
           path: out/release-live/
           if-no-files-found: error
           compression-level: 0

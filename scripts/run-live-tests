@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Live ISO: check out/release-live/AEGIS-OS-GUI-Live.iso and boot it in QEMU on
+# Live ISO: check out/release-live/AEGIS-OS-GUI-v2-Live.iso and boot it in QEMU on
 # VirtualBox-like hardware.
 #   tests/vm/test_live_iso.py      offline (no network in the test container)
 #   tests/vm/test_live_flatpak.py  with network: Flathub and Google's download server,
@@ -9,7 +9,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-if [[ ! -f out/release-live/AEGIS-OS-GUI-Live.iso ]]; then
+if [[ ! -f out/release-live/AEGIS-OS-GUI-v2-Live.iso ]]; then
   echo "error: no Live ISO in out/release-live; run 'make live-iso' first" >&2
   exit 1
 fi

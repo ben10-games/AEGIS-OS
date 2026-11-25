@@ -76,7 +76,7 @@ rootfs-gui: ## Live ISO: build the unsealed graphical root filesystem only (no s
 	AEGIS_WITH_GUI=1 AEGIS_ROOTFS_ONLY=1 AEGIS_SKIP_UPDATE_IMAGE=1 scripts/build-image
 
 .PHONY: live-iso
-live-iso: ## Live ISO: build out/release-live/AEGIS-OS-GUI-Live.iso (needs rootfs-gui)
+live-iso: ## Live ISO: build out/release-live/AEGIS-OS-GUI-v2-Live.iso (needs rootfs-gui)
 	scripts/build-live-iso
 
 .PHONY: live-test

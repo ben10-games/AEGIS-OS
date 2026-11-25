@@ -102,3 +102,10 @@ def test_network_tests_are_separate_from_the_offline_suite(root):
     script = (root / "scripts/run-live-tests").read_text()
     assert "run_suite none tests/vm/test_live_iso.py" in script
     assert "run_suite bridge tests/vm/test_live_flatpak.py" in script
+
+
+def test_live_display_helper_leaves_virtualbox_sizing_to_the_host(root):
+    helper = (root / LIVE / "usr/libexec/aegis/live-display").read_text()
+    assert 'systemd-detect-virt 2> /dev/null)" == oracle' in helper
+    containerfile = (root / "image/Containerfile.live").read_text()
+    assert "rpm -ql virtualbox-guest-additions" in containerfile

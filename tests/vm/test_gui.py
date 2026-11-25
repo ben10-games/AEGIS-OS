@@ -157,6 +157,11 @@ def test_gui_glass_effects_and_no_onscreen_keyboard(gui, logdir):
     """KWin really runs the blur effect behind the translucent dock (contrast and sliding
     popups are recorded only: this KWin build loads no such separate effects), and the
     on-screen keyboard is not started (it remains available in System Settings)."""
+    # GUI v2: the automatic profile turns blur off with software rendering (this VM);
+    # the Full Liquid Glass profile turns it on.
+    profile = as_user(gui, "/usr/libexec/aegis/glass-profile apply full").stdout
+    assert "effective=full" in profile, profile
+    time.sleep(4)
     loaded = {}
     for effect in ("blur", "contrast", "slidingpopups"):
         reply = as_user(
@@ -189,7 +194,7 @@ def test_gui_dock_layout(gui, logdir):
     ).stdout
     (logdir / "gui-applets.txt").write_text(applets)
     for plugin in (
-        "org.kde.plasma.kickoff",
+        "org.kde.plasma.kickerdash",
         "org.kde.plasma.icontasks",
         "org.aegisos.security",
         "org.kde.plasma.systemtray",

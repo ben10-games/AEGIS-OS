@@ -6,7 +6,7 @@
 # Needs: the verified RPM inputs (scripts/fetch-inputs), the tools container
 # (scripts/build-builder) and the graphical root filesystem localhost/aegis-gui-rootfs
 # (AEGIS_WITH_GUI=1 AEGIS_ROOTFS_ONLY=1 scripts/build-image). Writes
-# out/release-live/: AEGIS-OS-GUI-Live.iso, VIRTUALBOX_GUIDE.md, BUILD-INFO.txt,
+# out/release-live/: AEGIS-OS-GUI-v2-Live.iso, VIRTUALBOX_GUIDE.md, BUILD-INFO.txt,
 # SHA256SUMS. Large scratch files go to AEGIS_LIVE_WORKDIR (default out/live-work).
 #
 # Writes image files only. Never touches a disk, a partition or a boot loader of the
@@ -83,7 +83,7 @@ mounted="$("${as_root[@]}" podman image mount localhost/aegis-gui-live-rootfs:la
 "${as_root[@]}" du -sh "${work}/rootfs"
 
 release=out/release-live
-iso_name=AEGIS-OS-GUI-Live.iso
+iso_name=AEGIS-OS-GUI-v2-Live.iso
 "${as_root[@]}" rm -rf "${release}"
 mkdir -p "${release}"
 
@@ -103,9 +103,9 @@ echo "== labelling, SquashFS, boot image and ISO (in the tools container)"
 cp "${work}/boot/kernel-version" "${work}/kernel-version.txt"
 "${as_root[@]}" rm -rf "${work}/rootfs" "${work}/staging"
 
-cp VIRTUALBOX_GUIDE.md "${release}/"
+cp VIRTUALBOX_GUIDE.md CHANGELOG-GUI-v2.md "${release}/"
 {
-  echo "name=AEGIS OS graphical Live ISO (development)"
+  echo "name=AEGIS OS graphical Live ISO, GUI v2 (development)"
   echo "file=${iso_name}"
   echo "version=${version}"
   echo "revision=${revision}"
@@ -121,5 +121,6 @@ cp VIRTUALBOX_GUIDE.md "${release}/"
   echo "secure_boot=not tested; see VIRTUALBOX_GUIDE.md"
   echo "size_bytes=$(stat -c %s "${release}/${iso_name}")"
 } > "${release}/BUILD-INFO.txt"
-(cd "${release}" && sha256sum "${iso_name}" VIRTUALBOX_GUIDE.md BUILD-INFO.txt > SHA256SUMS)
+(cd "${release}" && sha256sum "${iso_name}" VIRTUALBOX_GUIDE.md CHANGELOG-GUI-v2.md BUILD-INFO.txt \
+  > SHA256SUMS)
 cat "${release}/BUILD-INFO.txt" "${release}/SHA256SUMS"

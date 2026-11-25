@@ -1,4 +1,4 @@
-"""Live ISO: the downloadable AEGIS-OS-GUI-Live.iso, checked and booted like a user would.
+"""Live ISO: the downloadable AEGIS-OS-GUI-v2-Live.iso, checked and booted like a user would.
 
 First the ISO file itself: checksums, the ISO 9660 volume, the El Torito UEFI boot image
 and the boot menu. Then one boot in QEMU on hardware chosen to match Oracle VirtualBox's
@@ -24,6 +24,7 @@ from __future__ import annotations
 import base64
 import contextlib
 import hashlib
+import json
 import re
 import shutil
 import subprocess
@@ -83,7 +84,7 @@ def extracted(iso, tmp_path_factory) -> Path:
 
 
 @contextlib.contextmanager
-def booted(iso, workdir, logdir, accel, display: str, name: str):
+def booted(iso, workdir, logdir, accel, display: str, name: str, cpus: int = 2):
     """The ISO booted on VirtualBox-like hardware, reachable over SSH as root (test key)."""
     secrets = Path(tempfile.mkdtemp(prefix="aegis-live-key-"))
     key, public_key = generate_ssh_key(secrets)
@@ -99,7 +100,7 @@ def booted(iso, workdir, logdir, accel, display: str, name: str):
         serial_log=logdir / f"{name}-serial.log",
         authorized_key=public_key,
         accel=accel,
-        cpus=2,
+        cpus=cpus,
         memory_mib=4096,
         qmp_socket=scratch / "qmp.sock",
         graphics=True,
@@ -168,7 +169,7 @@ def test_release_files_and_checksums(iso, logdir):
         for line in (iso.parent / "SHA256SUMS").read_text().splitlines()
         if line.strip()
     )
-    assert set(listed) == {iso.name, "VIRTUALBOX_GUIDE.md", "BUILD-INFO.txt"}
+    assert {iso.name, "VIRTUALBOX_GUIDE.md", "CHANGELOG-GUI-v2.md", "BUILD-INFO.txt"} <= set(listed)
     for name, digest in listed.items():
         assert sha256(iso.parent / name) == digest, name
     size = iso.stat().st_size
@@ -377,6 +378,248 @@ def test_administrator_password_is_per_boot_and_console_only(live, logdir):
     assert good.stdout.strip() == "0", good.stdout + good.stderr
     assert bad.stdout.strip() != "0", bad.stdout
     assert live.ssh("grep -c . /etc/sudoers.d/* 2>/dev/null || true").stdout.strip() in ("", "0")
+
+
+# --- GUI v2: renderer, glass profiles, performance, launcher, resolutions -------------
+
+GLASS = "/usr/libexec/aegis/glass-profile"
+PROFILE_ORDER = ("performance", "balanced", "full")
+
+
+def effect_loaded(vm, effect: str) -> bool:
+    reply = as_user(
+        vm,
+        f"busctl --user call org.kde.KWin /Effects org.kde.kwin.Effects isEffectLoaded s {effect}",
+        check=False,
+    ).stdout.strip()
+    return reply == "b true"
+
+
+def cpu_ticks(vm, names: tuple[str, ...]) -> dict[str, int]:
+    """Summed user+system clock ticks of the live user's processes with these names."""
+    script = (
+        "for n in " + " ".join(names) + "; do t=0; "
+        f"for p in $(pgrep -u {USER} -x $n); do "
+        "t=$((t + $(awk '{print $14 + $15}' /proc/$p/stat))); done; echo $n $t; done; "
+        "awk '/^cpu / {print \"total\", $2+$3+$4+$5+$6+$7+$8}' /proc/stat"
+    )
+    return {k: int(v) for k, v in (line.split() for line in vm.ssh(script).stdout.splitlines())}
+
+
+def frame_meter(vm, logdir: Path, label: str) -> str:
+    """Run the AEGIS frame meter for one measurement; returns its AEGIS-FRAMES line and logs
+    the CPU share of the compositor, the shell and the meter while it ran."""
+    since = vm.ssh("date '+%Y-%m-%d %H:%M:%S'").stdout.strip()
+    names = ("kwin_wayland", "plasmashell", "plasmawindowed")
+    before = cpu_ticks(vm, names)
+    as_user(
+        vm,
+        f"systemd-run --user --collect --unit=aegis-meter-{label} plasmawindowed "
+        "org.aegisos.framemeter",
+    )
+    line = ""
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline and not line:
+        time.sleep(2)
+        out = as_user(vm, f'journalctl --user --since "{since}" -o cat', check=False).stdout
+        line = next((x for x in out.splitlines() if "AEGIS-FRAMES" in x), "")
+    after = cpu_ticks(vm, names)
+    shot(vm, logdir, f"meter-{label}")
+    as_user(vm, f"systemctl --user stop aegis-meter-{label}.service", check=False)
+    cpus = int(vm.ssh("nproc").stdout)
+    span = max(1, after["total"] - before["total"])
+    shares = " ".join(f"{n}={100.0 * cpus * (after[n] - before[n]) / span:.0f}%" for n in names)
+    log(logdir, "performance", f"{label}: {line.split('AEGIS-FRAMES ')[-1] or 'no result'}")
+    log(logdir, "performance", f"{label}: CPU while measuring (100% = one CPU): {shares}")
+    return line
+
+
+def test_renderer_identified_and_auto_profile(live, logdir):
+    """GPU renderer identification and the automatic profile: Performance Glass on a
+    software renderer, Balanced Glass on a hardware one."""
+    report = as_user(live, "/usr/libexec/aegis/graphics-report", check=False).stdout
+    log(logdir, "renderer", report)
+    facts = dict(line.split("=", 1) for line in report.splitlines() if "=" in line)
+    assert facts.get("renderer"), report
+    assert "kwin: Compositing Type: OpenGL" in report, report
+    expected = "performance" if facts["renderer_class"] == "software" else "balanced"
+    assert facts["choice"] == "auto", report
+    assert facts["effective"] == expected, report
+    assert effect_loaded(live, "blur") == (expected != "performance")
+
+
+def test_glass_profiles_switch_and_measure(live, logdir, record_property):
+    """Each profile changes what KWin runs (blur loaded or not, animation length), and the
+    frame meter measures frames and CPU under each. Numbers are recorded, not asserted:
+    they describe QEMU with software rendering on a CI runner."""
+    live.send_keys("meta_l-d")
+    time.sleep(2)
+    results = {}
+    for profile in PROFILE_ORDER:
+        out = as_user(live, f"{GLASS} apply {profile}").stdout
+        assert f"effective={profile}" in out, out
+        time.sleep(4)
+        assert effect_loaded(live, "blur") == (profile != "performance"), profile
+        factor = as_user(
+            live, "kreadconfig6 --file kdeglobals --group KDE --key AnimationDurationFactor"
+        ).stdout.strip()
+        assert factor == {"full": "1", "balanced": "0.75", "performance": "0.5"}[profile]
+        line = frame_meter(live, logdir, profile)
+        assert "fps=" in line, f"the frame meter reported nothing for {profile}"
+        results[profile] = float(line.split("fps=")[1].split()[0])
+        record_property(f"fps_{profile}", results[profile])
+        live.send_keys("meta_l-d")
+        time.sleep(3)
+        shot(live, logdir, f"glass-{profile}")
+    as_user(live, f"{GLASS} apply auto")
+    log(logdir, "performance", f"frames per second by profile: {results}")
+
+
+def test_launcher_opens_with_search(live, logdir):
+    """The AEGIS launcher (Application Dashboard) opens from the Meta key, finds an
+    application by typing, and closes with Escape."""
+    before = shot(live, logdir, "before-launcher").read_bytes()
+    started = time.monotonic()
+    live.send_keys("meta_l")
+    time.sleep(3)
+    opened = shot(live, logdir, "launcher").read_bytes()
+    live.type_text("konsole")
+    time.sleep(2)
+    shot(live, logdir, "launcher-search")
+    live.send_keys("esc")
+    time.sleep(1)
+    live.send_keys("esc")
+    changed = sum(1 for a, b in zip(before, opened, strict=False) if a != b)
+    log(
+        logdir,
+        "launcher",
+        f"pixels bytes changed by opening the launcher: {changed} "
+        f"({time.monotonic() - started:.1f} s incl. screenshots)",
+    )
+    assert changed > 100000, "the launcher did not open"
+
+
+DOCK_SCRIPT = """
+const s = workspace.virtualScreenSize;
+for (const w of workspace.windowList()) {
+    if (w.dock) {
+        const g = w.frameGeometry;
+        console.info("AEGIS-DOCK " + s.width + " " + s.height + " " + Math.round(g.x) + " "
+            + Math.round(g.y) + " " + Math.round(g.width) + " " + Math.round(g.height));
+    }
+}
+"""
+
+
+def dock_geometry(vm) -> tuple[int, ...]:
+    """Screen size and dock geometry, asked from KWin through a short KWin script."""
+    script = base64.b64encode(DOCK_SCRIPT.encode()).decode()
+    vm.ssh(f"echo {script} | base64 -d > /tmp/aegis-dock.js && chmod 0644 /tmp/aegis-dock.js")
+    since = vm.ssh("date '+%Y-%m-%d %H:%M:%S'").stdout.strip()
+    as_user(
+        vm,
+        "busctl --user call org.kde.KWin /Scripting org.kde.kwin.Scripting unloadScript s "
+        "aegisdock",
+        check=False,
+    )
+    loaded = as_user(
+        vm,
+        "busctl --user call org.kde.KWin /Scripting org.kde.kwin.Scripting loadScript ss "
+        "/tmp/aegis-dock.js aegisdock",
+    ).stdout.split()
+    as_user(
+        vm, f"busctl --user call org.kde.KWin /Scripting/Script{loaded[-1]} org.kde.kwin.Script run"
+    )
+    for _ in range(10):
+        time.sleep(1)
+        out = as_user(vm, f'journalctl --user --since "{since}" -o cat', check=False).stdout
+        lines = [x for x in out.splitlines() if "AEGIS-DOCK" in x]
+        if lines:
+            return tuple(int(v) for v in lines[-1].split("AEGIS-DOCK ")[1].split())
+    raise AssertionError("KWin reported no dock window")
+
+
+def corner_is_drawn(path: Path) -> bool:
+    """True if the bottom-right 16x16 pixels of a PPM screenshot are not pure black."""
+    data = path.read_bytes()
+    fields = data[:64].split()
+    width, height = int(fields[1]), int(fields[2])
+    offset = len(data) - width * height * 3
+    for y in range(height - 16, height):
+        row = data[offset + (y * width + width - 16) * 3 : offset + (y * width + width) * 3]
+        if max(row) > 4:
+            return True
+    return False
+
+
+@pytest.mark.parametrize("size", ["1366x768", "2560x1440", "1920x1080"])
+def test_resolution_change_keeps_the_dock_in_place(live, logdir, size):
+    """Display resizing: the output changes to SIZE (as when a VirtualBox window is resized
+    or made full screen), the desktop fills the whole screen, and Plasma moves the dock to
+    the bottom centre of the new size."""
+    width, height = (int(v) for v in size.split("x"))
+    outputs = json.loads(as_user(live, "kscreen-doctor --json").stdout)["outputs"]
+    output = next(o for o in outputs if o.get("connected") and o.get("enabled"))
+    offered = sorted(
+        (
+            m
+            for m in output["modes"]
+            if (m["size"]["width"], m["size"]["height"]) == (width, height)
+        ),
+        key=lambda m: -m.get("refreshRate", 0),
+    )
+    mode = [output["name"], str(offered[0]["id"]) if offered else "none"]
+    log(logdir, "resolutions", f"{size}: output and mode {mode}")
+    assert len(mode) == 2 and mode[1] != "none", f"{size} is not offered: {mode}"
+    as_user(live, f"kscreen-doctor output.{mode[0]}.mode.{mode[1]}")
+    time.sleep(6)
+    live.send_keys("meta_l-d")
+    time.sleep(3)
+    path = shot(live, logdir, f"res-{size}")
+    assert ppm_size(path) == (width, height)
+    assert corner_is_drawn(path), "black area at the bottom-right corner"
+    sw, sh, x, y, w, h = dock_geometry(live)
+    log(logdir, "resolutions", f"{size}: screen {sw}x{sh}, dock at {x},{y} size {w}x{h}")
+    assert (sw, sh) == (width, height)
+    assert abs((x + w / 2) - sw / 2) <= 4, "dock is not centred"
+    assert sh - 40 <= y + h <= sh, "dock is not at the bottom"
+    assert x >= 0 and x + w <= sw
+
+
+def test_virtualbox_guest_tools_present_and_idle_outside_virtualbox(live, logdir):
+    """Fedora's VirtualBox guest tools are installed; under QEMU their services are skipped
+    by their own condition (VirtualBox only), not failed."""
+    files = live.ssh("rpm -ql virtualbox-guest-additions | grep -E 'bin/|\\.service$'").stdout
+    units = live.ssh(
+        "for u in $(rpm -ql virtualbox-guest-additions | grep -E '\\.service$' "
+        "| xargs -r -n1 basename); do echo $u $(systemctl is-enabled $u) "
+        "$(systemctl show -p ConditionResult --value $u) $(systemctl is-failed $u); done",
+        check=False,
+    ).stdout
+    log(logdir, "virtualbox", f"{files}\nunits (enabled, condition met, failed):\n{units}")
+    assert "VBoxClient" in files and "VBoxService" in files, files
+    assert "failed" not in units.split(), units
+
+
+def test_idle_resource_usage(live, logdir, record_property):
+    live.send_keys("meta_l-d")
+    time.sleep(10)
+    names = ("kwin_wayland", "plasmashell")
+    before = cpu_ticks(live, names)
+    time.sleep(20)
+    after = cpu_ticks(live, names)
+    cpus = int(live.ssh("nproc").stdout)
+    span = max(1, after["total"] - before["total"])
+    shares = {n: round(100.0 * cpus * (after[n] - before[n]) / span, 1) for n in names}
+    memory = live.ssh("free -m | awk '/^Mem:/ {print $3, $7}'").stdout.split()
+    log(
+        logdir,
+        "performance",
+        f"idle (20 s, desktop shown): CPU {shares} (100% = one CPU); memory used "
+        f"{memory[0]} MiB, available {memory[1]} MiB",
+    )
+    record_property("idle_kwin_cpu_percent", shares["kwin_wayland"])
+    record_property("idle_memory_used_mib", int(memory[0]))
 
 
 def test_no_failed_units_or_denials(live, logdir):
