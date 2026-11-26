@@ -227,7 +227,8 @@ mkdir -p out
   echo "podman=$(podman --version)"
   echo "source_date_epoch=${epoch}"
   echo "rpm_lock=$(sha256sum image/packages/rpms.lock.yaml | cut -d' ' -f1)"
-  for image in localhost/aegis-base:latest localhost/aegis-dev:latest; do
+  for variant in "${variants[@]}"; do
+    image="localhost/aegis-${variant}:latest"
     echo "${image}=$("${as_root[@]}" podman image inspect --format '{{ .Id }}' "${image}")"
   done
 } > out/build-info.txt

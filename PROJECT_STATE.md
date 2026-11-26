@@ -53,7 +53,13 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   - RPM lock regenerated on the new base (update-inputs run 45819994173, attempt 2): 660
     packages; Flatpak and VirtualBox guest tools now in the gui step, 43 packages in the
     new `apps-build` toolchain step (build stage only), `live-apps` removed.
-  - **Not yet verified:** nothing of M8 has run in CI yet (waiting for the regenerated
+  - v3 run 45822043552 (`e4c7405`): image built and sealed, 64 GiB disk installed, VDI
+    converted (5.65 GiB, `qemu-img check` clean); Fedora's `sddm-autologin` PAM stack has
+    no uid limit, so autologin of `aegis-setup` is allowed. The export then stopped on a
+    false positive: the words "PRIVATE KEY" occur in the OS's own files on the disk.
+    Replaced by `scripts/find_key_material.py`, which looks for this build's private keys
+    themselves on the disk.
+  - **Not yet verified:** no M8 VM test has run in CI yet (waiting for the regenerated
     RPM lock). Not verified in VirtualBox.
 - **M9 (prepared): persistent development signing (ADR-0015).** Workflow
   `dev-signing-bootstrap` (manual, v3 branch, reviewer-gated environment

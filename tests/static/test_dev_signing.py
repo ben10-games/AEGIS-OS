@@ -3,7 +3,9 @@ reviewer-gated bootstrap environment, stored only as environment secrets, and ne
 printed, uploaded or committed."""
 
 import re
+import secrets
 import subprocess
+import sys
 
 WORKFLOW = ".github/workflows/dev-signing-bootstrap.yml"
 SCRIPT = "scripts/bootstrap-dev-signing"
@@ -36,19 +38,22 @@ def test_bootstrap_keeps_private_keys_off_disk_logs_and_arguments(root):
     assert 'AEGIS_SB_KEY_LABEL="persistent development key, not for production"' in text
 
 
-def test_no_private_key_material_is_committed(root):
-    tracked = (
-        subprocess.run(["git", "ls-files", "-z"], cwd=root, capture_output=True, check=True)
-        .stdout.decode()
-        .split("\0")
-    )
-    for name in filter(None, tracked):
-        path = root / name
-        if not path.is_file() or path.stat().st_size > 2_000_000:
-            continue
-        try:
-            text = path.read_text()
-        except (UnicodeDecodeError, OSError):
-            continue
-        assert "PRIVATE KEY-----" not in text or path.suffix in {".py", ".md"}, name
-        assert "ENCRYPTED SIGSTORE PRIVATE KEY" not in text or path.suffix == ".py", name
+def test_key_material_scanner_finds_a_key_on_a_sparse_disk(root, tmp_path):
+    body = [secrets.token_urlsafe(48)[:64] for _ in range(6)]
+    key = tmp_path / "db.key"
+    marker = "PRIVATE " + "KEY"
+    key.write_text(f"-----BEGIN {marker}-----\n" + "\n".join(body) + f"\n-----END {marker}-----\n")
+    disk = tmp_path / "disk.raw"
+    with disk.open("wb") as handle:
+        handle.truncate(512 << 20)  # sparse
+        handle.seek(300 << 20)
+        handle.write(f"docs: -----BEGIN {marker}----- example".encode() * 4)
+    scan = [sys.executable, "-I", str(root / "scripts/find_key_material.py"), str(disk), str(key)]
+    clean = subprocess.run(scan, capture_output=True, text=True)
+    assert clean.returncode == 0, clean.stderr
+    with disk.open("r+b") as handle:
+        handle.seek((400 << 20) - 10)  # across a read-block boundary is fine too
+        handle.write(key.read_bytes())
+    found = subprocess.run(scan, capture_output=True, text=True)
+    assert found.returncode == 1 and "key material of" in found.stderr
+    assert not any(line in found.stderr + found.stdout for line in body)

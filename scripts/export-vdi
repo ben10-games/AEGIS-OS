@@ -45,7 +45,12 @@ cp VIRTUALBOX_V3_GUIDE.md "${release}/"
 for cert in PK KEK db; do
   cp "out/secureboot/${cert}.crt" "${release}/secureboot-public/"
 done
-if grep -rlq 'PRIVATE KEY' "${release}"; then
+# No private key of this build on the disk (its own data, not words in documentation),
+# and no PEM private key in the other files of the release.
+"${as_root[@]}" python3 -I scripts/find_key_material.py "${raw}" \
+  .secrets/secureboot/{PK,KEK,db}.key .secrets/signing/aegis-os.private \
+  .secrets/signing/passphrase
+if grep -rlq --exclude='*.vdi' 'PRIVATE KEY' "${release}"; then
   echo "error: a private key ended up in ${release}" >&2
   exit 1
 fi
