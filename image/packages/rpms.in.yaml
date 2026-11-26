@@ -8,12 +8,14 @@
 #               openssh-server are removed
 #   dev         image/Containerfile.dev, on top of aegis-base
 #   dev-policy  the policy compiler stage of image/Containerfile.dev, on top of aegis-base
-#   gui         image/Containerfile.gui (graphical development image), on top of aegis-dev
+#   gui         image/Containerfile.gui (graphical development image), on top of aegis-dev;
+#               includes Flatpak with Fedora's Flathub remote definition (signed by Fedora,
+#               like every RPM) and Fedora's VirtualBox guest tools (v3: moved from the
+#               Live ISO's live-apps step so the installed disk has them too)
 #   live        the initramfs stage of image/Containerfile.live (Live ISO), on top of
 #               aegis-gui; only the generated initramfs leaves that stage
-#   live-apps   the root stage of image/Containerfile.live, on top of aegis-gui: Flatpak
-#               and Fedora's Flathub remote definition (signed by Fedora, like every RPM),
-#               and Fedora's VirtualBox guest tools (display resizing in VirtualBox)
+#   apps-build  the compile stage of the AEGIS applications (image/Containerfile.v3), on
+#               top of aegis-gui; only the built programs leave that stage
 #   builder     build/builder/Containerfile (tools and test container), on the base
 #
 # "name@other" means: the version and release of 'other' as installed in that step's
@@ -61,12 +63,16 @@ gui:
   - mesa-dri-drivers
   - google-noto-sans-fonts
   - noopenh264
-live:
-  - dracut-live
-live-apps:
   - flatpak
   - fedora-flathub-remote
   - virtualbox-guest-additions
+live:
+  - dracut-live
+apps-build:
+  - cmake
+  - gcc-c++
+  - qt6-qtbase-devel
+  - qt6-qtdeclarative-devel
 builder:
   - binutils
   - edk2-ovmf

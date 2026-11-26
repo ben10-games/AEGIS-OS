@@ -77,7 +77,7 @@ case "${mode}" in
     # then resolve the live step on that state.
     dnf "${dnf_opts[@]}" --disablerepo='*' install /out/rpms/gui/*.rpm
     download live
-    download live-apps
+    download apps-build
     ;;
   builder)
     download builder
@@ -94,7 +94,7 @@ nevras=()
 for file in /out/rpms/*/*.rpm; do
   step="$(basename "$(dirname "${file}")")"
   case "${mode}:${step}" in
-    os:base | os:dev | os:dev-policy | os:gui | os:live | os:live-apps | builder:builder) ;;
+    os:base | os:dev | os:dev-policy | os:gui | os:live | os:apps-build | builder:builder) ;;
     *) continue ;;
   esac
   header="$(rpm -qp --nosignature --nodigest \

@@ -291,7 +291,7 @@ def test_the_command_line_reports_input_errors(rpmlock, tree, tmp_path, capsys):
 
 def test_the_repository_inputs_parse(rpmlock, root):
     sets = rpmlock.parse_inputs((root / "image/packages/rpms.in.yaml").read_text())
-    assert set(sets) == {"base", "dev", "dev-policy", "gui", "live", "live-apps", "builder"}
+    assert set(sets) == {"base", "dev", "dev-policy", "gui", "live", "apps-build", "builder"}
 
 
 def test_the_repository_lock_is_current(rpmlock, root):
