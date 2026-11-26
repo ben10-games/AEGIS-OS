@@ -64,6 +64,7 @@ ALL_CONTAINERFILES = [
     "image/Containerfile.update",
     "image/Containerfile.gui",
     "image/Containerfile.live",
+    "image/Containerfile.v3",
     "build/builder/Containerfile",
 ]
 
@@ -87,7 +88,8 @@ def test_locked_install_steps_match_the_inputs(root):
         "image/Containerfile": {"base"},
         "image/Containerfile.dev": {"dev", "dev-policy"},
         "image/Containerfile.gui": {"gui"},
-        "image/Containerfile.live": {"live", "live-apps"},
+        "image/Containerfile.live": {"live"},
+        "image/Containerfile.v3": {"apps-build"},
         "build/builder/Containerfile": {"builder"},
     }
     for name, steps in mounts.items():

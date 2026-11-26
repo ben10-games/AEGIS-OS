@@ -1,0 +1,18 @@
+# AEGIS OS v3: the first-boot provisioning request socket. Only root and the group
+# aegis-setup (the setup session) can connect; the service refuses every request once
+# the machine has an account.
+[Unit]
+Description=AEGIS: first-boot account provisioning socket
+ConditionPathExists=!/var/lib/aegis/provisioned
+
+[Socket]
+ListenStream=/run/aegis/provision.sock
+SocketUser=root
+SocketGroup=aegis-setup
+SocketMode=0660
+DirectoryMode=0755
+Accept=yes
+MaxConnections=1
+
+[Install]
+WantedBy=sockets.target

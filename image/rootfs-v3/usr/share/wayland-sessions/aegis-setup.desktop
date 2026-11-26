@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=AEGIS Setup
+Comment=First-boot account setup (only while the computer has no account)
+Exec=/usr/libexec/aegis/aegis-setup-session
+DesktopNames=AEGIS
+NoDisplay=true

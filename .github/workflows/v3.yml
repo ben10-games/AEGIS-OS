@@ -1,0 +1,109 @@
+name: v3
+
+# AEGIS OS v3 (M8/M9): the persistent desktop disk for VirtualBox. Builds the sealed v3
+# image from the locked inputs, installs it into a 64 GiB image file with bootc (never a
+# real disk), converts it to VDI, and tests it in QEMU: the sealed boot chain under
+# Secure Boot, then the exported VDI on VirtualBox-like hardware (first-boot setup,
+# login, persistence over a complete power-off). The VDI is offered as the artifact
+# aegis-os-v3-vdi only when every test passed, and only on a manual start or when the
+# head commit message contains [publish-vdi]. These are QEMU results, not VirtualBox.
+on:
+  push:
+    branches:
+      - claude/aegis-os-v3
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: v3-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  vdi:
+    name: Build, install and test the persistent v3 disk (VDI)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Make /dev/kvm accessible to the runner user
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: Log in to the container registry (read-only) for the mirrored base image
+        env:
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "${REGISTRY_TOKEN}" \
+            | sudo podman login --username "${REGISTRY_USER}" --password-stdin ghcr.io
+
+      - name: Fetch and verify the locked RPM inputs
+        run: make inputs
+
+      - name: Build test and tools container
+        run: make builder
+
+      - name: Build and seal the v3 image
+        env:
+          AEGIS_WITH_GUI: "1"
+          AEGIS_WITH_V3: "1"
+          AEGIS_SKIP_UPDATE_IMAGE: "1"
+          AEGIS_SEAL_VARIANTS: v3
+        run: scripts/build-image
+
+      - name: Install the v3 image into a 64 GiB disk image file
+        env:
+          AEGIS_DISK_SIZE: 64G
+        run: |
+          df -h /
+          scripts/build-disk localhost/aegis-v3:latest out/disk-v3.raw
+
+      - name: Export the VirtualBox disk (VDI)
+        run: scripts/export-vdi
+
+      - name: Test the sealed boot chain and the VDI in QEMU
+        run: scripts/run-v3-tests
+
+      - name: Collect results
+        if: always()
+        run: |
+          mkdir -p out
+          sudo chown -R "$(id -u):$(id -g)" out
+          scripts/summarize-v3 | tee out/summary-v3.txt
+          df -h / || true
+
+      - name: Upload logs, screenshots and test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: v3-logs-${{ github.sha }}
+          path: |
+            out/summary-v3.txt
+            out/junit-v3*.xml
+            out/vm-v3/logs/
+            out/release-v3/BUILD-INFO.txt
+            out/release-v3/SHA256SUMS
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Only a VDI whose every test in this job passed is offered for download.
+      - name: Publish the tested VDI (development, experimental)
+        if: >-
+          ${{ success() && (github.event_name == 'workflow_dispatch'
+          || contains(github.event.head_commit.message, '[publish-vdi]')) }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aegis-os-v3-vdi
+          path: out/release-v3/
+          if-no-files-found: error
+          retention-days: 14

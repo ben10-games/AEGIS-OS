@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# AEGIS OS v3 (M8): export the installed v3 disk (out/disk-v3.raw, written by
+# scripts/build-disk) as a VirtualBox disk image (VDI, dynamically allocated: it takes
+# only the space in use on the host and grows up to its virtual size).
+#
+#   scripts/export-vdi [RAW]
+#
+# Writes out/release-v3/: AEGIS-OS-v3-<version>-<commit>.vdi, VIRTUALBOX_V3_GUIDE.md,
+# BUILD-INFO.txt, the public Secure Boot certificates of this build (public halves only)
+# and SHA256SUMS. Only regular files are read and written; no disk device is touched.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+raw="${1:-out/disk-v3.raw}"
+release=out/release-v3
+if [[ ! -f "${raw}" ]]; then
+  echo "error: ${raw} not found; build it with scripts/build-disk first" >&2
+  exit 1
+fi
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+version="${AEGIS_VERSION:-0.1.0-dev}"
+revision="$(git rev-parse HEAD 2> /dev/null || echo unknown)"
+name="AEGIS-OS-v3-${version}-${revision:0:7}.vdi"
+
+"${as_root[@]}" rm -rf "${release}"
+mkdir -p "${release}/secureboot-public"
+
+"${as_root[@]}" podman run --rm --network=none \
+  --security-opt label=disable \
+  -v "${PWD}:/work" -w /work \
+  localhost/aegis-builder:latest \
+  sh -c "qemu-img convert -O vdi '${raw}' '${release}/${name}' \
+         && qemu-img check '${release}/${name}' \
+         && qemu-img info '${release}/${name}'" | tee "${release}/qemu-img.txt"
+"${as_root[@]}" chown "$(id -u):$(id -g)" "${release}/${name}"
+
+cp VIRTUALBOX_V3_GUIDE.md "${release}/"
+# Public certificates only (the private keys never leave the build).
+for cert in PK KEK db; do
+  cp "out/secureboot/${cert}.crt" "${release}/secureboot-public/"
+done
+if grep -rlq 'PRIVATE KEY' "${release}"; then
+  echo "error: a private key ended up in ${release}" >&2
+  exit 1
+fi
+{
+  echo "image=${name}"
+  echo "variant=aegis-v3 (persistent desktop, development; not a release)"
+  echo "version=${version}"
+  echo "revision=${revision}"
+  if [[ -n "${GITHUB_RUN_ID:-}" ]]; then
+    echo "ci_run=${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-}/actions/runs/${GITHUB_RUN_ID}"
+  fi
+  echo "base_image=$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
+  echo "rpm_lock_sha256=$(sha256sum image/packages/rpms.lock.yaml | cut -d' ' -f1)"
+  echo "sealed_root_digest=$(cat out/digests/v3.v1 2> /dev/null || echo unknown)"
+  echo "secure_boot_keys=per-build development keys (public halves in secureboot-public/)"
+  grep -E '^(virtual size|disk size)' "${release}/qemu-img.txt" || true
+} > "${release}/BUILD-INFO.txt"
+rm -f "${release}/qemu-img.txt"
+
+(cd "${release}" && sha256sum "${name}" VIRTUALBOX_V3_GUIDE.md BUILD-INFO.txt \
+  secureboot-public/*.crt > SHA256SUMS)
+cat "${release}/BUILD-INFO.txt" "${release}/SHA256SUMS"
+ls -l "${release}"

@@ -31,40 +31,10 @@ RUN --mount=type=bind,from=rpms,source=live,target=/tmp/aegis-rpms \
 # --- root: the graphical root filesystem plus the live layer -------------------------
 FROM ${BASE} AS root
 
-# Flatpak (owner request after the first VirtualBox boot): the 'live-apps' step of
-# rpms.in.yaml, locked and verified like every package. Fedora's fedora-flathub-remote
-# supplies Flathub's remote definition (URL and signing key) inside a Fedora-signed RPM;
-# it is kept as a file for the per-user remote (aegis-flathub-user-remote, a user unit),
-# and removed from remotes.d, so that there is no system-wide remote: installing into
-# the system installation would need administrator rights, which the live account does
-# not have. Fedora's flatpak package also registers its own system remote ('fedora',
-# Fedora's container registry) when installed; it is deleted for the same reason
-# (CI run 45403902691), and the unit that adds it again at boot is masked (CI run
-# 45407725319). Flatpak applications are installed with --user into the live account's home,
-# which is in the RAM overlay and is lost at power-off.
-RUN --mount=type=bind,from=rpms,source=live-apps,target=/tmp/aegis-rpms \
-    --mount=type=bind,source=image/build,target=/tmp/aegis-build \
-    /tmp/aegis-build/install-locked /tmp/aegis-rpms \
-    && /tmp/aegis-build/clean-package-state \
-    && repo="$(rpm -ql fedora-flathub-remote | grep '\.flatpakrepo$' | head -n 1)" \
-    && test -n "${repo}" \
-    && echo "Flathub definition from fedora-flathub-remote: ${repo}" \
-    && grep -v '^GPGKey=' "${repo}" \
-    && grep -q '^Url=https://dl.flathub.org/repo/$' "${repo}" \
-    && grep -q '^GPGKey=.' "${repo}" \
-    && install -D -m 0644 "${repo}" /usr/share/aegis/flatpak/flathub.flatpakrepo \
-    && sed -i '/^Filter=/d' /usr/share/aegis/flatpak/flathub.flatpakrepo \
-    && rm -fv /usr/share/flatpak/remotes.d/*.flatpakrepo /etc/flatpak/remotes.d/*.flatpakrepo \
-    && for remote in $(flatpak remotes --system --columns=name); do \
-         flatpak remote-delete --system --force "${remote}"; done \
-    && test -z "$(flatpak remotes --system --columns=name)" \
-    && for unit in $(systemctl list-unit-files 'flatpak-add-*' --no-legend | awk '{print $1}'); do \
-         systemctl mask "${unit}"; done \
-    && flatpak --version \
-    && echo "VirtualBox guest tools (virtualbox-guest-additions):" \
-    && rpm -ql virtualbox-guest-additions | grep -E '/(s?bin|systemd|autostart|udev|modules-load)' \
-    && for unit in $(rpm -ql virtualbox-guest-additions | grep -E '\.service$' | xargs -r -n1 basename); do \
-         systemctl enable "${unit}" || true; done
+# Flatpak, Flathub for the user and the VirtualBox guest tools come with the graphical
+# root filesystem (image/Containerfile.gui) since v3. Flatpak applications are installed
+# with --user into the live account's home, which is in the RAM overlay and is lost at
+# power-off.
 
 # Live layer: the unprivileged autologin account, its home, no screen lock (it has no
 # password), the per-boot administrator password service, the 1920x1080 login helper.
@@ -82,7 +52,6 @@ RUN rm -v /usr/lib/systemd/system/sysinit.target.wants/aegis-verify-cmdline.serv
     && rm -rv /usr/lib/systemd/system/var.mount.d \
     && rm -fv /usr/lib/modules/*/initramfs.img \
     && systemctl enable aegis-live-admin.service \
-    && systemctl --global enable aegis-flathub-user-remote.service \
     && systemctl enable aegis-live-overlay-space.service \
     && os_release="$(realpath /usr/lib/os-release)" \
     && sed -i -e 's|^VARIANT=.*|VARIANT="Graphical Live (development)"|' \

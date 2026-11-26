@@ -160,3 +160,25 @@ def test_virtualbox_like_machine_can_use_standard_vga():
     )
     devices = [command[i + 1] for i, arg in enumerate(command) if arg == "-device"]
     assert "VGA,vgamem_mb=128,edid=off" in devices and "vmware-svga,vgamem_mb=128" not in devices
+
+
+def test_virtualbox_like_hard_disk_and_test_ssh_unit():
+    command = build_qemu_command(
+        config(
+            disk=Path("/scratch/v3.qcow2"),
+            virtualbox_like=True,
+            vbox_disk="hdd",
+            vbox_display="VGA",
+            test_ssh_unit=True,
+        )  # fmt: skip
+    )
+    drives = [command[i + 1] for i, arg in enumerate(command) if arg == "-drive"]
+    devices = [command[i + 1] for i, arg in enumerate(command) if arg == "-device"]
+    assert "id=hd0,if=none,format=qcow2,file=/scratch/v3.qcow2" in drives
+    assert "ide-hd,drive=hd0,bus=sata.0,bootindex=0" in devices
+    strings = [command[i + 1] for i, arg in enumerate(command) if arg == "-smbios"]
+    assert any("systemd.extra-unit.aegis-test-ssh.service=" in s for s in strings)
+    assert any("unit-dropin.multi-user.target~aegis-test-ssh=" in s for s in strings)
+    encoded = next(s for s in strings if "aegis-test-ssh.service=" in s)
+    unit = base64.b64decode(encoded.split("aegis-test-ssh.service=", 1)[1]).decode()
+    assert "--add-service=ssh" in unit and "--permanent" not in unit

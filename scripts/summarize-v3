@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Print the evidence of the v3 disk build and tests to the job log: screenshots first
+# (base64 PNG, scripts/print_screenshots.py), then build information, test records and
+# the test reports last (the log is read through an excerpt of its end).
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+logs=out/vm-v3/logs
+
+python3 scripts/print_screenshots.py "${logs}" v3 setup:4 greeter-first:4 \
+  desktop-after-reboot:4 setup-filled:3 desktop:3
+
+section() {
+  echo "=== $1"
+  if [[ -s "$2" ]]; then head -n "${3:-40}" "$2"; else echo "(not recorded: $2)"; fi
+  echo
+}
+
+section "v3: BUILD-INFO.txt" out/release-v3/BUILD-INFO.txt
+section "v3: SHA256SUMS" out/release-v3/SHA256SUMS
+for name in vdi timings release account system persistence; do
+  section "v3: ${name}" "${logs}/v3-${name}.txt" 60
+done
+echo "=== v3: console failures"
+grep -haE 'FAILED|Failed to start|denied' "${logs}"/v3-serial*.log 2> /dev/null \
+  | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/^\[ *[0-9.]+\] //' | cut -c1-200 \
+  | sort | uniq -c | sort -rn | head -n 20 || echo "(none)"
+echo
+
+for report in out/junit-v3-secureboot.xml out/junit-v3.xml; do
+  [[ -f "${report}" ]] || continue
+  echo "=== test report ${report}"
+  grep -o 'errors="[0-9]*" failures="[0-9]*" skipped="[0-9]*" tests="[0-9]*" time="[0-9.]*"' \
+    "${report}" | head -n 1
+  python3 - "${report}" << 'PYTHON'
+import sys, xml.etree.ElementTree as ET
+for case in ET.parse(sys.argv[1]).iter("testcase"):
+    problem = case.find("failure") if case.find("failure") is not None else case.find("error")
+    state = "ran" if problem is None else "FAILED"
+    message = "" if problem is None else ": " + (problem.get("message") or "")[:400].replace("\n", " | ")
+    print(f"  {state}: {case.get('name')}{message}")
+PYTHON
+done

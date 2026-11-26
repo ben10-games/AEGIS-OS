@@ -98,6 +98,13 @@ class VmConfig:
     # or "VGA" (QEMU's standard VGA). QEMU's VMware SVGA II emulation does not show what
     # a modern guest draws, so the interactive tests use "VGA" (see test_live_iso.py).
     vbox_display: str = "vmware-svga"
+    # How a VirtualBox-like machine gets 'disk': "cdrom" (a Live ISO, read-only) or "hdd"
+    # (v3: the installed disk, writable through a qcow2 overlay, as a SATA hard disk).
+    vbox_disk: str = "cdrom"
+    # v3 release images ship the SSH server disabled and no SSH in the firewall. With
+    # this, the test key's machine also gets a one-boot unit (firmware credential) that
+    # opens SSH in the firewall and starts the server; nothing is written to the image.
+    test_ssh_unit: bool = False
 
 
 DIAGNOSTIC_UNIT = """[Unit]
@@ -157,6 +164,29 @@ say "$1" "done"
 """
 
 
+TEST_SSH_UNIT = """[Unit]
+Description=AEGIS test access for this boot only (CI firmware credential)
+Wants=firewalld.service
+After=firewalld.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/firewall-cmd --zone=aegis --add-service=ssh
+ExecStart=/usr/bin/systemctl start --no-block sshd.service
+"""
+
+
+def test_ssh_credentials() -> list[str]:
+    """Credentials that open SSH for one boot of a release-configured image (v3)."""
+    unit = base64.b64encode(TEST_SSH_UNIT.encode()).decode()
+    dropin = base64.b64encode(b"[Unit]\nWants=aegis-test-ssh.service\n").decode()
+    return [
+        f"io.systemd.credential.binary:systemd.extra-unit.aegis-test-ssh.service={unit}",
+        "io.systemd.credential.binary:systemd.unit-dropin.multi-user.target~aegis-test-ssh="
+        + dropin,
+    ]
+
+
 def console_diagnostic_credentials() -> list[str]:
     """systemd credentials that add the diagnostic unit and pull it into the boot."""
     unit = base64.b64encode(DIAGNOSTIC_UNIT.encode()).decode()
@@ -188,6 +218,8 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
         strings.insert(0, f"io.systemd.credential.binary:ssh.authorized_keys.root={credential}")
     if cfg.authorized_key and cfg.console_diagnostics:
         strings += console_diagnostic_credentials()
+    if cfg.authorized_key and cfg.test_ssh_unit:
+        strings += test_ssh_credentials()
     for text in strings:
         if "," in text:
             raise HarnessError(f"SMBIOS string contains a comma, which QEMU would split: {text}")
@@ -200,7 +232,13 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
     if cfg.probe_port is not None:
         forwards += f",hostfwd=tcp:127.0.0.1:{cfg.probe_port}-:{PROBE_GUEST_PORT}"
 
-    if cfg.virtualbox_like:
+    if cfg.virtualbox_like and cfg.vbox_disk == "hdd":
+        storage = [
+            "-device", "ahci,id=sata",
+            "-drive", f"id=hd0,if=none,format=qcow2,file={cfg.disk}",
+            "-device", "ide-hd,drive=hd0,bus=sata.0,bootindex=0",
+        ]  # fmt: skip
+    elif cfg.virtualbox_like:
         storage = [
             "-device", "ahci,id=sata",
             "-drive", f"id=cd0,if=none,media=cdrom,readonly=on,format=raw,file={cfg.disk}",
@@ -279,7 +317,7 @@ def strip_ansi(text: str) -> str:
 
 def create_overlay(base_image: Path, overlay: Path) -> None:
     """Create a copy-on-write qcow2 on top of the built disk so the build output stays pristine."""
-    fmt = "qcow2" if base_image.suffix == ".qcow2" else "raw"
+    fmt = {".qcow2": "qcow2", ".vdi": "vdi"}.get(base_image.suffix, "raw")
     subprocess.run(
         [
             "qemu-img",

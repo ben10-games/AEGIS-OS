@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# AEGIS OS v3: the first-boot setup session. KWin runs only AEGIS Setup and ends with it;
+# no desktop, no panel, no other application, no global shortcuts.
+set -euo pipefail
+if [[ -e /var/lib/aegis/provisioned ]]; then
+  exit 0
+fi
+export QT_QPA_PLATFORM=wayland
+exec kwin_wayland --no-lockscreen --no-global-shortcuts --exit-with-session=/usr/libexec/aegis/aegis-setup

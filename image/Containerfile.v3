@@ -1,0 +1,52 @@
+# AEGIS OS v3 (M8): the persistent desktop image that is installed into the VirtualBox
+# disk (VDI). The graphical root filesystem (aegis-gui-rootfs) plus:
+#   - the AEGIS applications, compiled in the 'apps' stage from locked inputs;
+#   - first-boot account setup (AEGIS Setup in a KWin-only session, aegis-provision);
+#   - the release configuration: the development SSH server is installed but disabled
+#     and the firewall zone has no SSH service. Tests turn SSH on for one boot through a
+#     firmware credential (tests/vm/harness/qemu.py), which a VirtualBox user does not
+#     have. No account, password or SSH key is in the image.
+# Sealed like every variant (image/Containerfile.seal, scripts/build-image).
+ARG BASE=localhost/aegis-gui-rootfs:latest
+
+# --- apps: compile stage; only the installed files in /out leave it ---------------------
+FROM ${BASE} AS apps
+ARG SOURCE_DATE_EPOCH
+RUN --mount=type=bind,from=rpms,source=apps-build,target=/tmp/aegis-rpms \
+    --mount=type=bind,source=image/build,target=/tmp/aegis-build \
+    --mount=type=bind,source=apps,target=/src \
+    /tmp/aegis-build/install-locked /tmp/aegis-rpms \
+    && cmake -S /src -B /tmp/aegis-apps -DCMAKE_BUILD_TYPE=Release \
+         -DCMAKE_INSTALL_PREFIX=/usr \
+    && cmake --build /tmp/aegis-apps --parallel "$(nproc)" \
+    && DESTDIR=/out cmake --install /tmp/aegis-apps \
+    && find /out -type f | sort
+
+# --- the v3 root filesystem -----------------------------------------------------------
+FROM ${BASE}
+ARG SOURCE_DATE_EPOCH
+
+COPY --from=apps /out/ /
+COPY image/rootfs-v3/ /
+# The release firewall zone (no SSH) replaces the development one.
+COPY image/rootfs/usr/lib/firewalld/zones/aegis.xml /usr/lib/firewalld/zones/aegis.xml
+
+RUN systemctl disable sshd.service \
+    && systemctl enable aegis-firstboot.service aegis-provision.socket \
+    && os_release="$(realpath /usr/lib/os-release)" \
+    && sed -i -e 's|^VARIANT=.*|VARIANT="Desktop v3 (development)"|' \
+              -e 's|^VARIANT_ID=.*|VARIANT_ID=v3|' \
+              -e 's|^IMAGE_ID=.*|IMAGE_ID=aegis-v3|' "${os_release}" \
+    && grep -q '^IMAGE_ID=aegis-v3$' "${os_release}" \
+    && test -x /usr/libexec/aegis/aegis-setup \
+    && ! systemctl is-enabled sshd.service \
+    && ! grep -q '<service name="ssh"' /usr/lib/firewalld/zones/aegis.xml \
+    && test ! -e /root/.ssh/authorized_keys \
+    && test -z "$(find /etc/ssh -name 'authorized_keys*' 2> /dev/null)" \
+    && test -z "$(awk -F: '$3 >= 1000 && $3 < 60000' /etc/passwd)" \
+    && test -z "$(awk -F: '$2 == "" || $2 !~ /^[!*]/' /etc/shadow)" \
+    && test ! -e /var/lib/aegis/provisioned
+
+LABEL org.opencontainers.image.title="AEGIS OS (desktop v3, persistent VDI, development)"
+
+RUN bootc container lint --fatal-warnings

@@ -87,15 +87,17 @@ def test_live_build_never_writes_devices(root, path):
 
 
 def test_flathub_is_a_user_remote_from_the_fedora_package(root):
-    unit = (root / LIVE / "usr/lib/systemd/user/aegis-flathub-user-remote.service").read_text()
+    unit = (
+        root / "image/rootfs-gui/usr/lib/systemd/user/aegis-flathub-user-remote.service"
+    ).read_text()
     assert "flatpak remote-add --user --if-not-exists" in unit
     assert "/usr/share/aegis/flatpak/flathub.flatpakrepo" in unit
     assert "http" not in unit.split("[Service]", 1)[1], "the unit must not download anything"
-    containerfile = (root / "image/Containerfile.live").read_text()
-    assert "from=rpms,source=live-apps" in containerfile
+    containerfile = (root / "image/Containerfile.gui").read_text()
     assert "rpm -ql fedora-flathub-remote" in containerfile
     assert "rm -fv /usr/share/flatpak/remotes.d/*.flatpakrepo" in containerfile
     assert "systemctl --global enable aegis-flathub-user-remote.service" in containerfile
+    assert "systemctl list-unit-files 'flatpak-add-*'" in containerfile
 
 
 def test_network_tests_are_separate_from_the_offline_suite(root):
@@ -107,5 +109,5 @@ def test_network_tests_are_separate_from_the_offline_suite(root):
 def test_live_display_helper_leaves_virtualbox_sizing_to_the_host(root):
     helper = (root / LIVE / "usr/libexec/aegis/live-display").read_text()
     assert 'systemd-detect-virt 2> /dev/null)" == oracle' in helper
-    containerfile = (root / "image/Containerfile.live").read_text()
+    containerfile = (root / "image/Containerfile.gui").read_text()
     assert "rpm -ql virtualbox-guest-additions" in containerfile

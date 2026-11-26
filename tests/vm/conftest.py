@@ -134,6 +134,8 @@ def machine(
         smbios_strings=smbios_strings,
         graphics=graphics,
         memory_mib=memory_mib,
+        # v3 release images: SSH only through the test credential (scripts/run-v3-tests).
+        test_ssh_unit=developer_access and os.environ.get("AEGIS_TEST_SSH_UNIT") == "1",
     )
     vm = Vm(cfg, key, timeout_scale=TCG_TIMEOUT_SCALE if accel == "tcg" else 1.0)
     try:

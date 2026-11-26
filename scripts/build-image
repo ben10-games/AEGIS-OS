@@ -116,6 +116,27 @@ if [[ "${AEGIS_WITH_GUI:-0}" == 1 ]]; then
   variants+=(gui)
 fi
 
+if [[ "${AEGIS_WITH_V3:-0}" == 1 ]]; then
+  if [[ " ${variants[*]} " != *" gui "* ]]; then
+    echo "error: AEGIS_WITH_V3=1 needs AEGIS_WITH_GUI=1 (v3 is built on aegis-gui)" >&2
+    exit 1
+  fi
+  echo "== building the persistent desktop root filesystem (aegis-v3)"
+  "${as_root[@]}" podman build \
+    "${locked[@]}" \
+    --build-arg "BASE=localhost/aegis-gui-rootfs:latest" \
+    --tag localhost/aegis-v3-rootfs:latest \
+    --file image/Containerfile.v3 \
+    .
+  variants+=(v3)
+fi
+
+# AEGIS_SEAL_VARIANTS="v3 ..." seals only these variants (the v3 workflow needs only the
+# v3 image; the other workflows seal every variant).
+if [[ -n "${AEGIS_SEAL_VARIANTS:-}" ]]; then
+  read -r -a variants <<< "${AEGIS_SEAL_VARIANTS}"
+fi
+
 # AEGIS_ROOTFS_ONLY=1 (Live ISO build): stop at the unsealed root filesystems. The live
 # boot does not use the sealed UKI, so sealing would only cost time.
 if [[ "${AEGIS_ROOTFS_ONLY:-0}" == 1 ]]; then
@@ -187,7 +208,8 @@ mkdir -p out/secureboot
 cp "${keys}"/{PK,KEK,db,untrusted}.crt "${keys}/owner-guid.txt" out/secureboot/
 
 # B-01: both images must still be marked as bootable containers.
-for image in localhost/aegis-base:latest localhost/aegis-dev:latest; do
+for variant in "${variants[@]}"; do
+  image="localhost/aegis-${variant}:latest"
   label="$("${as_root[@]}" podman image inspect \
     --format '{{ index .Labels "containers.bootc" }}' "${image}")"
   if [[ "${label}" != "1" ]]; then

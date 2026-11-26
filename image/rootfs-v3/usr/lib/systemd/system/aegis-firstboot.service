@@ -1,0 +1,16 @@
+# AEGIS OS v3: first boot without an account. SDDM logs the system user aegis-setup into
+# the AEGIS Setup session (a KWin session that runs only the setup assistant) until the
+# first account exists (/var/lib/aegis/provisioned, written by aegis-provision).
+[Unit]
+Description=AEGIS: first-boot setup session for creating the first account
+ConditionPathExists=!/var/lib/aegis/provisioned
+After=systemd-sysusers.service systemd-tmpfiles-setup.service
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/install -D -m 0644 /usr/share/aegis/setup/90-aegis-firstboot.conf /etc/sddm.conf.d/90-aegis-firstboot.conf
+
+[Install]
+WantedBy=graphical.target
