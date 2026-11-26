@@ -149,6 +149,9 @@ ApplicationWindow {
                 id: administrator
                 checked: true
                 enabled: !window.busy && !window.done
+                // The Basic style draws the label in the palette's window text colour,
+                // which is dark: invisible on the dark card (v3 run 45823217951).
+                palette.windowText: window.text
                 text: "Administrator (can install system updates and change system settings)"
                 Accessible.name: text
                 KeyNavigation.tab: timeZone

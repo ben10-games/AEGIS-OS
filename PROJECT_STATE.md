@@ -59,7 +59,19 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
     false positive: the words "PRIVATE KEY" occur in the OS's own files on the disk.
     Replaced by `scripts/find_key_material.py`, which looks for this build's private keys
     themselves on the disk.
-  - **Not yet verified:** no M8 VM test has run in CI yet (waiting for the regenerated
+  - v3 run 45823217951 (`f41c3f7`, QEMU on VirtualBox-like hardware, not VirtualBox):
+    Secure Boot suite on the v3 disk 8/8; VDI suite 6/7. Passed: VDI file (64 GiB),
+    AEGIS Setup on first boot with no account, root locked, SSH server off; account
+    created by typing (wheel, second request refused: "This computer is already set
+    up."); login screen accepts the typed password, desktop in 4.5 s; SELinux enforcing,
+    no denials, no failed units; clean power-off. Power-on to SSH 18.4 s. Persistence
+    over a complete power-off: file, glass profile, wallpaper and account kept; the
+    colour scheme came back empty because the test wrote only the bare key, which
+    Plasma's wallpaper-accent re-apply dropped. The test now uses
+    `plasma-apply-colorscheme` (as System Settings does). Screenshots: the
+    Administrator label of AEGIS Setup was invisible (dark on dark), fixed; the login
+    screen is still Fedora's SDDM theme (AEGIS theme in M10).
+  - **Not yet verified:** the M8 suite has not passed completely yet (waiting for the regenerated
     RPM lock). Not verified in VirtualBox.
 - **M9 (prepared): persistent development signing (ADR-0015).** Workflow
   `dev-signing-bootstrap` (manual, v3 branch, reviewer-gated environment

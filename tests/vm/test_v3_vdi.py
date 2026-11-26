@@ -248,13 +248,21 @@ def test_files_and_settings_survive_a_complete_power_off(vm, logdir):
     off; start again; log in at the login screen; everything is still there."""
     home = vm.ssh(f"getent passwd {USER} | cut -d: -f6").stdout.strip()
     as_user(vm, f"mkdir -p {home}/Documents && echo {TOKEN} > {home}/Documents/aegis-persist.txt")
-    as_user(vm, "kwriteconfig6 --file kdeglobals --group General --key ColorScheme AEGISLight")
+    # The colour scheme the way System Settings sets it (KColorSchemeManager), then a
+    # wallpaper change: AEGIS tints the accent from the wallpaper, which re-applies the
+    # scheme, and the user's choice must survive that too.
+    as_user(vm, "plasma-apply-colorscheme AEGISLight")
     as_user(vm, "/usr/libexec/aegis/glass-profile apply full")
     as_user(
         vm,
         "plasma-apply-wallpaperimage /usr/share/wallpapers/AEGIS/contents/images/1920x1080.png",
         check=False,
     )
+    time.sleep(5)
+    before = as_user(
+        vm, "kreadconfig6 --file kdeglobals --group General --key ColorScheme", check=False
+    ).stdout.strip()
+    log(logdir, "persistence", f"colour scheme before power-off: {before}")
     vm.ssh("sync")
     vm.ssh("systemctl poweroff", check=False)
     assert vm.wait_for_exit(180) == 0, "the VM did not power off cleanly"
