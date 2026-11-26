@@ -259,7 +259,10 @@ def test_files_and_settings_survive_a_complete_power_off(vm, logdir):
     # The colour scheme the way System Settings sets it (KColorSchemeManager), then a
     # wallpaper change: AEGIS tints the accent from the wallpaper, which re-applies the
     # scheme, and the user's choice must survive that too.
-    as_user(vm, "plasma-apply-colorscheme AEGISLight")
+    # Inside the session (systemd-run --user gets the environment Plasma exported), like
+    # an application started from the desktop: from runuser's hand-made environment the
+    # tool aborts (v3 run 45825312270), as kscreen-doctor did (live-iso run 45601312768).
+    as_user(vm, "systemd-run --user --wait --collect --quiet plasma-apply-colorscheme AEGISLight")
     as_user(vm, "/usr/libexec/aegis/glass-profile apply full")
     as_user(
         vm,
