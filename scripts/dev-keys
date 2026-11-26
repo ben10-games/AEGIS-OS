@@ -14,6 +14,9 @@
 # - Existing keys are kept, so repeated local builds stay bootable with the same
 #   firmware variables. Delete the directory to start over.
 # Real keys for real hardware are a Phase 6 decision (ADR-0012) and never live here.
+# AEGIS_SB_KEY_DAYS sets the certificate lifetime (default 90); the persistent
+# development identity of ADR-0015 is created with a longer one by
+# scripts/bootstrap-dev-signing, inside GitHub Actions only.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -37,8 +40,8 @@ for name in PK KEK db untrusted; do
   if [[ -s "${key}" && -s "${cert}" ]]; then
     continue
   fi
-  openssl req -new -x509 -newkey rsa:2048 -nodes -sha256 -days 90 \
-    -subj "/CN=AEGIS OS development ${name} (throw-away, not for real use)/" \
+  openssl req -new -x509 -newkey rsa:2048 -nodes -sha256 -days "${AEGIS_SB_KEY_DAYS:-90}" \
+    -subj "/CN=AEGIS OS development ${name} (${AEGIS_SB_KEY_LABEL:-throw-away, not for real use})/" \
     -keyout "${key}" -out "${cert}" 2>/dev/null
 done
 

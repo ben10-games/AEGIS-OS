@@ -55,7 +55,14 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
     new `apps-build` toolchain step (build stage only), `live-apps` removed.
   - **Not yet verified:** nothing of M8 has run in CI yet (waiting for the regenerated
     RPM lock). Not verified in VirtualBox.
-- **M9 and later:** not started.
+- **M9 (prepared): persistent development signing (ADR-0015).** Workflow
+  `dev-signing-bootstrap` (manual, v3 branch, reviewer-gated environment
+  `aegis-dev-bootstrap`) creates Secure Boot PK/KEK/db and the image signing key on a
+  tmpfs and stores them only as secrets of `aegis-dev-signing`; it refuses to replace
+  existing secrets and prints only public halves. **Waiting for the owner:** the
+  environments and the short-lived bootstrap token
+  (`docs/operations/dev-signing-setup.md`). Not run yet. No production key exists.
+- **M10 and later:** not started.
 
 ### GUI v2 track (Liquid Glass 2.0, VirtualBox display, performance), branch `claude/aegis-os-gui-v2`
 

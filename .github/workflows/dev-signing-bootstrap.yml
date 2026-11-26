@@ -1,0 +1,55 @@
+name: dev-signing-bootstrap
+
+# ADR-0015: creates the persistent DEVELOPMENT signing identity (Secure Boot PK/KEK/db
+# and the image signing key) once, and stores it only as secrets of the environment
+# aegis-dev-signing. Manual start only, on the v3 branch, after the owner approves the
+# deployment to the reviewer-gated environment aegis-dev-bootstrap, which holds the
+# owner's short-lived bootstrap token. Never creates production keys.
+# Setup and rotation: docs/operations/dev-signing-setup.md.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type "create the development signing identity"
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: dev-signing-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Create the development signing identity (aegis-dev-signing)
+    if: >-
+      ${{ github.ref == 'refs/heads/claude/aegis-os-v3'
+      && inputs.confirm == 'create the development signing identity' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: aegis-dev-bootstrap
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Log in to the container registry (read-only) for the locked RPM inputs
+        env:
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "${REGISTRY_TOKEN}" \
+            | sudo podman login --username "${REGISTRY_USER}" --password-stdin ghcr.io
+
+      - name: Fetch and verify the locked RPM inputs
+        run: make inputs
+
+      - name: Build test and tools container
+        run: make builder
+
+      - name: Create the identity and store it as environment secrets
+        env:
+          GH_TOKEN: ${{ secrets.AEGIS_DEV_BOOTSTRAP_TOKEN }}
+        run: scripts/bootstrap-dev-signing

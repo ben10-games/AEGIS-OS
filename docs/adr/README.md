@@ -19,3 +19,4 @@ Accepted, Provisional, Open, Superseded.
 | [0012](0012-hardware-secure-boot-enrollment.md) | Secure Boot key enrollment on physical hardware | Open |
 | [0013](0013-custom-minimal-base.md) | Custom minimal base versus stock fedora-bootc | Open |
 | [0014](0014-configuration-placement.md) | Where AEGIS configuration lives | Accepted |
+| [0015](0015-persistent-development-signing.md) | Persistent development signing identity for v3 | Accepted |

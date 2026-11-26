@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# Create the persistent DEVELOPMENT signing identity of AEGIS OS v3 (ADR-0015) and store
+# it only as secrets of the GitHub environment aegis-dev-signing.
+#
+# Runs only in the dev-signing-bootstrap workflow, in the reviewer-gated environment
+# aegis-dev-bootstrap, with GH_TOKEN set to the owner's short-lived bootstrap token
+# (docs/operations/dev-signing-setup.md). Never run it on a workstation.
+#
+# - The keys are generated on a RAM file system (tmpfs) under .secrets/, which git
+#   ignores, and are removed when the script ends, whatever the outcome.
+# - Private keys go to 'gh secret set' on standard input only: never into an argument,
+#   a log line, an artifact or a file outside the tmpfs.
+# - Existing secrets are never replaced: rotation is a separate, reviewed procedure.
+# - The log shows only public certificates, the public image key and fingerprints, so
+#   they can be committed under keys/dev/ and compared with every image.
+# - No production key is created here (owner decision, 2026-11-26).
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+if [[ "${GITHUB_ACTIONS:-}" != true ]]; then
+  echo "error: runs only inside the dev-signing-bootstrap workflow" >&2
+  exit 1
+fi
+: "${GH_TOKEN:?the bootstrap token is missing (secret AEGIS_DEV_BOOTSTRAP_TOKEN of aegis-dev-bootstrap)}"
+repository="${GITHUB_REPOSITORY:?}"
+environment=aegis-dev-signing
+
+# Secret name -> file under .secrets/ (private halves first).
+declare -A files=(
+  [AEGIS_DEV_SB_PK_KEY]=secureboot/PK.key
+  [AEGIS_DEV_SB_KEK_KEY]=secureboot/KEK.key
+  [AEGIS_DEV_SB_DB_KEY]=secureboot/db.key
+  [AEGIS_DEV_IMAGE_KEY]=signing/aegis-os.private
+  [AEGIS_DEV_IMAGE_PASSPHRASE]=signing/passphrase
+  [AEGIS_DEV_SB_PK_CRT]=secureboot/PK.crt
+  [AEGIS_DEV_SB_KEK_CRT]=secureboot/KEK.crt
+  [AEGIS_DEV_SB_DB_CRT]=secureboot/db.crt
+  [AEGIS_DEV_SB_OWNER_GUID]=secureboot/owner-guid.txt
+  [AEGIS_DEV_IMAGE_PUB]=signing/aegis-os.pub
+)
+
+existing="$(gh secret list --repo "${repository}" --env "${environment}" --json name --jq '.[].name')"
+for name in "${!files[@]}"; do
+  if grep -qx "${name}" <<< "${existing}"; then
+    echo "error: ${environment} already holds ${name}; refusing to replace the identity" >&2
+    echo "       (rotation: docs/operations/dev-signing-setup.md, section 'Rotation')" >&2
+    exit 1
+  fi
+done
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+umask 077
+if [[ -e .secrets ]]; then
+  echo "error: .secrets already exists; the identity must be created on a fresh tmpfs" >&2
+  exit 1
+fi
+mkdir .secrets
+"${as_root[@]}" mount -t tmpfs -o "size=16m,mode=0700,uid=$(id -u),gid=$(id -g)" \
+  aegis-dev-signing .secrets
+cleanup() {
+  "${as_root[@]}" rm -rf .secrets/secureboot .secrets/signing || true
+  "${as_root[@]}" umount .secrets || true
+  rmdir .secrets || true
+}
+trap cleanup EXIT
+findmnt --noheadings --output FSTYPE --target .secrets | grep -qx tmpfs
+
+AEGIS_SB_KEY_DAYS=730 AEGIS_SB_KEY_LABEL="persistent development key, not for production" \
+  scripts/dev-keys .secrets/secureboot > /dev/null
+scripts/signing-keys .secrets/signing > /dev/null
+
+for name in "${!files[@]}"; do
+  "${as_root[@]}" cat ".secrets/${files[${name}]}" \
+    | gh secret set "${name}" --repo "${repository}" --env "${environment}"
+  echo "stored ${name}"
+done
+
+# Public halves only, for keys/dev/ in the repository.
+echo "BEGIN AEGIS DEV PUBLIC KEYS"
+for name in PK KEK db; do
+  echo "== ${name}.crt sha256 $(openssl x509 -in ".secrets/secureboot/${name}.crt" \
+    -noout -fingerprint -sha256 | cut -d= -f2)"
+  openssl x509 -in ".secrets/secureboot/${name}.crt"
+done
+echo "== owner-guid $(cat .secrets/secureboot/owner-guid.txt)"
+echo "== aegis-os.pub sha256 $("${as_root[@]}" sha256sum .secrets/signing/aegis-os.pub | cut -d' ' -f1)"
+"${as_root[@]}" cat .secrets/signing/aegis-os.pub
+echo "END AEGIS DEV PUBLIC KEYS"
