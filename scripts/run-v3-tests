@@ -3,7 +3,10 @@
 #   1. tests/vm/test_secure_boot.py on out/disk-v3.raw under Secure Boot with this
 #      build's keys (the sealed boot chain of the v3 image, QEMU q35);
 #   2. tests/vm/test_v3_vdi.py on the exported VDI on VirtualBox-like hardware without
-#      Secure Boot keys (first-boot setup, login, persistence over a power-off).
+#      Secure Boot keys (first-boot setup, login, persistence over a power-off);
+#   3. tests/vm/test_v3_apps.py with network (Flathub, Google's download server): Chrome
+#      installed by the user persists over a power-off. AEGIS_V3_SKIP_NETWORK_TESTS=1
+#      leaves it out.
 # The v3 image has its SSH server disabled; AEGIS_TEST_SSH_UNIT=1 makes the harness pass
 # a one-boot SSH unit as a firmware credential. Both suites run; fails if either failed.
 set -euo pipefail
@@ -27,12 +30,12 @@ if [[ -r /dev/kvm && -w /dev/kvm ]]; then
 fi
 
 mkdir -p out/vm-v3
-run_suite() { # JUNIT PYTEST-ARGS...
-  local junit="$1"
-  shift
+run_suite() { # NETWORK JUNIT PYTEST-ARGS...
+  local network="$1" junit="$2"
+  shift 2
   "${as_root[@]}" podman run --rm \
     "${kvm_args[@]}" \
-    --network=none \
+    "--network=${network}" \
     --security-opt label=disable \
     -v "${PWD}:/work" \
     -w /work \
@@ -47,7 +50,10 @@ run_suite() { # JUNIT PYTEST-ARGS...
 }
 
 status=0
-run_suite out/junit-v3-secureboot.xml tests/vm/test_secure_boot.py \
+run_suite none out/junit-v3-secureboot.xml tests/vm/test_secure_boot.py \
   --disk out/disk-v3.raw --sealed-variant v3 || status=1
-run_suite out/junit-v3.xml tests/vm/test_v3_vdi.py || status=1
+run_suite none out/junit-v3.xml tests/vm/test_v3_vdi.py || status=1
+if [[ "${AEGIS_V3_SKIP_NETWORK_TESTS:-0}" != 1 ]]; then
+  run_suite bridge out/junit-v3-apps.xml tests/vm/test_v3_apps.py || status=1
+fi
 exit "${status}"

@@ -80,6 +80,11 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   existing secrets and prints only public halves. **Waiting for the owner:** the
   environments and the short-lived bootstrap token
   (`docs/operations/dev-signing-setup.md`). Not run yet. No production key exists.
+- **M9 (written, not run yet): Chrome persists on the VDI.** `tests/vm/test_v3_apps.py`
+  (network suite in `scripts/run-v3-tests`, same hosts as the Live ISO's Flatpak
+  suite): account through the setup socket as `aegis-setup`, login by typing, per-user
+  Flathub remote only, Chrome installed into the user installation on the btrfs disk,
+  started, complete power-off, still listed and starts again, SELinux without denials.
 - **M10 and later:** not started.
 
 ### GUI v2 track (Liquid Glass 2.0, VirtualBox display, performance), branch `claude/aegis-os-gui-v2`

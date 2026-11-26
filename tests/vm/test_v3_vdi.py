@@ -16,6 +16,7 @@ the login screen, and after a complete power-off the machine is started again.
 from __future__ import annotations
 
 import base64
+import contextlib
 import secrets
 import shutil
 import subprocess
@@ -56,8 +57,9 @@ def vdi() -> Path:
     return found[0]
 
 
-@pytest.fixture(scope="module")
-def vm(vdi, workdir, logdir, accel):
+@contextlib.contextmanager
+def vdi_machine(vdi: Path, workdir: Path, logdir: Path, accel: str, label: str, cpus: int = 2):
+    """The VDI behind a copy-on-write overlay, on VirtualBox-like hardware."""
     secrets_dir = Path(tempfile.mkdtemp(prefix="aegis-v3-key-"))
     key, public_key = generate_ssh_key(secrets_dir)
     scratch = Path(tempfile.mkdtemp(prefix="aegis-v3-", dir=workdir))
@@ -71,10 +73,10 @@ def vm(vdi, workdir, logdir, accel):
         firmware_code=code,
         firmware_vars=firmware_vars,
         ssh_port=free_local_port(),
-        serial_log=logdir / "v3-serial.log",
+        serial_log=logdir / f"{label}-serial.log",
         authorized_key=public_key,
         accel=accel,
-        cpus=2,
+        cpus=cpus,
         memory_mib=4096,
         qmp_socket=scratch / "qmp.sock",
         graphics=True,
@@ -91,6 +93,12 @@ def vm(vdi, workdir, logdir, accel):
         machine.kill()
         shutil.rmtree(secrets_dir, ignore_errors=True)
         shutil.rmtree(scratch, ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def vm(vdi, workdir, logdir, accel):
+    with vdi_machine(vdi, workdir, logdir, accel, "v3") as machine:
+        yield machine
 
 
 def log(logdir: Path, name: str, text: str) -> None:
