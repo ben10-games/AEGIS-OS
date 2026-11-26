@@ -11,11 +11,15 @@
 #   2026-11-16  sha256:d70fb477a35612f651fcfa397f41e2945514374d3fdaaa64b0e75a3ca1da2bbc  (mirror-base run 43851172029)
 #   2026-11-16  mirrored as ghcr.io/ben10-games/aegis-os/fedora-bootc:45.20261116-d70fb477a356
 #               (mirror-base run 43851534053; upstream image version 45.20261115.0)
+#   2026-11-26  sha256:f3afa8b1d590ba2842366e0bca4f921ba4a0c7b5ee72679b632aeaa08f170a1e  (probe run 45818555819)
+#               renewed for v3: the old base's selinux-policy (45.24) was no longer in
+#               Fedora's updates repository, so the dev-policy step could not be resolved
+#               without Fedora's updates archive (update-inputs run 45817451494)
 #
 # BASE_IMAGE is what builds use. Its digest must equal UPSTREAM_DIGEST.
 UPSTREAM_REPOSITORY=quay.io/fedora/fedora-bootc
 UPSTREAM_TAG=45
-UPSTREAM_DIGEST=sha256:d70fb477a35612f651fcfa397f41e2945514374d3fdaaa64b0e75a3ca1da2bbc
-UPSTREAM_RESOLVED=2026-11-16
+UPSTREAM_DIGEST=sha256:f3afa8b1d590ba2842366e0bca4f921ba4a0c7b5ee72679b632aeaa08f170a1e
+UPSTREAM_RESOLVED=2026-11-26
 MIRROR_REPOSITORY=ghcr.io/ben10-games/aegis-os/fedora-bootc
-BASE_IMAGE=ghcr.io/ben10-games/aegis-os/fedora-bootc@sha256:d70fb477a35612f651fcfa397f41e2945514374d3fdaaa64b0e75a3ca1da2bbc
+BASE_IMAGE=ghcr.io/ben10-games/aegis-os/fedora-bootc@sha256:f3afa8b1d590ba2842366e0bca4f921ba4a0c7b5ee72679b632aeaa08f170a1e
