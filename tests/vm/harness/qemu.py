@@ -32,6 +32,14 @@ ACCELERATORS = ("kvm", "tcg")
 # probed from outside through a forwarded host port.
 PROBE_GUEST_PORT = 8080
 
+# QEMU key codes for typing plain ASCII on a US keyboard layout.
+QCODES: dict[str, str] = {
+    **{c: c for c in "abcdefghijklmnopqrstuvwxyz0123456789"},
+    **{c.upper(): f"shift-{c}" for c in "abcdefghijklmnopqrstuvwxyz"},
+    " ": "spc", "-": "minus", "_": "shift-minus", ".": "dot", "/": "slash",
+    ">": "shift-dot", "=": "equal", "\n": "ret", ":": "shift-semicolon",
+}  # fmt: skip
+
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 
@@ -74,9 +82,22 @@ class VmConfig:
     probe_port: int | None = None  # host-side port forwarded to guest port PROBE_GUEST_PORT
     secure_boot: bool = False  # the firmware is the Secure Boot build with enrolled keys
     smbios_strings: tuple[str, ...] = ()  # further SMBIOS type 11 strings (test inputs)
+    # Graphical machine (M4-GUI): virtio GPU, USB keyboard and tablet, HDA sound card
+    # with a null audio backend. Screenshots and input go through QMP.
+    graphics: bool = False
     # Development machines only: print the journal of core services to the serial
     # console late in boot, so a failure is visible even when SSH never answers.
     console_diagnostics: bool = True
+    # Live ISO tests: hardware like Oracle VirtualBox's defaults for a Linux guest with
+    # EFI. 'disk' is then the ISO, attached read-only as a CD-ROM on an AHCI (SATA)
+    # controller; i440FX/PIIX3 chipset, VMware SVGA II display (the device VirtualBox
+    # calls VMSVGA, driven by vmwgfx) with 128 MB, PS/2 keyboard, USB tablet, Intel
+    # PRO/1000 MT network card (e1000), Intel HD Audio. 'graphics' is implied.
+    virtualbox_like: bool = False
+    # Display of a VirtualBox-like machine: "vmware-svga" (VMSVGA's register interface)
+    # or "VGA" (QEMU's standard VGA). QEMU's VMware SVGA II emulation does not show what
+    # a modern guest draws, so the interactive tests use "VGA" (see test_live_iso.py).
+    vbox_display: str = "vmware-svga"
 
 
 DIAGNOSTIC_UNIT = """[Unit]
@@ -171,13 +192,22 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
         if "," in text:
             raise HarnessError(f"SMBIOS string contains a comma, which QEMU would split: {text}")
 
-    machine = f"q35,accel={cfg.accel}"
+    machine = f"{'pc' if cfg.virtualbox_like else 'q35'},accel={cfg.accel}"
     if cfg.secure_boot:
         machine += f",{SECURE_BOOT_MACHINE_OPTIONS}"
 
     forwards = f"hostfwd=tcp:127.0.0.1:{cfg.ssh_port}-:22"
     if cfg.probe_port is not None:
         forwards += f",hostfwd=tcp:127.0.0.1:{cfg.probe_port}-:{PROBE_GUEST_PORT}"
+
+    if cfg.virtualbox_like:
+        storage = [
+            "-device", "ahci,id=sata",
+            "-drive", f"id=cd0,if=none,media=cdrom,readonly=on,format=raw,file={cfg.disk}",
+            "-device", "ide-cd,drive=cd0,bus=sata.0,bootindex=0",
+        ]  # fmt: skip
+    else:
+        storage = ["-drive", f"if=virtio,format=qcow2,file={cfg.disk}"]
 
     command = [
         "qemu-system-x86_64",
@@ -194,14 +224,12 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
         f"file={cfg.firmware_code}",
         "-drive",
         f"if=pflash,unit=1,format={pflash_format(cfg.firmware_vars)},file={cfg.firmware_vars}",
-        "-drive",
-        f"if=virtio,format=qcow2,file={cfg.disk}",
+        *storage,
         "-netdev",
         f"user,id=net0,{forwards}",
         "-device",
-        "virtio-net-pci,netdev=net0",
-        "-device",
-        "virtio-rng-pci",
+        "e1000,netdev=net0" if cfg.virtualbox_like else "virtio-net-pci,netdev=net0",
+        *([] if cfg.virtualbox_like else ["-device", "virtio-rng-pci"]),
         "-serial",
         f"file:{cfg.serial_log}",
         "-display",
@@ -212,6 +240,30 @@ def build_qemu_command(cfg: VmConfig) -> list[str]:
     ]
     for text in strings:
         command += ["-smbios", f"type=11,value={text}"]
+    if cfg.virtualbox_like:
+        command += [
+            "-device",
+            "vmware-svga,vgamem_mb=128"
+            if cfg.vbox_display == "vmware-svga"
+            # Without EDID the guest's driver offers the standard VESA modes (1366x768 to
+            # 2560x1440 and more), as VirtualBox's VMSVGA does (GUI v2 resolution tests).
+            else "VGA,vgamem_mb=128,edid=off",
+            "-device", "piix3-usb-uhci,id=usb",
+            "-device", "usb-tablet,bus=usb.0",
+            "-audiodev", "none,id=snd0",
+            "-device", "intel-hda",
+            "-device", "hda-duplex,audiodev=snd0",
+        ]  # fmt: skip
+    elif cfg.graphics:
+        command += [
+            "-device", "virtio-vga",
+            "-device", "qemu-xhci",
+            "-device", "usb-kbd",
+            "-device", "usb-tablet",
+            "-audiodev", "none,id=snd0",
+            "-device", "ich9-intel-hda",
+            "-device", "hda-duplex,audiodev=snd0",
+        ]  # fmt: skip
     if cfg.secure_boot:
         for setting in SECURE_BOOT_GLOBALS:
             command += ["-global", setting]
@@ -323,6 +375,46 @@ class Vm:
             f"'{pattern.pattern}' did not appear on the serial console within "
             f"{timeout * self.timeout_scale:.0f}s; see {self.serial_log}"
         )
+
+    def screenshot(self, path: Path, fmt: str = "ppm") -> Path:
+        """Save the guest's display (graphical machines only) as PPM or PNG."""
+        if self.cfg.qmp_socket is None:
+            raise HarnessError("this virtual machine was started without a control socket")
+        with QmpClient(self.cfg.qmp_socket) as qmp:
+            qmp.command("screendump", filename=str(path), format=fmt)
+        return path
+
+    def send_keys(self, *combos: str, delay: float = 0.15) -> None:
+        """Press key combinations on the virtual keyboard, e.g. "ctrl-alt-t", "a", "ret"."""
+        if self.cfg.qmp_socket is None:
+            raise HarnessError("this virtual machine was started without a control socket")
+        with QmpClient(self.cfg.qmp_socket) as qmp:
+            for combo in combos:
+                keys = [{"type": "qcode", "data": key} for key in combo.split("-")]
+                qmp.command("send-key", keys=keys)
+                time.sleep(delay)
+
+    def type_text(self, text: str) -> None:
+        """Type ASCII text on the virtual keyboard (US layout)."""
+        self.send_keys(*(QCODES[char] for char in text), delay=0.05)
+
+    def click(self, x: float, y: float, button: str = "left") -> None:
+        """Move the tablet pointer to (x, y) as fractions of the screen and click."""
+        if self.cfg.qmp_socket is None:
+            raise HarnessError("this virtual machine was started without a control socket")
+        position = [
+            {"type": "abs", "data": {"axis": "x", "value": int(x * 32767)}},
+            {"type": "abs", "data": {"axis": "y", "value": int(y * 32767)}},
+        ]
+        with QmpClient(self.cfg.qmp_socket) as qmp:
+            qmp.command("input-send-event", events=position)
+            time.sleep(0.2)
+            for down in (True, False):
+                qmp.command(
+                    "input-send-event",
+                    events=[{"type": "btn", "data": {"down": down, "button": button}}],
+                )
+                time.sleep(0.1)
 
     def press_power_button(self) -> None:
         """Send the ACPI power-button event, as a person pressing the button would."""

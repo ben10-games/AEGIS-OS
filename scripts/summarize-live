@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Print the evidence of the Live ISO build and test run to the job log: the ISO's build
+# information and checksums, the test records, console failures, the screenshots (as
+# base64 PNG, see scripts/print_screenshots.py) and the test report.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+logs=out/vm-live/logs
+
+# Screenshots first and the text last: the log is read through an excerpt of its end.
+# All screenshots are in the uploaded log artifact; the log carries the key ones.
+python3 scripts/print_screenshots.py "${logs}" live res-1366x768:4 res-largest:8 chrome:6 \
+  launcher:3 glass-performance:4 glass-full:3
+
+section() {
+  echo "=== $1"
+  if [[ -s "$2" ]]; then head -n "${3:-40}" "$2"; else echo "(not recorded: $2)"; fi
+  echo
+}
+
+section "live: BUILD-INFO.txt" out/release-live/BUILD-INFO.txt
+section "live: SHA256SUMS" out/release-live/SHA256SUMS
+for name in iso grub boot timings account display pointer security-status network-audio \
+  renderer performance launcher resolutions virtualbox qml-errors failed-units selinux-denials vmsvga flatpak flatpak-denials; do
+  section "live: ${name}" "${logs}/live-${name}.txt" 60
+done
+for qemu_log in "${logs}"/*qemu.log; do
+  [[ -s "${qemu_log}" ]] || continue
+  section "QEMU messages: $(basename "${qemu_log}")" "${qemu_log}" 20
+done
+echo "=== live: console failures"
+grep -haE 'FAILED|Failed to start|denied|dracut-initqueue.*timeout|Emergency' \
+  "${logs}"/live-serial*.log 2> /dev/null \
+  | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/^\[ *[0-9.]+\] //' | cut -c1-200 \
+  | sort | uniq -c | sort -rn | head -n 20 || echo "(none)"
+echo
+echo "=== live: last console lines"
+console=""
+for candidate in "${logs}"/live-serial*.log; do
+  [[ "${candidate}" == *qemu.log ]] || console="${candidate}"
+done
+if [[ -n "${console}" && -s "${console}" ]]; then
+  tail -n 40 "${console}" | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' | cut -c1-200
+else
+  echo "(no console log)"
+fi
+echo
+
+
+for report in out/junit-live.xml out/junit-live-flatpak.xml; do
+if [[ -f "${report}" ]]; then
+  echo "=== test report ${report}"
+  grep -o 'errors="[0-9]*" failures="[0-9]*" skipped="[0-9]*" tests="[0-9]*" time="[0-9.]*"' \
+    "${report}" | head -n 1
+  python3 - "${report}" << 'PYTHON'
+import sys, xml.etree.ElementTree as ET
+for case in ET.parse(sys.argv[1]).iter("testcase"):
+    problem = case.find("failure") if case.find("failure") is not None else case.find("error")
+    state = "ran" if problem is None else "FAILED"
+    message = "" if problem is None else ": " + (problem.get("message") or "")[:400].replace("\n", " | ")
+    print(f"  {state}: {case.get('name')}{message}")
+PYTHON
+fi
+done

@@ -13,9 +13,12 @@ only if it actually ran and passed, with the commit and where it ran.
   44738358019 on `cd9bf7c`. See sections 4 and 5 and
   `docs/architecture/security-baseline.md`.
 - **Next task:** M6 (P1-17 metrics baseline V-12, P1-18 operations documentation,
-  P1-19 exit review); needs the owner's go-ahead. Input updates follow
+  P1-19 exit review) on the security branch; needs the owner's go-ahead. GUI v1 is
+  verified on `claude/aegis-os-gui-v1` (not merged; merging needs the owner's
+  authorisation); its next tasks are in `docs/architecture/gui-architecture.md`. Input updates follow
   `docs/operations/inputs.md`. The GUI foundation (M4-GUI) is on branch
-  `claude/aegis-os-gui-foundation`, not here.
+  `claude/aegis-os-gui-foundation`; GUI v1 continues on `claude/aegis-os-gui-v1`
+  (see "GUI v1 track" below).
 - **Reading results from a cloud session:** artifacts cannot be downloaded there (the
   storage host is blocked). Read the end of the `build` job log: the "Collect results"
   step prints `scripts/summarize-results`, with short inventories, the differences
@@ -26,6 +29,247 @@ only if it actually ran and passed, with the commit and where it ran.
   3. When an image change alters a golden manifest, copy the new entries from the
      "differences between the golden manifests and this build" block of the job log
      into `tests/golden/` in the same commit series.
+
+### GUI v2 track (Liquid Glass 2.0, VirtualBox display, performance), branch `claude/aegis-os-gui-v2`
+
+Owner request after VirtualBox use: laggy desktop, basic look, no full-screen resizing.
+Branched from the Live ISO branch (`89cff21`); not merged anywhere (needs the owner's
+authorisation). Design and diagnosis: `docs/architecture/gui-v2.md`; release notes:
+`CHANGELOG-GUI-v2.md`; user guide: `VIRTUALBOX_GUIDE.md` sections 3a and 8.
+
+- **Diagnosis (QEMU, VirtualBox-like hardware, 2 CPUs; not VirtualBox):** KWin composites
+  with OpenGL ES on llvmpipe (no render node). With a glass popup over moving content KWin
+  used 113–116 % of one CPU in Balanced/Full Glass against 39 % in Performance Glass
+  (runs 45604938784 and 45608395419), 95th-percentile frame time 23–25 ms against 18 ms,
+  worst frame 100–109 ms against 57 ms; frame rate 57–59 fps in all. Without glass over
+  the animation: 33–35 % in every profile. 4 CPUs: 59.6 fps. Idle: KWin 1.8 %,
+  plasmashell 0.1 %, 1.34 GB used. The QEMU card's `vmwgfx` refusal and simpledrm fallback
+  were recorded earlier (run 45204188680). Plasma 6.8 has no X11 session.
+- **Implemented:** rendering profiles (Full Liquid Glass, Balanced Glass, Performance
+  Glass, Automatic: Performance on llvmpipe, Balanced otherwise) applied at login, AEGIS
+  Appearance utility, graphics-report and AEGIS Frame Meter; Baloo off; AEGIS Glass
+  Plasma theme (generated, adaptive to AEGIS Dark/Light, translucent and opaque variants,
+  edge highlights, sheen, shadows, task indicators), AEGIS Light scheme, wallpaper accent,
+  borderless Breeze with large shadows, dock that dodges windows; Kickoff launcher (the
+  Application Dashboard is not in this Plasma build); Fedora's VirtualBox guest tools 7.2.22
+  in the Live ISO (update-inputs run 45596097400) and the live 1920x1080 helper skipped
+  inside VirtualBox.
+- **Tested in CI (QEMU):** renderer identification and automatic profile; switching all
+  profiles (KWin blur loaded or not, animation factor); launcher click and search;
+  resolution changes 1366x768, 4096x2160 (largest offered) and 1920x1080 with the dock
+  centred at the bottom; VirtualBox units installed and skipped outside VirtualBox; idle
+  use; Chrome install and start; all earlier Live ISO checks (SELinux enforcing, no
+  denials, security dashboard, admin password, network, audio, clean power-off). Sealed
+  GUI image (`build`): blur loaded under Full Liquid Glass.
+- **Published:** `live-iso` run 45611819540 on `a0df15a`: offline suite 24/24, Flatpak
+  suite 5/5; artifact `aegis-os-gui-v2-live-iso` (ISO, SHA256SUMS, VIRTUALBOX_GUIDE.md,
+  CHANGELOG-GUI-v2.md, BUILD-INFO.txt, TEST-REPORT.txt), kept until 2026-12-09.
+  `AEGIS-OS-GUI-v2-Live.iso` SHA-256
+  `640aaae8a6827a358c6cabb558775b5c0bcf830828696df216614ed9f5678c02`, 1,497,243,648 bytes.
+  Same run: glass popup over animation KWin 117 % (Balanced) / 115 % (Full) against 45 %
+  (Performance); idle KWin 1.5 %, 1.35 GB used.
+- **Not verified:** real VirtualBox (resize with the guest tools, full screen, VMSVGA
+  rendering, 3D acceleration), refraction (not implemented), hardware-GPU performance.
+- **Bugs found on the way:** Fedora's Qt drops `console.log` (run 45597365211);
+  `kscreen-doctor` aborts outside the session environment (45601312768); the Application
+  Dashboard is absent (45601312768); QEMU's standard VGA rounds 1366 to a 1360-pixel
+  framebuffer (45608395419).
+
+### Live ISO track (VirtualBox), branch `claude/aegis-os-gui-live-iso`
+
+Owner request: a UEFI-bootable graphical Live ISO (`AEGIS-OS-GUI-Live.iso`) that boots
+in Oracle VirtualBox straight into the AEGIS desktop. Branched from GUI v1 (`b7f76d4`);
+not merged anywhere (merging needs the owner's authorisation).
+
+- **Design** (`docs/architecture/live-iso.md`): the live root is the unsealed graphical
+  root filesystem `aegis-gui-rootfs` plus `image/rootfs-live` (`image/Containerfile.live`),
+  labelled with its own SELinux policy and packed into a SquashFS; dracut `dmsquash-live`
+  with an overlayfs RAM overlay; Fedora's signed shim and GRUB from the builder (same
+  pinned base) in an El Torito UEFI image; the AEGIS kernel arguments in the menu.
+  Unprivileged `aegis` account with automatic login; a per-boot random root password shown
+  only on the text console. Not sealed, no AEGIS Secure Boot chain, no updates: listed in
+  `VIRTUALBOX_GUIDE.md` section 7.
+- **Inputs:** `live` step (dracut-live, fuse, parted) and xorriso in the builder; lock
+  from `update-inputs` run 45184810800 (9 packages added, nothing else changed).
+- **CI:** workflow `live-iso` (build, structure checks, boot in QEMU on VirtualBox-like
+  hardware: i440FX, SATA CD-ROM, VMware SVGA II 128 MB, e1000, PS/2 + USB tablet, HDA).
+  The ISO is published as `aegis-os-gui-live-iso` only after every test passed.
+- **Verified:** `live-iso` run 45200734168 on `8609b75`, 16 of 16 tests (KVM). ISO 1.39 GiB
+  (1,487,904,768 bytes). UEFI El Torito image with Fedora-signed shim/GRUB; power-on to
+  SSH 23 s. Live root on overlay over SquashFS, SELinux enforcing with correct labels, zero
+  denials, zero failed units; `aegis` (uid 1000, not in wheel, password locked) logged
+  in to Plasma on Wayland by SDDM; 1920x1080 (bochs-drm, set by the login helper);
+  Ctrl+Alt+T and typing into Konsole; right click opens the desktop menu; Dolphin and
+  System Settings; dashboard values match the live state (no QML errors); e1000 network
+  connected; HDA sink present; per-boot root password: root-only issue file, `su`
+  accepts it and refuses a wrong one; clean power-off. Second boot with QEMU's VMware SVGA
+  II device: Plasma session started, no failed units; run 45204188680 shows why the
+  screen could not be checked there: `vmwgfx` refused QEMU's SVGA v2 device ("Hardware
+  has no pitchlock", probe error -38) and the session ran on simpledrm (firmware
+  framebuffer). Whether vmwgfx binds on VirtualBox's VMSVGA is not verified.
+- **Published:** `live-iso` run 45204188680 on `4e2fd10` (16/16), artifact
+  `aegis-os-gui-live-iso` (ISO SHA-256 `17abfe84533ecf45ea25faf99698dda089f45f9e3742f5e5e2cf19ee90dcb003`,
+  1,487,904,768 bytes), kept until 2026-12-07. Screenshots inspected:
+  `docs/architecture/live-iso-screenshots/`.
+- **Owner feedback:** the ISO booted in Oracle VirtualBox on Linux Mint (owner report).
+- **Flatpak (owner request):** `flatpak`, `flatpak-selinux` and `fedora-flathub-remote`
+  in the live root only (locked step `live-apps`, update-inputs run 45402156615, which also
+  took Fedora updates of kwin, openssh and edk2-ovmf). Flathub is a remote of the live
+  account's own installation (`aegis-flathub-user-remote`, a user unit, from the file in
+  Fedora's signed package; its Fedora filter line is dropped); no system remote (Fedora's
+  'fedora' remote deleted at build time, `flatpak-add-fedora-repos.service` masked).
+  The RAM overlay may use 75% of memory (`aegis-live-overlay-space.service`; systemd's
+  default 20% was 779 MB). KWallet is off in the live session. Verified: `live-iso` run
+  45412268908 on `3ca1749`, offline suite 16/16, network suite 4/4:
+  `flatpak install --user flathub com.google.Chrome` in 22 s (Chrome 158, installation
+  "user", 2.6 GB in the overlay of 2.9 GB in a 4 GiB VM), Chrome running in the session
+  (screenshot inspected), SELinux enforcing, zero denials, zero failed units. With Chrome
+  running only about 80 MB of memory remained available: 8 GiB is recommended. Installed
+  applications are lost at power-off (persistence is a separate milestone). The network
+  suite reaches dl.flathub.org and Google's download server (owner request).
+- **Published with Flatpak:** `live-iso` run 45415843543 on `1883126` (16/16 offline, 4/4
+  Flatpak; Chrome 158.0.8127.88 installed with --user in 32 s), artifact
+  `aegis-os-gui-live-iso`, ISO SHA-256
+  `77d9168783459016e090756a111fa1a5421d4892366b61efd69798ab62014e7b`, 1,495,891,968 bytes,
+  kept until 2026-12-08.
+- **Not verified:** Oracle VirtualBox itself (no VirtualBox on the runners; would need a
+  new download host), the desktop as drawn on VMSVGA, Secure Boot, the `nomodeset` entry.
+- **Bugs fixed on the way:** CI runs 45185892320 (`/mnt` scratch disk absent),
+  45189500261 (QEMU's VMware SVGA emulation does not show the desktop; Secure Boot shown as
+  "unknown"; su check), 45194735654 (hard links of the ostree object store gave system
+  files `default_t`; the label check stopped the build), 45197563591 (escape sequence
+  in su output).
+
+### GUI v1 track (bootable graphical desktop), branch `claude/aegis-os-gui-v1`
+
+Authorised by the owner on 2026-11-20. This branch starts from the M4-GUI foundation
+(`1f5d04c`) and merges the security branch at `078ae06` (M4 and M5 complete), so the
+graphical image is built from the locked RPM inputs, without network, like every other
+image. The security branch is not changed by this work and nothing is merged back
+without the owner's authorisation.
+
+- Integration (merge commit): the Plasma packages become the `gui` install step of
+  `image/packages/rpms.in.yaml`; the QEMU virtio display modules join the `builder` step;
+  `scripts/seal-image` is folded back into `scripts/build-image`.
+- First resolution (`update-inputs` run 44748085322): 589 RPMs, all verified; review
+  found `openh264` from the Cisco-hosted `fedora-cisco-openh264` repository. Refused:
+  the resolver disables that repository, the `gui` step names Fedora's stub
+  `noopenh264`, and `scripts/rpmlock.py` now refuses any package not from `fedora` or
+  `updates`. Re-resolved by `update-inputs` run 44748846864: 589 RPMs (365 `fedora`,
+  224 `updates`), all verified (size, SHA-256, header, Fedora signature), cache tag
+  `lock-2e7405ca645f39d9`; reviewed: the 75 earlier packages unchanged, 2 new builder
+  packages (QEMU virtio display modules), 512 `gui` packages including `noopenh264`.
+- Downloadable image (Stage B): `scripts/export-qcow2 --gui` → `out/release-gui/`
+  (QCOW2, `run-aegis-gui-vm.sh`, `LOCAL_GUI_VM_GUIDE.md`, `IMAGE-INFO.txt`,
+  `SHA256SUMS`), published as artifact `aegis-os-gui-qcow2` only after every test in
+  the GUI job passed. Login: the launcher creates user `aegis` (uid 1000, `wheel`) at
+  first boot through systemd credentials, with a random password kept next to the image
+  and only its SHA-512 hash passed to the VM; the image itself has no user. Tested by
+  `tests/static/test_local_gui_launcher.py` (fake QEMU) and in CI by
+  `tests/vm/test_local_gui_image.py` (the exported file booted with the launcher). Not
+  run yet.
+- Visual design and components (Stages C to E), all in the image under `/usr` except
+  `/etc/xdg/kwinrc`:
+  - `org.aegisos.style` QML module (`/usr/lib64/qt6/qml/org/aegisos/style`): design
+    tokens (colour, opacity, blur, radii, spacing, typography, shadow, motion), three
+    glass materials with opaque fallbacks for the software renderer, and the
+    `GlassSurface` and `StatusRow` primitives.
+  - Glass from KWin itself: blur and contrast effects on, blur strength 12, noise 2
+    (`/etc/xdg/kwinrc`); no own compositor code.
+  - AEGIS dock: floating, translucent, centred panel with the AEGIS mark on the
+    launcher, pinned Files, Terminal and Settings, the AEGIS Security widget, tray, clock.
+  - AEGIS Security Dashboard v0 (`org.aegisos.security` Plasma widget): SELinux, Secure
+    Boot, sealed root and digest, command-line check, firewall, lockdown, running image;
+    data from `/usr/libexec/aegis/security-status`, run as the desktop user (read-only;
+    update state needs root and is shown as unavailable).
+  - Control Center: Plasma's system tray (network, volume, power) is used as is; no
+    AEGIS control panel yet.
+  - On-screen keyboard not started (`InputMethod` empty; still installed, can be enabled).
+  - New wallpaper (`scripts/make-wallpaper`, inspected).
+  Tests added: `tests/vm/test_gui.py` (idle measurements, KWin effects loaded, keyboard
+  absent, dock layout, dashboard facts and screenshot, application start times) and
+  `tests/static/test_gui_assets.py`.
+- First full GUI v1 run, `build` run 44749833133 on `84b60d0` (KVM): the graphical
+  image builds from the locked inputs without network, seals, passes
+  `bootc container lint` and installs. GUI job: 20 of 21 tests on the harness VM under
+  Secure Boot (all 8 M3 Secure Boot / sealed-root tests pass on the GUI image), 9 of 10
+  on the exported QCOW2 booted with `run-aegis-gui-vm.sh` (1920x1080 Wayland desktop,
+  typed command runs as the user, network, audio device, SELinux enforcing with no
+  denials, clean power-off). Failures, both fixed in the next commit: KWin loads no
+  separate `contrast` effect (only `blur`, which is the backdrop; config and test
+  corrected); the launcher's user had a locked password because systemd-sysusers
+  imports password credentials for root only (drop-in importing
+  `passwd.hashed-password.*`). Screenshots inspected: the dashboard window showed the
+  compact icon, and the launcher and Security widget used the same mark (both changed).
+  Measurements (4 GiB, software rendering): idle after login 900 MiB, KWin 261 MiB,
+  plasmashell 405 MiB, on-screen keyboard 0 (not started), idle CPU 0.8 %; with
+  Konsole, Dolphin and System Settings open 1147 MiB (M4-GUI: 1250-1267 MiB); systemd
+  startup 10.6 s.
+- **Second run, `build` run 44751864651 on `16afffe`: every job green.** GUI job 31 of
+  31 (21 on the harness VM under Secure Boot including the 8 M3 Secure Boot / sealed-root
+  tests; 10 on the exported QCOW2 through `run-aegis-gui-vm.sh`: account with working
+  `sudo` and refused wrong password, root locked, Wayland desktop at 1920x1080, typed
+  input, network, audio device, SELinux enforcing without denials, clean power-off);
+  main job (all M1 to M5 tests on base and dev); R-01 and R-02 from two independent
+  builds; Windows launcher. Artifact `aegis-os-gui-qcow2` published by that run
+  (`aegis-os-gui-0.1.0-dev-16afffe.qcow2`, 2.36 GiB, SHA-256
+  `0aa793081bc938e1…`). Measurements: idle after login 910 MiB, KWin 260 MiB,
+  plasmashell 407 MiB, idle CPU 0.8 %; three applications open 1143 MiB. Screenshot
+  inspection found the dashboard window clipping its last rows; fixed in the next commit
+  (scrollable rows, larger default size).
+- **Final verification, `build` run 44860719246 and `lint` run 44860719262 on
+  `1aa082e`: every job green.** GUI job 31 of 31 (21 + 10, as above); main job (M1 to M5
+  on base and dev); R-01 and R-02; Windows launcher. Screenshots inspected (dashboard no
+  longer clipped; rows scroll, footer and Refresh visible) and kept in
+  `docs/architecture/gui-screenshots/gui-v1-*.png`. Published artifact
+  **`aegis-os-gui-qcow2`**: `aegis-os-gui-0.1.0-dev-1aa082e.qcow2`, SHA-256
+  `8f0e589d89bb203185a560002e721ef349c6ec8aefb45bc819b1b42aab6eda5a`, retained 14 days.
+  Measurements (4 GiB VM, llvmpipe software rendering, KVM): idle after login 903 MiB,
+  KWin 259 MiB, plasmashell 408 MiB, on-screen keyboard not running, idle CPU 0.7 %
+  over 20 s; with Konsole, Dolphin and System Settings open about 1145 MiB (M4-GUI:
+  1250 to 1267 MiB); systemd startup 10.2 s; Wayland session within seconds of SSH being
+  reachable. Not measured: frame times and window-visible application start times (the
+  recorded start times are process start only).
+- Skills used for GUI v1: `aegis-os-gui-engineering-toolkit` (Slot A; its five project
+  skills from M4-GUI are in `.claude/skills/`) and `liquid-glass-ui` (Slot B; its
+  material model was translated to QML tokens and KWin settings, its web code was not
+  used). Slots C and D were not provided.
+
+### M4-GUI foundation (history), branch `claude/aegis-os-gui-foundation`
+
+Recorded as it was on that branch (it started from `fef77c4`, before M4 and M5). These
+results are history; they do not show that the integrated GUI v1 branch is green.
+
+State: **first functional graphical image, all GUI tests pass.** `build` run
+44315378122 on `aa805e4`, job "Graphical development image (M4-GUI)", KVM, Secure Boot
+with enrolled throw-away keys: 17 of 17 tests (9 GUI, 8 M3 Secure Boot / sealed root
+against the GUI image); the main job (all M1-M3 tests on base and dev) passed in the
+same run. First run with 16 of 17: 44312306345 on `163334e` (pointer test used the QEMU
+key `meta` instead of `meta_l`).
+
+Verified in run 44315378122 (`tests/vm/test_gui.py`, plus `tests/vm/test_secure_boot.py`
+against the GUI image):
+
+| Check | Result |
+|---|---|
+| Boot under Secure Boot into an SDDM autologin Plasma 6.8 session, `Type=wayland`, KWin and plasmashell running | pass |
+| Secure Boot enforced, SELinux enforcing, **no AVC denials**, sealed composefs root, sealed command-line check active, no failed units | pass |
+| Keyboard: Ctrl+Alt+T opens Konsole; a command typed on the virtual keyboard runs (file created, owned by the user) | pass |
+| Dolphin and System Settings start and keep running | pass |
+| Networking connected; PipeWire offers the virtual sound card ("Built-in Audio Analog Stereo") | pass |
+| Restart returns to the desktop; power-off exits QEMU 0 with no failed unit | pass |
+| M3 tests on the GUI image: V-04 (3), V-06 (4), sealed command-line check | pass (8 of 8) |
+| Pointer: a right click on the desktop opens Plasma's context menu at the pointer (323,339 bytes of the screen change; screenshot inspected) | pass |
+
+Screenshots (rendered in CI, recovered from the job log and inspected):
+`docs/architecture/gui-screenshots/m4-gui-{desktop,konsole,dolphin,systemsettings,pointer-menu}.png`.
+
+Measurements (4 GiB VM, software rendering, Konsole, Dolphin and System Settings open),
+run 44312306345 / run 44315378122: memory in use 1250 / 1267 MiB (development image
+without GUI: 498 MiB), 201 / 200 processes, systemd startup 10.1 / 13.5 s (userspace
+6.2 / 9.3 s; shared-runner variation). Largest: plasmashell about 415 MB RSS, System
+Settings 300 MB, KWin 277 MB, plasma-keyboard (on-screen keyboard, not needed) 266 MB.
+
 
 ### M5 progress (input pinning, reproducibility, SBOM)
 

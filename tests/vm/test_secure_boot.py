@@ -17,7 +17,8 @@ LOADER_VENDOR = "4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
 
 
 @pytest.fixture(scope="module")
-def guest(vm):
+def guest(request, vm):
+    vm.sealed_variant = request.config.getoption("--sealed-variant")
     vm.start()
     vm.wait_for_ssh(SSH_DEADLINE_S)
     vm.ssh("systemctl is-system-running --wait", timeout=180, check=False)
@@ -63,7 +64,8 @@ def test_v04_booted_through_signed_systemd_boot_and_uki(guest):
 
 def test_v06_command_line_is_exactly_the_sealed_one(guest):
     """The kernel runs with the command line signed into the UKI, nothing added or removed."""
-    sealed = (ROOT / "out" / "sealed" / "dev-cmdline.txt").read_text().split()
+    variant = guest.sealed_variant
+    sealed = (ROOT / "out" / "sealed" / f"{variant}-cmdline.txt").read_text().split()
     running = guest.ssh("cat /proc/cmdline").stdout.split()
     assert running == sealed
 

@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Live ISO: check out/release-live/AEGIS-OS-GUI-v2-Live.iso and boot it in QEMU on
+# VirtualBox-like hardware.
+#   tests/vm/test_live_iso.py      offline (no network in the test container)
+#   tests/vm/test_live_flatpak.py  with network: Flathub and Google's download server,
+#                                  for Flatpak and Google Chrome (owner request)
+# Both suites run; the script fails if either failed.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+if [[ ! -f out/release-live/AEGIS-OS-GUI-v2-Live.iso ]]; then
+  echo "error: no Live ISO in out/release-live; run 'make live-iso' first" >&2
+  exit 1
+fi
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+kvm_args=()
+accel=tcg
+if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+  accel=kvm
+  kvm_args=(--device /dev/kvm)
+fi
+
+mkdir -p out/vm-live
+run_suite() { # NETWORK TEST_FILE JUNIT
+  "${as_root[@]}" podman run --rm \
+    "${kvm_args[@]}" \
+    "--network=$1" \
+    --security-opt label=disable \
+    -v "${PWD}:/work" \
+    -w /work \
+    -e "AEGIS_VM_ACCEL=${accel}" \
+    localhost/aegis-builder:latest \
+    python3 -m pytest "$2" \
+    -p no:cacheprovider \
+    -v \
+    --workdir out/vm-live \
+    --junitxml "$3"
+}
+
+status=0
+run_suite none tests/vm/test_live_iso.py out/junit-live.xml || status=1
+if [[ "${AEGIS_LIVE_SKIP_NETWORK_TESTS:-0}" != 1 ]]; then
+  run_suite bridge tests/vm/test_live_flatpak.py out/junit-live-flatpak.xml || status=1
+fi
+exit "${status}"

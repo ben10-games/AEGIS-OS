@@ -1,0 +1,14 @@
+# AEGIS OS Live ISO only. See /usr/libexec/aegis/live-admin-password.
+[Unit]
+Description=AEGIS Live: administrator password for this boot (shown on the text consoles)
+After=systemd-sysusers.service systemd-tmpfiles-setup.service
+Before=getty-pre.target systemd-user-sessions.service display-manager.service
+Wants=getty-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/aegis/live-admin-password
+
+[Install]
+WantedBy=multi-user.target

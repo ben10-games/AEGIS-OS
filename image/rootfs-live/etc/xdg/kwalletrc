@@ -1,0 +1,7 @@
+# AEGIS OS Live ISO only. The live account has no password, so a KDE wallet could not
+# be protected by it, and applications that store secrets (Google Chrome) would open the
+# wallet setup assistant (CI run 45407725319). The wallet is off in the live session;
+# such applications use their own basic storage, which is lost at power-off.
+[Wallet]
+Enabled=false
+First Use=false

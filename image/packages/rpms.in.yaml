@@ -8,13 +8,22 @@
 #               openssh-server are removed
 #   dev         image/Containerfile.dev, on top of aegis-base
 #   dev-policy  the policy compiler stage of image/Containerfile.dev, on top of aegis-base
+#   gui         image/Containerfile.gui (graphical development image), on top of aegis-dev
+#   live        the initramfs stage of image/Containerfile.live (Live ISO), on top of
+#               aegis-gui; only the generated initramfs leaves that stage
+#   live-apps   the root stage of image/Containerfile.live, on top of aegis-gui: Flatpak
+#               and Fedora's Flathub remote definition (signed by Fedora, like every RPM),
+#               and Fedora's VirtualBox guest tools (display resizing in VirtualBox)
 #   builder     build/builder/Containerfile (tools and test container), on the base
 #
 # "name@other" means: the version and release of 'other' as installed in that step's
 # starting state (the SELinux policy compiler must match the policy in the base).
 #
 # A name the starting state already has is not listed (the resolver refuses it): the
-# builder's SSH client (openssh-clients) comes with the base image.
+# builder's SSH client (openssh-clients) and squashfs-tools come with the base image.
+#
+# The gui step names noopenh264 (Fedora's stub for the OpenH264 library) so that no package
+# comes from the Cisco-hosted fedora-cisco-openh264 repository, which the resolver disables.
 #
 # Changing this file makes the lock stale; the static tests then fail until the lock is
 # regenerated (docs/operations/inputs.md).
@@ -27,6 +36,37 @@ dev:
 dev-policy:
   - make
   - selinux-policy-devel@selinux-policy
+gui:
+  - plasma-desktop
+  - plasma-workspace
+  - kwin
+  - plasma-breeze
+  - breeze-icon-theme
+  - sddm
+  - sddm-wayland-plasma
+  - konsole
+  - dolphin
+  - plasma-systemsettings
+  - kinfocenter
+  - kscreen
+  - plasma-nm
+  - plasma-pa
+  - pipewire
+  - wireplumber
+  - pipewire-pulseaudio
+  - xdg-desktop-portal-kde
+  - qt6-qtdeclarative
+  - qt6-qtwayland
+  - kf6-kirigami
+  - mesa-dri-drivers
+  - google-noto-sans-fonts
+  - noopenh264
+live:
+  - dracut-live
+live-apps:
+  - flatpak
+  - fedora-flathub-remote
+  - virtualbox-guest-additions
 builder:
   - binutils
   - edk2-ovmf
@@ -35,9 +75,12 @@ builder:
   - python3-pytest
   - python3-virt-firmware
   - qemu-img
+  - qemu-device-display-virtio-gpu
+  - qemu-device-display-virtio-vga
   - qemu-system-x86-core
   - sbsigntools
   - setools-console
   - swtpm
   - systemd-boot-unsigned
   - systemd-ukify
+  - xorriso

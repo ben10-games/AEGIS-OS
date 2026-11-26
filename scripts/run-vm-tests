@@ -64,7 +64,8 @@ printf 'nameserver 127.0.0.1\n' > out/vm/resolv.conf
   -e "AEGIS_VM_ACCEL=${accel}" \
   -e "AEGIS_EXPECT_REVISION=${revision}" \
   localhost/aegis-builder:latest \
-  python3 -m pytest tests/vm \
+  python3 -m pytest tests/vm --ignore=tests/vm/test_gui.py \
+  --ignore=tests/vm/test_local_gui_image.py --ignore=tests/vm/test_live_iso.py --ignore=tests/vm/test_live_flatpak.py \
   -p no:cacheprovider \
   -v \
   --disk "${disk}" \

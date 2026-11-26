@@ -91,6 +91,7 @@ echo "== building the development root filesystem"
   .
 
 # AEGIS_SKIP_UPDATE_IMAGE=1 (reproducibility builds) leaves out the update test image.
+# AEGIS_WITH_GUI=1 adds the graphical development image (aegis-gui, built on aegis-dev).
 variants=(base dev dev-v2)
 if [[ "${AEGIS_SKIP_UPDATE_IMAGE:-0}" == 1 ]]; then
   variants=(base dev)
@@ -102,6 +103,24 @@ else
     --tag localhost/aegis-dev-v2-rootfs:latest \
     --file image/Containerfile.update \
     .
+fi
+
+if [[ "${AEGIS_WITH_GUI:-0}" == 1 ]]; then
+  echo "== building the graphical development root filesystem (aegis-gui)"
+  "${as_root[@]}" podman build \
+    "${locked[@]}" \
+    --build-arg "BASE=localhost/aegis-dev-rootfs:latest" \
+    --tag localhost/aegis-gui-rootfs:latest \
+    --file image/Containerfile.gui \
+    .
+  variants+=(gui)
+fi
+
+# AEGIS_ROOTFS_ONLY=1 (Live ISO build): stop at the unsealed root filesystems. The live
+# boot does not use the sealed UKI, so sealing would only cost time.
+if [[ "${AEGIS_ROOTFS_ONLY:-0}" == 1 ]]; then
+  echo "== AEGIS_ROOTFS_ONLY=1: root filesystems built, sealing skipped"
+  exit 0
 fi
 
 # Each variant has its own root filesystem, so each gets its own digest and its own UKI.

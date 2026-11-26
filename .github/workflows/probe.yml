@@ -68,21 +68,19 @@ jobs:
         run: |
           printf '%s' "${REGISTRY_TOKEN}" \
             | sudo podman login --username "${REGISTRY_USER}" --password-stdin ghcr.io
-          printf '%s' "${REGISTRY_TOKEN}" \
-            | skopeo login --username "${REGISTRY_USER}" --password-stdin ghcr.io
 
       # A digest pin only helps while the registry still serves that digest.
       - name: "Base image pin: still available? Which immutable tags exist?"
         run: |
           pinned="$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
           repository="$(grep -E '^UPSTREAM_REPOSITORY=' image/base.lock | cut -d= -f2-)"
-          if skopeo inspect --raw "docker://${pinned}" > /dev/null 2> pin-error.txt; then
+          if sudo skopeo inspect --raw "docker://${pinned}" > /dev/null 2> pin-error.txt; then
             echo "PIN RESULT: ${pinned} is available"
           else
             echo "PIN RESULT: ${pinned} is GONE: $(tail -n 1 pin-error.txt)"
           fi
           echo "tags of ${repository} that start with 45:"
-          skopeo list-tags "docker://${repository}" \
+          sudo skopeo list-tags "docker://${repository}" \
             | grep -oE '"45[^"]*"' | tr -d '"' | sort -V | tail -n 40 | paste -sd' ' || true
 
       # Facts the sealed boot chain (milestone M3) is designed from.
@@ -122,6 +120,30 @@ jobs:
               grep -E "\"(filename|mode|secure-boot|enrolled-keys|requires-smm)\"|\"machines\"" "${f}" \
                 | tr -s " " | paste -sd" "
             done
+          '
+
+      # Facts the first graphical image (M4-GUI) is designed from.
+      - name: "M4-GUI: Plasma 6 packages, display manager, transaction size"
+        run: |
+          pinned="$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
+          sudo podman run --rm "${pinned}" bash -c '
+            set -uo pipefail
+            echo "== availability"
+            dnf -q list --available sddm sddm-wayland-plasma plasma-login-manager \
+              plasma-desktop plasma-workspace plasma-workspace-wayland kwin kwin-wayland \
+              konsole dolphin systemsettings plasma-nm plasma-pa plasma-systemsettings \
+              pipewire wireplumber pipewire-pulseaudio kf6-kirigami qt6-qtdeclarative \
+              breeze-icon-theme plasma-breeze xdg-desktop-portal-kde mesa-dri-drivers \
+              google-noto-sans-fonts kde-settings-plasma kscreen kinfocenter \
+              qt6-qtwayland plasma-lookandfeel-fedora f45-backgrounds-kde 2>&1 | sort | head -n 60
+            echo "== comps group kde-desktop (mandatory and default)"
+            dnf -q group info kde-desktop 2>&1 | head -n 80
+            echo "== transaction for a minimal Plasma set (no weak deps)"
+            dnf install --assumeno --setopt=install_weak_deps=False \
+              plasma-desktop plasma-workspace kwin konsole dolphin systemsettings plasma-nm \
+              plasma-pa pipewire wireplumber pipewire-pulseaudio kf6-kirigami sddm \
+              sddm-wayland-plasma xdg-desktop-portal-kde mesa-dri-drivers google-noto-sans-fonts \
+              2>&1 | tail -n 8
           '
 
       - name: Loop devices inside a privileged container

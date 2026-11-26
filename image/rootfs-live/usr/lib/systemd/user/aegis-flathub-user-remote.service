@@ -1,0 +1,14 @@
+# AEGIS OS Live ISO only: Flathub as a Flatpak remote of the user's own installation
+# (~/.local/share/flatpak), so that 'flatpak install --user flathub APP' works without
+# administrator rights. The definition (URL and Flathub's signing key) comes from
+# Fedora's fedora-flathub-remote package; nothing is downloaded here.
+[Unit]
+Description=AEGIS Live: Flathub as a per-user Flatpak remote
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/flatpak remote-add --user --if-not-exists --title=Flathub flathub /usr/share/aegis/flatpak/flathub.flatpakrepo
+
+[Install]
+WantedBy=default.target

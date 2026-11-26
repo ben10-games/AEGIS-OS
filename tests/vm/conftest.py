@@ -28,6 +28,13 @@ def pytest_addoption(parser):
     parser.addoption("--base-disk", default="out/disk-base.raw", help="aegis-base disk image")
     parser.addoption("--local-image", default="", help="exported qcow2 (default: out/release)")
     parser.addoption("--workdir", default="out/vm", help="directory for logs and scratch files")
+    parser.addoption("--gui-disk", default="out/disk-gui.raw", help="aegis-gui disk image")
+    parser.addoption(
+        "--live-iso", default="out/release-live/AEGIS-OS-GUI-v2-Live.iso", help="Live ISO"
+    )
+    parser.addoption(
+        "--sealed-variant", default="dev", help="variant whose sealed command line --disk carries"
+    )
     parser.addoption(
         "--secureboot-dir",
         default="out/secureboot",
@@ -88,6 +95,8 @@ def machine(
     firmware: tuple[Path, Path] | None = None,
     developer_access: bool = True,
     smbios_strings: tuple[str, ...] = (),
+    graphics: bool = False,
+    memory_mib: int = 4096,
 ):
     """A virtual machine on a fresh copy-on-write disk. Tests start and stop it themselves.
 
@@ -123,6 +132,8 @@ def machine(
         probe_port=free_local_port(),
         secure_boot=firmware is not None,
         smbios_strings=smbios_strings,
+        graphics=graphics,
+        memory_mib=memory_mib,
     )
     vm = Vm(cfg, key, timeout_scale=TCG_TIMEOUT_SCALE if accel == "tcg" else 1.0)
     try:
@@ -160,3 +171,12 @@ def base_vm(request, base_disk, workdir, logdir, accel, secure_boot_firmware):
         base_disk, name, workdir, logdir, accel, secure_boot_firmware, developer_access=False
     ) as instance:
         yield instance
+
+
+@pytest.fixture(scope="session")
+def iso(request) -> Path:
+    """The Live ISO (out/release-live/AEGIS-OS-GUI-v2-Live.iso by default)."""
+    path = Path(request.config.getoption("--live-iso")).resolve()
+    if not path.is_file():
+        pytest.fail(f"{path} not found; build it with 'make live-iso'")
+    return path

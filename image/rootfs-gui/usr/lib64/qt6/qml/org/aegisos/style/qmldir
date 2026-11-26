@@ -1,0 +1,4 @@
+module org.aegisos.style
+singleton Tokens 1.0 Tokens.qml
+GlassSurface 1.0 GlassSurface.qml
+StatusRow 1.0 StatusRow.qml

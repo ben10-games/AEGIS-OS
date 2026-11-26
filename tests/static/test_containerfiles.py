@@ -62,6 +62,8 @@ ALL_CONTAINERFILES = [
     "image/Containerfile.dev",
     "image/Containerfile.seal",
     "image/Containerfile.update",
+    "image/Containerfile.gui",
+    "image/Containerfile.live",
     "build/builder/Containerfile",
 ]
 
@@ -84,6 +86,8 @@ def test_locked_install_steps_match_the_inputs(root):
     mounts = {
         "image/Containerfile": {"base"},
         "image/Containerfile.dev": {"dev", "dev-policy"},
+        "image/Containerfile.gui": {"gui"},
+        "image/Containerfile.live": {"live", "live-apps"},
         "build/builder/Containerfile": {"builder"},
     }
     for name, steps in mounts.items():
@@ -101,7 +105,7 @@ def test_install_locked_disables_repositories_and_checks_sums(root):
 
 def test_image_builds_have_no_network(root):
     """All image and builder builds pass the locked options (no network, fixed time)."""
-    for name in ("scripts/build-image", "scripts/build-builder"):
+    for name in ("scripts/build-image", "scripts/build-builder", "scripts/build-live-iso"):
         text = (root / name).read_text()
         builds = text.count("podman build \\\n")
         assert builds > 0

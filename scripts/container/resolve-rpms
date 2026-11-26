@@ -11,7 +11,9 @@
 set -euo pipefail
 
 mode="$1"
-dnf_opts=(-y --setopt=install_weak_deps=False)
+# fedora-cisco-openh264 serves a Cisco-built binary from Cisco's own host; AEGIS takes
+# packages from Fedora's repositories only (the stub noopenh264 stands in for it).
+dnf_opts=(-y --setopt=install_weak_deps=False --disablerepo=fedora-cisco-openh264)
 
 # name@other -> name-<version>-<release of other as installed here>
 expand() {
@@ -67,6 +69,15 @@ case "${mode}" in
     dnf "${dnf_opts[@]}" --disablerepo='*' install /out/rpms/base/*.rpm
     download dev
     download dev-policy
+    # The graphical image is built on aegis-dev: install the dev step offline, then
+    # resolve the gui step on that state.
+    dnf "${dnf_opts[@]}" --disablerepo='*' install /out/rpms/dev/*.rpm
+    download gui
+    # The Live ISO's initramfs stage is built on aegis-gui: install the gui step offline,
+    # then resolve the live step on that state.
+    dnf "${dnf_opts[@]}" --disablerepo='*' install /out/rpms/gui/*.rpm
+    download live
+    download live-apps
     ;;
   builder)
     download builder
@@ -83,7 +94,7 @@ nevras=()
 for file in /out/rpms/*/*.rpm; do
   step="$(basename "$(dirname "${file}")")"
   case "${mode}:${step}" in
-    os:base | os:dev | os:dev-policy | builder:builder) ;;
+    os:base | os:dev | os:dev-policy | os:gui | os:live | os:live-apps | builder:builder) ;;
     *) continue ;;
   esac
   header="$(rpm -qp --nosignature --nodigest \
@@ -95,7 +106,7 @@ for file in /out/rpms/*/*.rpm; do
   nevras+=("$(rpm -qp --nosignature --nodigest --qf '%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}' "${file}")")
 done
 mapfile -t nevras < <(printf '%s\n' "${nevras[@]}" | sort -u)
-dnf -q repoquery --available \
+dnf -q repoquery --available --disablerepo=fedora-cisco-openh264 \
   --qf $'%{name}\t%{epoch}\t%{version}\t%{release}\t%{arch}\t%{repoid}\t%{location}\n' \
   "${nevras[@]}" > "/out/repos-${mode}.tsv"
 echo "== ${mode}: $(wc -l < "/out/metadata-${mode}.tsv") packages"

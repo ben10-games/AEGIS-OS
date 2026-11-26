@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "KPlugin": {
+        "Id": "org.aegisos.appearance",
+        "Name": "AEGIS Appearance",
+        "Description": "Choose the AEGIS Liquid Glass rendering profile",
+        "Icon": "preferences-desktop-theme-global",
+        "Category": "System Information",
+        "Authors": [{"Name": "AEGIS OS"}],
+        "License": "GPL-2.0-or-later",
+        "Version": "2.0"
+    }
+}

@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# AEGIS Liquid Glass rendering profiles (GUI v2). Runs as the desktop user.
+#
+#   glass-profile status            saved choice, effective profile, renderer
+#   glass-profile detect            renderer class: hardware | software | unknown
+#   glass-profile apply PROFILE     PROFILE: auto | full | balanced | performance
+#   glass-profile session           at login: apply the saved choice (default: auto)
+#
+# Profiles change only the user's own KDE settings (~/.config) and ask KWin and Plasma
+# to reload them; nothing here needs or gets administrator rights.
+#
+#   full         Full Liquid Glass: strong backdrop blur with grain, full-length
+#                animations, magic-lamp minimise. For hardware-accelerated OpenGL.
+#   balanced     Balanced Glass (the AEGIS default where the GPU renders): lighter blur,
+#                shorter animations, squash minimise.
+#   performance  Performance Glass: no backdrop blur (the AEGIS theme then uses its more
+#                opaque surfaces, same layout and colours), half-length animations, no
+#                minimise or open/close animation. For software rendering (llvmpipe),
+#                e.g. VirtualBox without 3D acceleration.
+#   auto         balanced on a hardware renderer, performance on a software one.
+#
+# None of the profiles bends light: the glass is KWin's backdrop blur plus pre-drawn
+# highlights in the AEGIS Glass Plasma theme, not optical refraction.
+set -uo pipefail
+
+state_dir="${XDG_RUNTIME_DIR:-/tmp}"
+effective_file="${state_dir}/aegis-glass-profile"
+
+kwin_info() {
+  # KWin's support information, as plain text (busctl prints it as one quoted string).
+  busctl --user call org.kde.KWin /KWin org.kde.KWin supportInformation 2> /dev/null \
+    | sed -e 's/^s "//' -e 's/"$//' | sed 's/\\n/\n/g'
+}
+
+renderer() {
+  local info
+  for _ in $(seq 1 30); do
+    info="$(kwin_info)"
+    if [[ -n "${info}" ]]; then
+      printf '%s\n' "${info}" | sed -n 's/^OpenGL renderer string: //p' | head -n 1
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+classify() { # RENDERER -> hardware | software | unknown
+  case "${1,,}" in
+    "") echo unknown ;;
+    *llvmpipe* | *softpipe* | *swrast* | *software*) echo software ;;
+    *) echo hardware ;;
+  esac
+}
+
+write() { # FILE GROUP KEY VALUE
+  kwriteconfig6 --notify --file "$1" --group "$2" --key "$3" "$4"
+}
+
+apply_profile() { # full | balanced | performance
+  local profile="$1"
+  case "${profile}" in
+    full)
+      write kwinrc Plugins blurEnabled true
+      write kwinrc Effect-blur BlurStrength 12
+      write kwinrc Effect-blur NoiseStrength 2
+      write kwinrc Plugins magiclampEnabled true
+      write kwinrc Plugins squashEnabled false
+      write kwinrc Plugins scaleEnabled true
+      write kdeglobals KDE AnimationDurationFactor 1
+      ;;
+    balanced)
+      write kwinrc Plugins blurEnabled true
+      write kwinrc Effect-blur BlurStrength 7
+      write kwinrc Effect-blur NoiseStrength 0
+      write kwinrc Plugins magiclampEnabled false
+      write kwinrc Plugins squashEnabled true
+      write kwinrc Plugins scaleEnabled true
+      write kdeglobals KDE AnimationDurationFactor 0.75
+      ;;
+    performance)
+      write kwinrc Plugins blurEnabled false
+      write kwinrc Plugins magiclampEnabled false
+      write kwinrc Plugins squashEnabled false
+      write kwinrc Plugins scaleEnabled false
+      write kdeglobals KDE AnimationDurationFactor 0.5
+      ;;
+    *)
+      echo "error: unknown profile '${profile}'" >&2
+      return 2
+      ;;
+  esac
+  busctl --user call org.kde.KWin /KWin org.kde.KWin reconfigure > /dev/null 2>&1 || true
+  printf '%s\n' "${profile}" > "${effective_file}"
+}
+
+saved() {
+  local value
+  value="$(kreadconfig6 --file aegis-glassrc --group General --key Profile 2> /dev/null)"
+  echo "${value:-auto}"
+}
+
+resolve() { # CHOICE -> profile
+  if [[ "$1" != auto ]]; then
+    echo "$1"
+    return
+  fi
+  case "$(classify "$(renderer)")" in
+    software) echo performance ;;
+    *) echo balanced ;;
+  esac
+}
+
+case "${1:-status}" in
+  detect)
+    classify "$(renderer)"
+    ;;
+  status)
+    r="$(renderer)"
+    echo "choice=$(saved)"
+    echo "effective=$(cat "${effective_file}" 2> /dev/null || echo none)"
+    echo "renderer=${r:-unknown}"
+    echo "renderer_class=$(classify "${r}")"
+    ;;
+  apply)
+    choice="${2:-}"
+    case "${choice}" in
+      auto | full | balanced | performance) ;;
+      *)
+        echo "usage: glass-profile apply auto|full|balanced|performance" >&2
+        exit 2
+        ;;
+    esac
+    kwriteconfig6 --file aegis-glassrc --group General --key Profile "${choice}"
+    profile="$(resolve "${choice}")"
+    apply_profile "${profile}"
+    echo "choice=${choice} effective=${profile}"
+    ;;
+  session)
+    profile="$(resolve "$(saved)")"
+    apply_profile "${profile}"
+    echo "AEGIS glass profile at login: choice=$(saved) effective=${profile}"
+    ;;
+  *)
+    echo "usage: glass-profile status|detect|apply PROFILE|session" >&2
+    exit 2
+    ;;
+esac

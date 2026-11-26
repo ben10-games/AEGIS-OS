@@ -1,0 +1,7 @@
+# AEGIS OS (GUI v2): the Baloo file indexer is off by default. It scans and indexes the
+# home directory in the background, which costs CPU, memory and disk writes; in a live
+# session the index is lost at power-off anyway, and in a virtual machine without 3D the
+# CPU is already busy drawing the desktop. Search by file name in Dolphin still works.
+# Users can switch indexing on in System Settings > Search.
+[Basic Settings]
+Indexing-Enabled=false

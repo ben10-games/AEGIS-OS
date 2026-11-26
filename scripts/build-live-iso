@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# Build the AEGIS OS graphical Live ISO (development) for VirtualBox and other UEFI VMs.
+#
+#   scripts/build-live-iso
+#
+# Needs: the verified RPM inputs (scripts/fetch-inputs), the tools container
+# (scripts/build-builder) and the graphical root filesystem localhost/aegis-gui-rootfs
+# (AEGIS_WITH_GUI=1 AEGIS_ROOTFS_ONLY=1 scripts/build-image). Writes
+# out/release-live/: AEGIS-OS-GUI-v2-Live.iso, VIRTUALBOX_GUIDE.md, BUILD-INFO.txt,
+# SHA256SUMS. Large scratch files go to AEGIS_LIVE_WORKDIR (default out/live-work).
+#
+# Writes image files only. Never touches a disk, a partition or a boot loader of the
+# machine it runs on.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+as_root=()
+if [[ "${EUID}" -ne 0 ]]; then
+  as_root=(sudo)
+fi
+
+inputs=out/inputs/rpms
+for step in live live-apps; do
+  if [[ ! -s "${inputs}/${step}/SHA256SUMS" ]]; then
+    echo "INPUT ERROR: no verified '${step}' RPM inputs in ${inputs}; run scripts/fetch-inputs" >&2
+    exit 1
+  fi
+done
+for image in localhost/aegis-gui-rootfs:latest localhost/aegis-builder:latest; do
+  if ! "${as_root[@]}" podman image exists "${image}"; then
+    echo "error: ${image} is missing (see the usage at the top of this script)" >&2
+    exit 1
+  fi
+done
+
+revision="$(git rev-parse HEAD 2> /dev/null || echo unknown)"
+if [[ -n "$(git status --porcelain 2> /dev/null || true)" ]]; then
+  revision="${revision}-dirty"
+fi
+version="${AEGIS_VERSION:-0.1.0-dev}"
+epoch="${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct 2> /dev/null || echo 0)}"
+locked=(
+  --network=none
+  --build-context "rpms=${inputs}"
+  --timestamp "${epoch}"
+  --build-arg "SOURCE_DATE_EPOCH=${epoch}"
+)
+
+echo "== live kernel and initramfs (dracut dmsquash-live)"
+"${as_root[@]}" podman build \
+  "${locked[@]}" \
+  --target boot \
+  --tag localhost/aegis-gui-live-boot:latest \
+  --file image/Containerfile.live \
+  .
+
+echo "== live root filesystem"
+"${as_root[@]}" podman build \
+  "${locked[@]}" \
+  --target root \
+  --tag localhost/aegis-gui-live-rootfs:latest \
+  --file image/Containerfile.live \
+  .
+
+work="${AEGIS_LIVE_WORKDIR:-out/live-work}"
+"${as_root[@]}" rm -rf "${work}"
+mkdir -p "${work}"
+work="$(cd "${work}" && pwd)"
+mkdir -p "${work}/boot" "${work}/staging"
+"${as_root[@]}" mkdir -p "${work}/rootfs"
+
+echo "== extracting the kernel and initramfs"
+container="$("${as_root[@]}" podman create localhost/aegis-gui-live-boot:latest /bin/true)"
+"${as_root[@]}" podman cp "${container}:/live/." "${work}/boot/"
+"${as_root[@]}" podman rm "${container}" > /dev/null
+ls -l "${work}/boot"
+
+echo "== extracting the root filesystem (owners, modes, file capabilities kept)"
+mounted="$("${as_root[@]}" podman image mount localhost/aegis-gui-live-rootfs:latest)"
+"${as_root[@]}" cp -a "${mounted}/." "${work}/rootfs/"
+"${as_root[@]}" podman image unmount localhost/aegis-gui-live-rootfs:latest > /dev/null
+"${as_root[@]}" du -sh "${work}/rootfs"
+
+release=out/release-live
+iso_name=AEGIS-OS-GUI-v2-Live.iso
+"${as_root[@]}" rm -rf "${release}"
+mkdir -p "${release}"
+
+echo "== labelling, SquashFS, boot image and ISO (in the tools container)"
+"${as_root[@]}" podman run --rm \
+  --network=none \
+  --privileged \
+  --security-opt label=disable \
+  -v "${PWD}:/work" \
+  -v "${work}:/live" \
+  -w /work \
+  localhost/aegis-builder:latest \
+  /work/scripts/container/assemble-live-iso /live/rootfs /live/boot /live/staging \
+  "/work/${release}/${iso_name}"
+
+"${as_root[@]}" chown "$(id -u):$(id -g)" "${release}/${iso_name}"
+cp "${work}/boot/kernel-version" "${work}/kernel-version.txt"
+"${as_root[@]}" rm -rf "${work}/rootfs" "${work}/staging"
+
+cp VIRTUALBOX_GUIDE.md CHANGELOG-GUI-v2.md "${release}/"
+{
+  echo "name=AEGIS OS graphical Live ISO, GUI v2 (development)"
+  echo "file=${iso_name}"
+  echo "version=${version}"
+  echo "revision=${revision}"
+  if [[ -n "${GITHUB_RUN_ID:-}" ]]; then
+    echo "ci_run=${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-}/actions/runs/${GITHUB_RUN_ID}"
+  fi
+  echo "source_date_epoch=${epoch}"
+  echo "kernel=$(cat "${work}/kernel-version.txt")"
+  echo "base_image=$(grep -E '^BASE_IMAGE=' image/base.lock | cut -d= -f2-)"
+  echo "rpm_lock_sha256=$(sha256sum image/packages/rpms.lock.yaml | cut -d' ' -f1)"
+  echo "boot=UEFI x86-64 only (El Torito EFI image; Fedora-signed shim and GRUB)"
+  echo "root=SquashFS (zstd) with SELinux labels, RAM overlay (dracut dmsquash-live)"
+  echo "secure_boot=not tested; see VIRTUALBOX_GUIDE.md"
+  echo "size_bytes=$(stat -c %s "${release}/${iso_name}")"
+} > "${release}/BUILD-INFO.txt"
+(cd "${release}" && sha256sum "${iso_name}" VIRTUALBOX_GUIDE.md CHANGELOG-GUI-v2.md BUILD-INFO.txt \
+  > SHA256SUMS)
+cat "${release}/BUILD-INFO.txt" "${release}/SHA256SUMS"

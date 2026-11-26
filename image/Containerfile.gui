@@ -1,0 +1,44 @@
+# AEGIS OS graphical development image (M4-GUI): the development root filesystem plus
+# KDE Plasma 6 on Wayland (KWin), Qt 6 / QML and Kirigami, and the first AEGIS visual
+# identity. Like every variant it is sealed afterwards (image/Containerfile.seal) and
+# boots with Secure Boot. Never a release artifact. See docs/architecture/gui-architecture.md.
+ARG BASE=localhost/aegis-dev-rootfs:latest
+FROM ${BASE}
+
+ARG SOURCE_DATE_EPOCH
+
+COPY image/build/ /usr/libexec/aegis-build/
+
+# Plasma 6 without weak dependencies: the shell and compositor, the login manager, the
+# core applications (terminal, file manager, settings), network and audio integration,
+# portals, Qt Quick / Kirigami, and software rendering for virtual machines.
+# Fedora 45's KDE edition uses plasma-login-manager; AEGIS uses SDDM for now, whose
+# configuration is documented and stable (decision in gui-architecture.md).
+# Locked inputs only (P1-15): the 'gui' step of image/packages/rpms.in.yaml, verified by
+# scripts/fetch-inputs, installed without network and with every repository disabled.
+RUN --mount=type=bind,from=rpms,source=gui,target=/tmp/aegis-rpms \
+    /usr/libexec/aegis-build/var-to-tmpfiles snapshot \
+    && /usr/libexec/aegis-build/install-locked /tmp/aegis-rpms \
+    && /usr/libexec/aegis-build/clean-package-state \
+    && /usr/libexec/aegis-build/var-to-tmpfiles finish aegis-gui \
+    && test ! -e /etc/xdg/kwinrc
+
+# AEGIS identity: look-and-feel package, colour scheme, wallpaper, AEGIS mark, the
+# design-token QML module org.aegisos.style, the AEGIS Security widget and its read-only
+# status helper (under /usr), the display manager preset (under /usr/lib), and KWin's
+# system defaults for blur and the on-screen keyboard (/etc/xdg/kwinrc; checked above
+# that Fedora ships no such file).
+COPY image/rootfs-gui/ /
+
+# Select the AEGIS look-and-feel for every user (the only /etc change of this variant),
+# enable the display manager and boot to the graphical target.
+RUN mkdir -p /etc/xdg \
+    && printf '[KDE]\nLookAndFeelPackage=org.aegisos.desktop\n' >> /etc/xdg/kdeglobals \
+    && systemctl preset sddm.service \
+    && systemctl set-default graphical.target \
+    && test -L /etc/systemd/system/display-manager.service \
+    && rm -rf /usr/libexec/aegis-build
+
+LABEL org.opencontainers.image.title="AEGIS OS (graphical development, GUI v1)"
+
+RUN bootc container lint --fatal-warnings

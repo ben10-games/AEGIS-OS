@@ -1,0 +1,5 @@
+# AEGIS OS Live ISO only. The live account has no password, so a locked screen could
+# not be unlocked; screen locking is off in the live session.
+[Daemon]
+Autolock=false
+LockOnResume=false

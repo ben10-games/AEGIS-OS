@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 
-SHELL_SCRIPTS := $(filter-out %.py,$(shell git ls-files 'scripts/*' 'image/build/*' 'local-vm/*.sh' 'image/rootfs/usr/libexec/aegis/*'))
+SHELL_SCRIPTS := $(filter-out %.py,$(shell git ls-files 'scripts/*' 'image/build/*' 'local-vm/*.sh' 'image/rootfs/usr/libexec/aegis/*' 'image/rootfs-gui/usr/libexec/aegis/*' 'image/rootfs-live/usr/libexec/aegis/*'))
 YAML_FILES := $(shell git ls-files '*.yml' '*.yaml')
 
 .PHONY: help
@@ -54,6 +54,38 @@ image: ## Build the sealed aegis-base and aegis-dev container images (B-01); nee
 disk: ## Install both variants into image files under out/ (never a real disk)
 	scripts/build-disk localhost/aegis-dev:latest out/disk.raw
 	scripts/build-disk localhost/aegis-base:latest out/disk-base.raw
+
+.PHONY: image-gui
+image-gui: ## M4-GUI: build and seal the base, development and graphical images
+	AEGIS_WITH_GUI=1 scripts/build-image
+
+.PHONY: disk-gui
+disk-gui: ## M4-GUI: install the graphical image into out/disk-gui.raw
+	AEGIS_DISK_SIZE=20G scripts/build-disk localhost/aegis-gui:latest out/disk-gui.raw
+
+.PHONY: export-gui
+export-gui: ## GUI v1: export out/disk-gui.raw as a compressed QCOW2 with launcher and guide
+	scripts/export-qcow2 --gui
+
+.PHONY: gui-local-test
+gui-local-test: ## GUI v1: boot the exported GUI QCOW2 with the published Linux launcher
+	scripts/run-gui-local-test
+
+.PHONY: rootfs-gui
+rootfs-gui: ## Live ISO: build the unsealed graphical root filesystem only (no sealing)
+	AEGIS_WITH_GUI=1 AEGIS_ROOTFS_ONLY=1 AEGIS_SKIP_UPDATE_IMAGE=1 scripts/build-image
+
+.PHONY: live-iso
+live-iso: ## Live ISO: build out/release-live/AEGIS-OS-GUI-v2-Live.iso (needs rootfs-gui)
+	scripts/build-live-iso
+
+.PHONY: live-test
+live-test: ## Live ISO: check the ISO and boot it on VirtualBox-like hardware in QEMU
+	scripts/run-live-tests
+
+.PHONY: gui-test
+gui-test: ## M4-GUI: boot the graphical image under Secure Boot and run the GUI tests
+	scripts/run-gui-tests
 
 .PHONY: builder
 builder: ## Build the test and tools container (QEMU, firmware, pytest, signing tools)

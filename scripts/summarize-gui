@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Print the evidence of the M4-GUI test run (scripts/run-gui-tests) to the job log.
+# Screenshots are converted from PPM to half-size PNG and printed as base64 between
+# markers, so they can be recovered from the log where artifacts cannot be downloaded:
+#   sed -E 's/^\xEF\xBB\xBF//; s/^[0-9-]+T[0-9:.]+Z ?//' log \\
+#     | sed -n '/^AEGIS-SCREENSHOT BEGIN NAME$/,/^AEGIS-SCREENSHOT END/p' | sed '1d;$d' | base64 -d
+# (GitHub logs can carry a byte-order mark at chunk boundaries; strip it with the timestamp.)
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+logs=out/vm-gui/logs
+
+section() {
+  echo "=== $1"
+  if [[ -s "$2" ]]; then head -n "${3:-40}" "$2"; else echo "(not recorded: $2)"; fi
+  echo
+}
+
+for name in session idle resources effects security-status launch-times qml-errors audio pointer; do
+  section "gui: ${name}" "${logs}/gui-${name}.txt" 60
+done
+echo "=== gui: SELinux denials during the graphical session"
+if [[ -s "${logs}/gui-selinux-denials.txt" ]]; then
+  head -n 40 "${logs}/gui-selinux-denials.txt"
+elif [[ -e "${logs}/gui-selinux-denials.txt" ]]; then
+  echo "none"
+else
+  echo "(not recorded)"
+fi
+echo
+section "gui: Secure Boot status (bootctl)" "${logs}/secure-boot-bootctl-status.txt" 12
+
+for qemu_log in "${logs}"/*qemu.log; do
+  [[ -s "${qemu_log}" ]] || continue
+  section "QEMU messages: $(basename "${qemu_log}")" "${qemu_log}" 20
+done
+echo "=== gui: console failures"
+grep -haE 'FAILED|Failed to start|denied' "${logs}"/*serial*.log 2>/dev/null \
+  | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/^\[ *[0-9.]+\] //' | cut -c1-200 \
+  | sort | uniq -c | sort -rn | head -n 20 || echo "(none)"
+echo
+
+scripts/print_screenshots.py "${logs}" gui
+
+for report in out/junit-gui.xml out/junit-gui-local.xml; do
+  [[ -f "${report}" ]] || continue
+  echo "=== test report ${report}"
+  grep -o 'errors="[0-9]*" failures="[0-9]*" skipped="[0-9]*" tests="[0-9]*" time="[0-9.]*"' \
+    "${report}" | head -n 1
+  python3 - "${report}" <<'PYTHON'
+import sys, xml.etree.ElementTree as ET
+for case in ET.parse(sys.argv[1]).iter("testcase"):
+    problem = case.find("failure") if case.find("failure") is not None else case.find("error")
+    state = "ran" if problem is None else "FAILED"
+    message = "" if problem is None else ": " + (problem.get("message") or "")[:300].replace("\n", " | ")
+    print(f"  {state}: {case.get('name')}{message}")
+PYTHON
+done

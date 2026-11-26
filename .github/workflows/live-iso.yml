@@ -1,0 +1,118 @@
+name: live-iso
+
+# AEGIS OS graphical Live ISO (development) for VirtualBox and other UEFI VMs.
+# Builds the unsealed graphical root filesystem from the locked inputs, turns it into a
+# UEFI-bootable Live ISO, checks the ISO's structure and boots it in QEMU on hardware
+# chosen to match VirtualBox's defaults (tests/vm/test_live_iso.py, offline), then once
+# more to install and start Google Chrome from Flathub as the live user
+# (tests/vm/test_live_flatpak.py; reaches Flathub and Google's download server). The ISO is
+# published as the artifact aegis-os-gui-v2-live-iso only when every test passed, and only
+# on a manual start or when the head commit message contains [publish-iso].
+on:
+  push:
+    paths:
+      - image/**
+      - scripts/build-image
+      - scripts/build-live-iso
+      - scripts/run-live-tests
+      - scripts/summarize-live
+      - scripts/container/assemble-live-iso
+      - tests/vm/test_live_iso.py
+      - tests/vm/test_live_flatpak.py
+      - tests/vm/conftest.py
+      - tests/vm/harness/**
+      - VIRTUALBOX_GUIDE.md
+      - CHANGELOG-GUI-v2.md
+      - scripts/live-test-report
+      - scripts/print_screenshots.py
+      - .github/workflows/live-iso.yml
+  workflow_dispatch:
+
+# packages: read lets the job pull the mirrored base image and the RPM input cache.
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: live-iso-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  live-iso:
+    name: Build, check and boot the graphical Live ISO
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Make /dev/kvm accessible to the runner user
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: Log in to the container registry (read-only) for the mirrored base image
+        env:
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "${REGISTRY_TOKEN}" \
+            | sudo podman login --username "${REGISTRY_USER}" --password-stdin ghcr.io
+
+      - name: Fetch and verify the locked RPM inputs
+        run: make inputs
+
+      - name: Build test and tools container
+        run: make builder
+
+      - name: Build the graphical root filesystem (unsealed)
+        run: make rootfs-gui
+
+      - name: Build the Live ISO
+        run: |
+          df -h /
+          make live-iso
+
+      - name: Check the ISO and boot it on VirtualBox-like hardware
+        id: test
+        run: make live-test
+
+      - name: Collect results
+        if: always()
+        run: |
+          mkdir -p out
+          sudo chown -R "$(id -u):$(id -g)" out
+          scripts/summarize-live | tee out/summary-live.txt
+          scripts/live-test-report
+          df -h / || true
+
+      - name: Upload logs, screenshots and test report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: live-iso-logs-${{ github.sha }}
+          path: |
+            out/summary-live.txt
+            out/junit-live*.xml
+            out/vm-live/logs/
+            out/release-live/BUILD-INFO.txt
+            out/release-live/SHA256SUMS
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Only an ISO whose every test in this job passed is offered for download.
+      - name: Publish the tested Live ISO
+        if: >-
+          ${{ success() && (github.event_name == 'workflow_dispatch'
+          || contains(github.event.head_commit.message, '[publish-iso]')) }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aegis-os-gui-v2-live-iso
+          path: out/release-live/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

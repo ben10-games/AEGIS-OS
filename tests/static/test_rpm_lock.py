@@ -291,7 +291,7 @@ def test_the_command_line_reports_input_errors(rpmlock, tree, tmp_path, capsys):
 
 def test_the_repository_inputs_parse(rpmlock, root):
     sets = rpmlock.parse_inputs((root / "image/packages/rpms.in.yaml").read_text())
-    assert set(sets) == {"base", "dev", "dev-policy", "builder"}
+    assert set(sets) == {"base", "dev", "dev-policy", "gui", "live", "live-apps", "builder"}
 
 
 def test_the_repository_lock_is_current(rpmlock, root):
@@ -302,4 +302,20 @@ def test_the_repository_lock_is_current(rpmlock, root):
         (root / "image/packages/rpms.in.yaml").read_bytes(),
         (root / "image/base.lock").read_text(),
     )
-    assert {p.set for p in lock.packages} == {"base", "dev", "dev-policy", "builder"}
+    assert {p.set for p in lock.packages} == {
+        "base",
+        "dev",
+        "dev-policy",
+        "gui",
+        "live",
+        "live-apps",
+        "builder",
+    }
+
+
+def test_a_package_from_another_repository_is_refused(rpmlock, tree):
+    tree["lock"].packages[0] = rpmlock.Package(
+        **{**tree["lock"].packages[0].__dict__, "repo": "fedora-cisco-openh264"}
+    )
+    with pytest.raises(rpmlock.InputError, match="other than"):
+        rpmlock.check_lock(tree["lock"], INPUTS, BASE_LOCK)

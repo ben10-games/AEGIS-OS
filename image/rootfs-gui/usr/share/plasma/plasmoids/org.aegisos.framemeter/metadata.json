@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "KPlugin": {
+        "Id": "org.aegisos.framemeter",
+        "Name": "AEGIS Frame Meter",
+        "Description": "Measures how smoothly this desktop draws an animation (frames per second, frame times)",
+        "Icon": "aegis-os",
+        "Category": "System Information",
+        "Authors": [{"Name": "AEGIS OS"}],
+        "License": "GPL-2.0-or-later",
+        "Version": "2.0"
+    }
+}

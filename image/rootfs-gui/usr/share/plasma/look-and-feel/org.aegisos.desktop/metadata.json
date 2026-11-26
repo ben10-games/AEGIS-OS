@@ -1,0 +1,12 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "X-Plasma-APIVersion": "2",
+    "KPlugin": {
+        "Id": "org.aegisos.desktop",
+        "Name": "AEGIS OS",
+        "Description": "AEGIS OS Liquid Glass 2.0: AEGIS Glass Plasma theme, AEGIS colours (dark and light), wallpaper-tinted accent, floating dock",
+        "Authors": [{"Name": "AEGIS OS"}],
+        "License": "GPL-2.0-or-later",
+        "Version": "2.0"
+    }
+}
