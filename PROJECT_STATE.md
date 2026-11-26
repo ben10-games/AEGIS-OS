@@ -30,6 +30,30 @@ only if it actually ran and passed, with the commit and where it ran.
      "differences between the golden manifests and this build" block of the job log
      into `tests/golden/` in the same commit series.
 
+### v3 track ("The Experience Update"), branch `claude/aegis-os-v3`
+
+Owner-approved blueprint: `docs/architecture/v3-blueprint.md` (persistent VirtualBox
+disk first, then hybrid desktop, onboarding, App Center, release; installer M14 later).
+Branched from `claude/aegis-os-gui-v2` (`0821eb8`); not merged anywhere (needs the
+owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
+
+- **M8 (in progress): persistent VDI and first-boot account setup.**
+  - Implemented (`71bb572`): `image/Containerfile.v3` (aegis-v3 = aegis-gui + compiled
+    AEGIS apps from the locked `apps-build` step + first-boot setup; SSH server disabled,
+    release firewall zone; build fails if an account, password hash or SSH key is
+    present); AEGIS Setup (Qt Quick, KWin-only session as the system user
+    `aegis-setup`); root helper `aegis_provision.py` behind a socket only `aegis-setup`
+    can open (one account, refuses afterwards); Flatpak (per-user Flathub) and VirtualBox
+    guest tools moved into the gui image; `scripts/export-vdi`, `run-v3-tests`,
+    `summarize-v3`; workflow `v3.yml`; `tests/vm/test_v3_vdi.py`; test-only SSH for one
+    boot through a firmware credential (QEMU only).
+  - Base pin renewed (`8a256cc`) to `sha256:f3afa8b1…` (probe run 45818555819): the
+    previous base's selinux-policy 45.24 was only in Fedora's updates archive, a host the
+    lock does not allow (update-inputs run 45817451494).
+  - **Not yet verified:** nothing of M8 has run in CI yet (waiting for the regenerated
+    RPM lock). Not verified in VirtualBox.
+- **M9 and later:** not started.
+
 ### GUI v2 track (Liquid Glass 2.0, VirtualBox display, performance), branch `claude/aegis-os-gui-v2`
 
 Owner request after VirtualBox use: laggy desktop, basic look, no full-screen resizing.

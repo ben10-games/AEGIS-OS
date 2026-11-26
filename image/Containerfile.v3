@@ -47,6 +47,13 @@ RUN systemctl disable sshd.service \
     && test -z "$(awk -F: '$2 == "" || $2 !~ /^[!*]/' /etc/shadow)" \
     && test ! -e /var/lib/aegis/provisioned
 
+# AEGIS Setup runs through SDDM's autologin as the system user aegis-setup (uid < 1000).
+# Fail here, with the evidence, if the autologin PAM stack admits only uid >= 1000.
+RUN cat /etc/pam.d/sddm-autologin \
+    && if grep -Eq '^[[:space:]]*auth.*pam_succeed_if.*uid[[:space:]]*>=' /etc/pam.d/sddm-autologin; then \
+         echo "error: sddm-autologin refuses system users; AEGIS Setup cannot start" >&2; exit 1; \
+       fi
+
 LABEL org.opencontainers.image.title="AEGIS OS (desktop v3, persistent VDI, development)"
 
 RUN bootc container lint --fatal-warnings
