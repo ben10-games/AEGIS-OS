@@ -50,6 +50,9 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   - Base pin renewed (`8a256cc`) to `sha256:f3afa8b1…` (probe run 45818555819): the
     previous base's selinux-policy 45.24 was only in Fedora's updates archive, a host the
     lock does not allow (update-inputs run 45817451494).
+  - RPM lock regenerated on the new base (update-inputs run 45819994173, attempt 2): 660
+    packages; Flatpak and VirtualBox guest tools now in the gui step, 43 packages in the
+    new `apps-build` toolchain step (build stage only), `live-apps` removed.
   - **Not yet verified:** nothing of M8 has run in CI yet (waiting for the regenerated
     RPM lock). Not verified in VirtualBox.
 - **M9 and later:** not started.

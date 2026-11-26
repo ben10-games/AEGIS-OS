@@ -308,7 +308,7 @@ def test_the_repository_lock_is_current(rpmlock, root):
         "dev-policy",
         "gui",
         "live",
-        "live-apps",
+        "apps-build",
         "builder",
     }
 
