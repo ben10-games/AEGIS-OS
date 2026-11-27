@@ -229,6 +229,12 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   the Files window in front). The desktop session ended once after Spectacle was killed
   during its area selection (5 desktop tests then failed); the test now closes it with
   Escape. All other suites green.
+- **v3 run 46065804382 on `2d1e821`:** desktop 14/14 again (Spectacle closed with
+  Escape), App Center 6/6, tour 7/10: the drag-and-drop exercise completes with a real
+  pointer drag, the scene 5 search completes. Found: the full-size tour window (kept
+  above) covered the practice window, so its title bar could not be reached (now the tour
+  becomes a side panel at the right edge in that scene); the sample results were not
+  reachable through the accessibility interface (now plain accessible buttons).
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your

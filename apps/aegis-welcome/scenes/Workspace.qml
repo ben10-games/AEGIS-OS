@@ -104,8 +104,10 @@ Item {
             Item { Layout.fillHeight: true }
         }
 
-        // A small live diagram of what KWin reported last.
+        // A small live diagram of what KWin reported last (only when there is room: in this
+        // scene the tour is a narrow side panel).
         Glass {
+            visible: scene.width > 700
             Layout.fillWidth: true
             Layout.preferredWidth: 2
             Layout.fillHeight: true

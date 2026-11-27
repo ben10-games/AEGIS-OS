@@ -312,9 +312,12 @@ def test_scene_3_moves_resizes_snaps_maximises_and_minimises_a_real_window(vm, l
     time.sleep(2)
     press(vm, "Open a Files window to practise with")
     time.sleep(5)
+    time.sleep(3)  # the tour shrinks to a side panel at the right edge
     sw, sh, x, y, w, h = activate(vm, "org.kde.dolphin")
-    # Move: drag the title bar with the mouse (the main way; Alt+F7 is the keyboard way).
-    vm.drag((x + w / 2) / sw, (y + 12) / sh, (x + w / 2 + 140) / sw, (y + 12 + 70) / sh)
+    shot(vm, logdir, "welcome-3-start")
+    # Move: drag the title bar's left part with the mouse (the main way; Alt+F7 is the
+    # keyboard way); the tour panel is at the right edge.
+    vm.drag((x + 90) / sw, (y + 12) / sh, (x + 90 + 140) / sw, (y + 12 + 70) / sh)
     if not done_within(vm, "workspace.move", 8):
         log(logdir, "welcome", "move: the title-bar drag was not reported; trying Alt+F7")
         vm.send_keys("alt-f7", *["right"] * 12, "ret")

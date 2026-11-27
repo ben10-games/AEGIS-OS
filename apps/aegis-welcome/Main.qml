@@ -16,8 +16,23 @@ ApplicationWindow {
     visible: true
     width: Math.min(1040, Screen.desktopAvailableWidth - 80)
     height: Math.min(680, Screen.desktopAvailableHeight - 140)
-    minimumWidth: 760
+    minimumWidth: compact ? 400 : 760
     minimumHeight: 560
+
+    // In "Control your workspace" the tour becomes a narrow side panel (KWin's watcher,
+    // watch.js, keeps it at the right edge), so the practice window can be reached: the
+    // full-size tour covered it (run 46065804382).
+    readonly property bool compact: welcome.scene === 2
+    property size fullSize: Qt.size(width, height)
+    onCompactChanged: {
+        if (compact) {
+            fullSize = Qt.size(width, height);
+            width = 440;
+        } else {
+            width = Math.max(760, fullSize.width);
+            height = Math.max(560, fullSize.height);
+        }
+    }
     title: "Welcome to AEGIS"
     color: "#0a1220"
 
@@ -149,6 +164,7 @@ ApplicationWindow {
             Item { Layout.fillWidth: true }
             Row {
                 spacing: 8
+                visible: !window.compact
                 Repeater {
                     model: window.titles.length
                     delegate: Rectangle {

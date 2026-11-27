@@ -61,7 +61,10 @@ def test_welcome_is_unprivileged_and_watch_script_is_read_only(root):
     watch = (root / WELCOME / "watch.js").read_text()
     # The only change it makes to any window: keeping the tour's own window above.
     assignments = re.findall(r"window\.(\w+)\s*=", watch)
-    assert assignments == ["keepAbove"], assignments
+    assert assignments == ["frameGeometry", "keepAbove"], assignments
+    # Both only for the tour's own window.
+    assert "function placeTour(window)" in watch
+    assert watch.count('=== "org.aegisos.welcome"') == 1
     assert 'resourceClass) === "org.aegisos.welcome"' in watch
     main = (root / WELCOME / "main.cpp").read_text()
     assert "GenericStateLocation" in main and "welcome.json" in main

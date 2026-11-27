@@ -27,9 +27,24 @@ function report(event, window) {
         }));
 }
 
+// The tour as a narrow side panel (the "Control your workspace" scene): keep it at the
+// right edge of the work area, out of the way of the practice window.
+function placeTour(window) {
+    const g = window.frameGeometry;
+    if (g.width >= 600)
+        return;
+    const a = workspace.clientArea(KWin.MaximizeArea, window);
+    const x = a.x + a.width - g.width - 12;
+    const y = a.y + 12;
+    if (Math.round(g.x) !== Math.round(x) || Math.round(g.y) !== Math.round(y))
+        window.frameGeometry = Qt.rect(x, y, g.width, Math.min(g.height, a.height - 24));
+}
+
 function watch(window) {
-    if (String(window.resourceClass) === "org.aegisos.welcome")
+    if (String(window.resourceClass) === "org.aegisos.welcome") {
         window.keepAbove = true;
+        window.frameGeometryChanged.connect(function () { placeTour(window); });
+    }
     window.frameGeometryChanged.connect(function () { report("geometry", window); });
     window.minimizedChanged.connect(function () { report("minimized", window); });
 }

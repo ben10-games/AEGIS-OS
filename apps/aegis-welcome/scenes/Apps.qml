@@ -68,22 +68,47 @@ Item {
                 }
             }
             Component.onCompleted: if (welcome.scene === 4) search.forceActiveFocus()
-            ListView {
+            // A column of buttons (at most eight sample apps): each is a focusable,
+            // accessible control (a ListView's delegates were not reachable through the
+            // accessibility interface in run 46065804382).
+            ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                clip: true
                 spacing: 6
-                model: scene.results
-                delegate: ItemDelegate {
-                    required property var modelData
-                    width: ListView.view.width
-                    text: modelData.name + "  ·  " + modelData.summary
-                    Accessible.name: modelData.name
-                    onClicked: {
-                        scene.chosen = modelData;
-                        welcome.complete("apps.details");
+                Repeater {
+                    model: scene.results
+                    delegate: Rectangle {
+                        id: row
+                        required property var modelData
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 40
+                        radius: 10
+                        color: hover.hovered || activeFocus ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+                        border.color: activeFocus ? "#4fd1e8" : "transparent"
+                        activeFocusOnTab: true
+                        Accessible.role: Accessible.Button
+                        Accessible.name: modelData.name
+                        Accessible.description: modelData.summary
+                        Accessible.onPressAction: row.choose()
+                        Keys.onReturnPressed: row.choose()
+                        Keys.onSpacePressed: row.choose()
+                        function choose() {
+                            scene.chosen = row.modelData;
+                            welcome.complete("apps.details");
+                        }
+                        HoverHandler { id: hover }
+                        TapHandler { onTapped: row.choose() }
+                        Label {
+                            anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter
+                                      leftMargin: 12; rightMargin: 12 }
+                            text: row.modelData.name + "  ·  " + row.modelData.summary
+                            elide: Text.ElideRight
+                            color: "#eef6fb"
+                            font.family: "Inter"
+                        }
                     }
                 }
+                Item { Layout.fillHeight: true }
             }
         }
         Glass {
