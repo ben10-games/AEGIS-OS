@@ -4,9 +4,9 @@
 # yamllint disable rule:line-length
 lockfileVersion: 1
 base: "ghcr.io/ben10-games/aegis-os/fedora-bootc@sha256:f3afa8b1d590ba2842366e0bca4f921ba4a0c7b5ee72679b632aeaa08f170a1e"
-inputs: "sha256:9395b61f1ac064e2808ebf50c5996f8eb43150a580a3205fc7f75229cfe5f831"
-resolved: "2026-11-27T14:27:42Z"
-cache: "ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:58206494de9ee8ebd8e0ff6902fd0239961d106df59f992dc5c2e292813e4004"
+inputs: "sha256:b35cbbbc2b7c00564b3f3cb991e8a093a6bb22d307ba47d234d2a2d98810dec1"
+resolved: "2026-11-27T18:44:23Z"
+cache: "ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:0038041cb83f5b4fb0daa64d6e80e54c53bb639c007dcb5d9e614f7384ba114d"
 packages:
   - {set: apps-build, name: binutils, evr: "2.47-1.fc45", arch: x86_64, sha256: 9a3060e6686dd00a239a86e95140816968fa68a782cb385613dea620676c1dfb, size: 6545927, repo: fedora, location: "Packages/b/binutils-2.47-1.fc45.x86_64.rpm"}
   - {set: apps-build, name: cmake, evr: "4.3.0-7.fc45", arch: x86_64, sha256: 062773590bba065fb4443cb4377b9339b3c60b3d06d6e24528416cf43cf7cfdf, size: 15109160, repo: updates, location: "Packages/c/cmake-4.3.0-7.fc45.x86_64.rpm"}
@@ -217,6 +217,7 @@ packages:
   - {set: gui, name: glx-utils, evr: "9.0.0-12.fc45", arch: x86_64, sha256: a8452f1c52f8c382ad51579703085f0366b9e3a1768fda4b1d384a32a5bd6617, size: 71532, repo: fedora, location: "Packages/g/glx-utils-9.0.0-12.fc45.x86_64.rpm"}
   - {set: gui, name: glycin-libs, evr: "2.2.6-1.fc45", arch: x86_64, sha256: 053c3c73d185af3cc23c2c8070572925c304cb32955d5f09c2c0f0f39f887514, size: 1851765, repo: updates, location: "Packages/g/glycin-libs-2.2.6-1.fc45.x86_64.rpm"}
   - {set: gui, name: glycin-loaders, evr: "2.2.6-1.fc45", arch: x86_64, sha256: 6f3028ba3123bc6266f44f36555d536db047a1a602634d2b87f3cff9ad8e3e94, size: 3561779, repo: updates, location: "Packages/g/glycin-loaders-2.2.6-1.fc45.x86_64.rpm"}
+  - {set: gui, name: gobject-introspection, evr: "1.86.0-11.fc45", arch: x86_64, sha256: e47eb1b6312e5b9413b73b157bc042e54877fdb382802862f4f4c19adea8f82a, size: 125940, repo: fedora, location: "Packages/g/gobject-introspection-1.86.0-11.fc45.x86_64.rpm"}
   - {set: gui, name: google-noto-color-emoji-fonts, evr: "20260921-1.fc45", arch: noarch, sha256: 0af92354a225427763272b93ac791640b67f90a3d64a889f5b46f63d947cc19a, size: 2532912, repo: fedora, location: "Packages/g/google-noto-color-emoji-fonts-20260921-1.fc45.noarch.rpm"}
   - {set: gui, name: google-noto-fonts-common, evr: "20260601-3.fc45", arch: noarch, sha256: be2e30de84fe831d6f385e6b67e0634e27b1e0596ac33643e09006cc2a3c1210, size: 17132, repo: fedora, location: "Packages/g/google-noto-fonts-common-20260601-3.fc45.noarch.rpm"}
   - {set: gui, name: google-noto-sans-fonts, evr: "20260601-3.fc45", arch: noarch, sha256: b6fe61f52057664366f26150bc72c673d7071b31d5ca4f68e540018c80a5f9f8, size: 11679787, repo: fedora, location: "Packages/g/google-noto-sans-fonts-20260601-3.fc45.noarch.rpm"}

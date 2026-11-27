@@ -198,6 +198,12 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   (diagnostics added: the helper lists the applications on the accessibility bus and
   searches all of them). Performance repeated: reboot to login 7.5 s, boot 9.3 s, password
   to desktop 4.5 s; opening animation CPU this time 14 % (tour) / 38 % (KWin).
+- **Found by the M11 tests (v3 run 46040929112 on `a6174f6`): Orca could not start.** The
+  tour's launcher and Files steps now complete from real events, but importing pyatspi
+  (Orca's accessibility library, also used by the tests) failed: the DBus-1.0 typelib
+  comes only with gobject-introspection, a weak dependency the build does not install.
+  Added (update-inputs run 46051406945: one package, 0.13 MB, LGPL, `fedora`); the gui
+  image build now fails if pyatspi does not import.
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your
