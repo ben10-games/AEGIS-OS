@@ -42,7 +42,7 @@ CREATE = """
 import socket, sys
 s = socket.socket(socket.AF_UNIX)
 s.connect("/run/aegis/provision.sock")
-s.sendall(sys.stdin.buffer.read())
+s.sendall(sys.stdin.buffer.read().rstrip(b"\n") + b"\n")  # the helper reads one line
 print(s.recv(4096).decode().strip())
 """
 

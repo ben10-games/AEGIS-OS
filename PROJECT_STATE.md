@@ -71,7 +71,15 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
     `plasma-apply-colorscheme` (as System Settings does). Screenshots: the
     Administrator label of AEGIS Setup was invisible (dark on dark), fixed; the login
     screen is still Fedora's SDDM theme (AEGIS theme in M10).
-  - **Not yet verified:** the M8 suite has not passed completely yet (waiting for the regenerated
+  - **M8 offline suites green: v3 run 45826914131 on `23c9e9d`** (QEMU on VirtualBox-like
+    hardware, not VirtualBox): Secure Boot suite on the v3 disk 8/8, VDI suite 7/7.
+    After a complete power-off: file, colour scheme AEGIS Light (set inside the session
+    as System Settings does, then a wallpaper change), glass profile `full`, wallpaper
+    and account kept; screenshots show the Light dock after the reboot and the
+    Administrator label in AEGIS Setup. The M9 Chrome suite in that run failed before
+    installing anything: the test sent the account request without the newline the
+    helper waits for (fixed).
+  - **Not verified in VirtualBox** (owner check after M9) (waiting for the regenerated
     RPM lock). Not verified in VirtualBox.
 - **M9 (prepared): persistent development signing (ADR-0015).** Workflow
   `dev-signing-bootstrap` (manual, v3 branch, reviewer-gated environment
