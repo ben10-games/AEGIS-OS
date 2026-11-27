@@ -241,6 +241,13 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   promised them) and the AEGIS window style has no border to grab. The tour now teaches
   KWin's Meta + right-button drag, which the test performs. Performance: the window poll
   raised instead of waiting while no window existed yet (fixed). All other suites green.
+- **v3 run 46077021590 on `42e1387`:** the tour panel now sits at the right edge
+  (440 px at x=572 on 1024x768). Secure Boot 8/8, VDI 7/7, desktop 14/14, performance
+  6/6, apps 6/6, App Center 6/6, update 6/6, no SELinux denials. Tour 8/10: the test's
+  Meta + right-button press (at 75 % of the Files window's width) landed on the tour
+  panel, which stays on top, so KWin resized the tour instead of Files; scene 7 then
+  missed the four exercises that follow. The test now presses inside the part of the
+  Files window the panel leaves visible (a test fix; the tour is unchanged).
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your

@@ -322,12 +322,18 @@ def test_scene_3_moves_resizes_snaps_maximises_and_minimises_a_real_window(vm, l
     # Resize: hold Meta and drag with the right mouse button (KWin, any window style; the
     # AEGIS style has no visible border to grab, and Alt+F8 did nothing: runs 46065804382,
     # 46070946621).
+    # Press where Files is visible: the tour panel stays on top at the right edge, and in
+    # run 46077021590 the press at 75 % of the width landed on the panel and resized the
+    # tour instead. KWin resizes the edge nearest the pressed quarter; drag toward the
+    # middle of the window, so it shrinks.
     sw, sh, x, y, w, h = activate(vm, "org.kde.dolphin")
-    vm.drag(
-        (x + w * 0.75) / sw, (y + h * 0.75) / sh,
-        (x + w * 0.75 - 120) / sw, (y + h * 0.75 - 90) / sh,
-        button="right", hold="meta_l",
-    )  # fmt: skip
+    tour_x = int(kwin_lines(vm, WINDOW, "AEGIS-WELCOME")[-1][2])
+    visible_right = min(x + w, tour_x - 20)
+    assert visible_right - x >= 80, f"Files at {x},{y} {w}x{h} is hidden by the tour at {tour_x}"
+    px, py = x + (visible_right - x) * 0.6, y + h * 0.7
+    dx = -120 if px > x + w / 2 else 120
+    log(logdir, "welcome", f"resize: Files {x},{y} {w}x{h}; tour x={tour_x}; at {px:.0f},{py:.0f}")
+    vm.drag(px / sw, py / sh, (px + dx) / sw, (py - 90) / sh, button="right", hold="meta_l")
     wait_done(vm, "workspace.resize")
     vm.send_keys("meta_l-left")
     wait_done(vm, "workspace.snap")
