@@ -72,6 +72,10 @@ gui:
   - spectacle
   - rsms-inter-fonts
   - orca
+  # Orca's Python accessibility bindings (pyatspi) need the DBus-1.0 typelib, which only
+  # gobject-introspection ships and which Orca pulls in as a weak dependency; images are
+  # built without weak dependencies, so without it Orca cannot start (v3 run 46040929112).
+  - gobject-introspection
 live:
   - dracut-live
 apps-build:
