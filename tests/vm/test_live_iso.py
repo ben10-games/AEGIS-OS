@@ -394,6 +394,36 @@ def effect_loaded(vm, effect: str) -> bool:
     return reply == "b true"
 
 
+BLUR_DIAGNOSTICS = r"""
+echo "blurEnabled=$(kreadconfig6 --file kwinrc --group Plugins --key blurEnabled)"
+ls -l "$HOME/.config/kwinrc"
+grep -A4 '^\[Plugins\]' "$HOME/.config/kwinrc"
+busctl --user get-property org.kde.KWin /Effects org.kde.kwin.Effects loadedEffects
+tr '\0' '\n' < "/proc/$(pgrep -u "$(id -u)" -x kwin_wayland)/environ" \
+  | grep -E '^(XDG_CONFIG|KDE|HOME=)' || true
+"""
+
+
+def blur_diagnostics(vm) -> str:
+    """Why KWin has blur loaded or not: the user's setting, KWin's effects and the
+    configuration paths in KWin's environment (live-iso runs 45822043527, 45823218002:
+    blur stayed loaded under Performance Glass on the renewed base)."""
+    script = base64.b64encode(BLUR_DIAGNOSTICS.encode()).decode()
+    return (
+        as_user(vm, f"echo {script} | base64 -d | sh", check=False).stdout
+        + vm.ssh(
+            "journalctl -b -o cat --no-pager | grep -i blur | tail -n 15 || true", check=False
+        ).stdout
+    )
+
+
+def assert_blur(vm, logdir, wanted: bool, label: str) -> None:
+    if effect_loaded(vm, "blur") != wanted:
+        log(logdir, "blur-diagnostics", f"{label}: blur loaded, wanted {wanted}\n")
+        log(logdir, "blur-diagnostics", blur_diagnostics(vm))
+        raise AssertionError(f"{label}: blur loaded is not {wanted} (see blur-diagnostics)")
+
+
 def cpu_ticks(vm, names: tuple[str, ...]) -> dict[str, int]:
     """Summed user+system clock ticks of the live user's processes with these names."""
     script = (
@@ -452,7 +482,7 @@ def test_renderer_identified_and_auto_profile(live, logdir):
     expected = "performance" if facts["renderer_class"] == "software" else "balanced"
     assert facts["choice"] == "auto", report
     assert facts["effective"] == expected, report
-    assert effect_loaded(live, "blur") == (expected != "performance")
+    assert_blur(live, logdir, expected != "performance", f"auto ({expected})")
 
 
 def test_glass_profiles_switch_and_measure(live, logdir, record_property):
@@ -464,7 +494,7 @@ def test_glass_profiles_switch_and_measure(live, logdir, record_property):
         out = as_user(live, f"{GLASS} apply {profile}").stdout
         assert f"effective={profile}" in out, out
         time.sleep(4)
-        assert effect_loaded(live, "blur") == (profile != "performance"), profile
+        assert_blur(live, logdir, profile != "performance", profile)
         factor = as_user(
             live, "kreadconfig6 --file kdeglobals --group KDE --key AnimationDurationFactor"
         ).stdout.strip()

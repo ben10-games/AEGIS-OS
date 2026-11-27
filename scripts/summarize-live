@@ -21,7 +21,7 @@ section() {
 section "live: BUILD-INFO.txt" out/release-live/BUILD-INFO.txt
 section "live: SHA256SUMS" out/release-live/SHA256SUMS
 for name in iso grub boot timings account display pointer security-status network-audio \
-  renderer performance launcher resolutions virtualbox qml-errors failed-units selinux-denials vmsvga flatpak flatpak-denials; do
+  renderer performance launcher resolutions virtualbox qml-errors failed-units selinux-denials vmsvga flatpak flatpak-denials blur-diagnostics; do
   section "live: ${name}" "${logs}/live-${name}.txt" 60
 done
 for qemu_log in "${logs}"/*qemu.log; do

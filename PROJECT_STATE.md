@@ -97,6 +97,22 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   suite): account through the setup socket as `aegis-setup`, login by typing, per-user
   Flathub remote only, Chrome installed into the user installation on the btrfs disk,
   started, complete power-off, still listed and starts again, SELinux without denials.
+- **Regression under investigation (GUI v2 Live ISO on the renewed base):** live-iso runs
+  45822043527 (`e4c7405`) and 45823218002 (`f41c3f7`) pass 22 of 24 offline tests and the
+  Flatpak suite 5/5, but under Performance Glass KWin's blur effect stays loaded
+  (`test_renderer_identified_and_auto_profile`, `test_glass_profiles_switch_and_measure`;
+  KWin 86 % of a CPU while measuring, against 39–45 % in GUI v2). No KWin or Plasma
+  package changed in the lock; the base image itself did. The tests now record the
+  user's `kwinrc`, KWin's loaded effects and its configuration paths when this happens.
+  `build` (M1–M5, reproducibility, GUI under Secure Boot) is green on `5c22f44`
+  (run 45982673831).
+- **M9 Chrome persistence green: v3 run 45982673897 on `5c22f44`** (QEMU, not
+  VirtualBox): Secure Boot 8/8, VDI 7/7, Chrome suite 6/6. Per-user Flathub only;
+  Chrome installed in 31 s into the user installation on the btrfs disk
+  (`/state/os/default/var`), started in 3.3 s; after a complete power-off still installed
+  and started in 3.3 s; no SELinux denials. Chrome showed "Restore pages?" because the
+  test ends Chrome by stopping its service. The VM had no swap (zram) active: to be
+  checked in M13.
 - **M10 and later:** not started.
 
 ### GUI v2 track (Liquid Glass 2.0, VirtualBox display, performance), branch `claude/aegis-os-gui-v2`
