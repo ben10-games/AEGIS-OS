@@ -66,6 +66,12 @@ gui:
   - flatpak
   - fedora-flathub-remote
   - virtualbox-guest-additions
+  # v3 M10/M11/M13 (owner approval 2026-11-26, after dependency and licence review of the
+  # candidate lock): Spectacle (screenshots, GPL-2.0-or-later), Inter (UI typeface,
+  # OFL-1.1), Orca (screen reader, LGPL-2.1-or-later).
+  - spectacle
+  - rsms-inter-fonts
+  - orca
 live:
   - dracut-live
 apps-build:
