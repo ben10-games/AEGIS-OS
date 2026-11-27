@@ -350,12 +350,27 @@ private:
         setError(QString());
         m_status = status;
         m_progress = 0;
+        m_steps = 0;
         Q_EMIT statusChanged();
         Q_EMIT progressChanged();
         m_job = new QProcess(this);
         m_job->setProcessChannelMode(QProcess::SeparateChannels);
         connect(m_job, &QProcess::readyReadStandardOutput, this, [this] {
             const QString chunk = QString::fromUtf8(m_job->readAllStandardOutput());
+            // Without a terminal flatpak prints one line per component ("Installing
+            // runtime/org.freedesktop.Platform/x86_64/25.08") and no percentages: show it.
+            static const QRegularExpression step(
+                QStringLiteral("^(Installing|Updating|Uninstalling)\\s+(\\S+)"),
+                QRegularExpression::MultilineOption);
+            auto steps = step.globalMatch(chunk);
+            while (steps.hasNext()) {
+                const auto m = steps.next();
+                ++m_steps;
+                m_status = QStringLiteral("%1 %2 (step %3)…")
+                               .arg(m.captured(1), m.captured(2).section(QLatin1Char('/'), 1, 1))
+                               .arg(m_steps);
+                Q_EMIT statusChanged();
+            }
             static const QRegularExpression percent(QStringLiteral("(\\d{1,3})%"));
             auto it = percent.globalMatch(chunk);
             while (it.hasNext()) {
@@ -485,6 +500,7 @@ private:
     QProcess *m_job = nullptr;
     QString m_status, m_error;
     int m_progress = 0;
+    int m_steps = 0;
 };
 
 // The daily user timer: tell the user that updates exist; never apply them.

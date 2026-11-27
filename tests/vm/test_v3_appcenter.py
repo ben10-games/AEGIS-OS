@@ -157,6 +157,8 @@ def test_verified_publisher_is_explained_not_called_safe(vm, logdir):
 
 
 def test_install_shows_progress_and_installs_for_the_user_only(vm, logdir, record_property):
+    if "Back to the list" in dump(vm):
+        press(vm, "Back to the list")
     search(vm, "chrome")
     press(vm, "Google Chrome")
     wait_text(vm, "Install Google Chrome", 30, "Chrome's page")
@@ -201,8 +203,7 @@ def test_update_is_announced_not_applied_then_installed_on_request(vm, logdir):
     assert result.returncode == 0, result.stdout[-2000:]
 
     def installed_commit() -> str:
-        info = as_user(vm, f"flatpak info --user {CHROME}").stdout
-        return next(line.split()[-1] for line in info.splitlines() if "Commit:" in line)
+        return as_user(vm, f"flatpak info --user --show-commit {CHROME}").stdout.strip()
 
     assert installed_commit().startswith(older[:12])
     in_session(vm, "aegis-appcenter --check-updates", timeout=180)
@@ -219,13 +220,24 @@ def test_update_is_announced_not_applied_then_installed_on_request(vm, logdir):
     log(logdir, "appcenter", f"updated to {latest[:12]} in {time.monotonic() - started:.0f} s")
 
 
+def status_bar(vm) -> str:
+    return "\n".join(line for line in dump(vm).splitlines() if "status bar" in line)
+
+
+def open_page(vm, tab: str, name: str) -> None:
+    """Back to the list (a page may still be open), choose TAB, open NAME's page."""
+    if "Back to the list" in dump(vm):
+        press(vm, "Back to the list")
+    press(vm, tab)
+    press(vm, name)
+
+
 def test_remove_and_a_plain_error_without_flathub(vm, logdir):
-    press(vm, "Installed")
-    press(vm, "Google Chrome")
+    open_page(vm, "Installed", "Google Chrome")
     press(vm, "Remove Google Chrome")
     started = time.monotonic()
     while CHROME in user_apps(vm):
-        assert time.monotonic() - started < 300, "Chrome was not removed"
+        assert time.monotonic() - started < 300, f"Chrome was not removed: {status_bar(vm)}"
         time.sleep(3)
     vm.ssh(
         "cp /etc/hosts /etc/hosts.aegis-test && printf '127.0.0.1 dl.flathub.org flathub.org\\n' "
@@ -245,7 +257,9 @@ def test_remove_and_a_plain_error_without_flathub(vm, logdir):
 
 
 def test_an_installed_application_survives_a_power_off(vm, logdir):
-    vm.send_keys("esc")
+    if "Back to the list" in dump(vm):
+        press(vm, "Back to the list")
+    press(vm, "Discover")
     search(vm, "chrome")
     press(vm, "Google Chrome")
     press(vm, "Install Google Chrome")
@@ -261,6 +275,7 @@ def test_an_installed_application_survives_a_power_off(vm, logdir):
     start_app_center(vm)
     press(vm, "Installed")
     wait_text(vm, "Google Chrome", 60, "the Installed tab after the power-off")
+    log(logdir, "appcenter", "after the power-off, Installed tab shows Google Chrome")
     assert (
         as_user(vm, "systemctl --user is-enabled aegis-appcenter-updates.timer").stdout.strip()
         == "enabled"

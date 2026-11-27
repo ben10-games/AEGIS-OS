@@ -78,8 +78,10 @@ Item {
                                 border.color: chosen ? "#4fd1e8" : Qt.rgba(1, 1, 1, 0.2)
                                 border.width: chosen || activeFocus ? 3 : 1
                                 activeFocusOnTab: true
-                                Accessible.role: Accessible.RadioButton
+                                // Button role: its accessibility action is "press" (run 46052351712).
+                                Accessible.role: Accessible.Button
                                 Accessible.name: modelData.label
+                                Accessible.checkable: true
                                 Accessible.checked: chosen
                                 Accessible.onPressAction: scene.scheme(modelData.id)
                                 Label { anchors.centerIn: parent; text: modelData.label; color: modelData.fg; font.family: "Inter" }

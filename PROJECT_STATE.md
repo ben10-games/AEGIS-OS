@@ -204,6 +204,15 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   comes only with gobject-introspection, a weak dependency the build does not install.
   Added (update-inputs run 46051406945: one package, 0.13 MB, LGPL, `fedora`); the gui
   image build now fails if pyatspi does not import.
+- **v3 run 46052351712 on `5cd4342`:** App Center 3/6: the Flathub catalogue loads and
+  search finds Chrome (1 s after the catalogue was in place); Firefox's page shows
+  "Verified publisher" with the not-a-safety-guarantee explanation and its permissions;
+  Chrome installs from the App Center in 37 s into the user installation (no system
+  install) and opens. Tour: launcher, Files, search and security steps complete from real
+  input. Fixed for the next run: drag and drop (QML id clashing with `palette`, drop read
+  after release), the practice window (`dolphin --new-window`), the Light/Dark tiles'
+  accessible role, App Center progress text (flatpak prints no percentages without a
+  terminal), and test-side issues (commit check, replay while running, stale page).
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your

@@ -175,7 +175,10 @@ public:
 
     Q_INVOKABLE void openFiles() const
     {
-        QProcess::startDetached(QStringLiteral("dolphin"), {QDir::homePath()});
+        // A new window even when Files is already open (run 46052351712: "dolphin ~" reused
+        // the open window, so the exercise had nothing new to practise on).
+        QProcess::startDetached(QStringLiteral("dolphin"),
+                                {QStringLiteral("--new-window"), QDir::homePath()});
     }
 
     Q_INVOKABLE void openAppCenter() const

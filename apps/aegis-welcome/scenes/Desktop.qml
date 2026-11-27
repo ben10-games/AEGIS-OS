@@ -71,7 +71,7 @@ Item {
                 font { family: "Inter"; pixelSize: 13 }
             }
             Row {
-                id: palette
+                id: iconRow
                 anchors { top: parent.top; horizontalCenter: parent.horizontalCenter; topMargin: 60 }
                 spacing: 22
                 Repeater {
@@ -99,11 +99,10 @@ Item {
                             id: dragArea
                             anchors.fill: parent
                             drag.target: icon
+                            // Drop while the drag is still active; the DropArea places it.
                             onReleased: {
-                                if (icon.Drag.target)
-                                    dock.place(icon.modelData.name);
-                                icon.x = 0; icon.y = 0;
-                                palette.forceLayout();
+                                icon.Drag.drop();
+                                iconRow.forceLayout();
                             }
                         }
                         Keys.onReturnPressed: dock.place(modelData.name)
@@ -128,7 +127,15 @@ Item {
                 Behavior on width { NumberAnimation { duration: (welcome.reducedMotion ? 0 : 250); easing.type: Easing.OutCubic } }
                 Accessible.role: Accessible.Grouping
                 Accessible.name: "Practice dock"
-                DropArea { id: dropArea; anchors.fill: parent }
+                DropArea {
+                    id: dropArea
+                    anchors.fill: parent
+                    onDropped: (drop) => {
+                        if (drop.source && drop.source.modelData)
+                            dock.place(drop.source.modelData.name);
+                        drop.accept();
+                    }
+                }
                 Row {
                     anchors.centerIn: parent
                     spacing: 10

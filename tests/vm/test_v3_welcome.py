@@ -192,8 +192,20 @@ def kwin_lines(vm, script: str, marker: str) -> list[list[str]]:
     raise AssertionError(f"KWin printed nothing for {marker}")
 
 
+ACTIVATE_FILES = """
+for (const w of workspace.windowList())
+    if (String(w.resourceClass) === "org.kde.dolphin" && w.normalWindow) {
+        workspace.activeWindow = w;
+        console.info("AEGIS-ACTIVATED " + w.caption);
+    }
+"""
+
+
 def start_tour(vm, *arguments: str) -> None:
-    """Start the tour in the session, with the accessibility bridge on."""
+    """Start the tour in the session, with the accessibility bridge on. A running tour is
+    closed first: a second instance only exits (run 46052351712)."""
+    vm.ssh(f"pkill -u {USER} -x aegis-welcome", check=False)
+    time.sleep(2)
     # Without --wait (run 46023524801: in_session's --wait cannot be combined with
     # --no-block, so the tour never started).
     as_user(
@@ -276,8 +288,13 @@ def test_scene_2_launcher_files_and_drag_and_drop(vm, logdir):
 def test_scene_3_moves_resizes_snaps_maximises_and_minimises_a_real_window(vm, logdir):
     press(vm, "Next")
     assert scene(vm) == 2
+    vm.ssh(f"pkill -u {USER} -x dolphin", check=False)  # the Files window of scene 2
+    time.sleep(2)
     press(vm, "Open a Files window to practise with")
-    time.sleep(5)  # the new window is in front
+    time.sleep(5)
+    # Make the practice window the active one, as the user's click on it would.
+    kwin_lines(vm, ACTIVATE_FILES, "AEGIS-ACTIVATED")
+    time.sleep(1)
     vm.send_keys("alt-f7", *["right"] * 12, "ret")
     wait_done(vm, "workspace.move")
     vm.send_keys("alt-f8", *["right"] * 12, "ret")
@@ -314,7 +331,8 @@ def test_scene_5_finds_an_application_and_its_permissions(vm, logdir):
     time.sleep(1)
     vm.type_text("browser")
     wait_done(vm, "apps.search")
-    press(vm, "Google Chrome")
+    log(logdir, "welcome-apps", atspi(vm, "dump").stdout)
+    press(vm, "Google Chrome*")
     wait_done(vm, "apps.details")
     dump = atspi(vm, "dump").stdout
     log(logdir, "welcome-apps", dump)
