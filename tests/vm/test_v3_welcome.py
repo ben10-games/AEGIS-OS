@@ -6,7 +6,7 @@ way a person would:
 
 - keyboard through QEMU's virtual keyboard: Alt+Right/Left between scenes, the Meta key
   for the launcher, Meta+E for Files, Alt+F7/Alt+F8 and arrows to move and resize a real
-  window, Meta+Left / Meta+Up / Meta+PgDown to snap, maximise and minimise it;
+  window, Meta+Left / Meta+PgUp / Meta+PgDown to snap, maximise and minimise it;
 - the mouse through QEMU's tablet: a real drag and drop onto the practice dock;
 - the accessibility interface (AT-SPI, as a screen reader would): the other controls
   are found by their accessible names and activated, which also shows that every control
@@ -268,7 +268,7 @@ def test_scene_3_moves_resizes_snaps_maximises_and_minimises_a_real_window(vm, l
     wait_done(vm, "workspace.resize")
     vm.send_keys("meta_l-left")
     wait_done(vm, "workspace.snap")
-    vm.send_keys("meta_l-up")
+    vm.send_keys("meta_l-pgup")
     wait_done(vm, "workspace.maximise")
     shot(vm, logdir, "welcome-3")
     vm.send_keys("meta_l-pgdn")

@@ -207,7 +207,9 @@ def test_windows_snap_and_maximise_with_meta_arrows(vm, logdir):
     wait_for(vm, f"pgrep -u {USER} -x konsole", 30, "Konsole")
     time.sleep(4)
     results = {}
-    for keys, label in (("meta_l-left", "left"), ("meta_l-right", "right"), ("meta_l-up", "max")):
+    # Meta+Up on a half tile makes a quarter tile (KWin, like Windows' quarter snapping);
+    # Meta+PgUp maximises (run 46021359536).
+    for keys, label in (("meta_l-left", "left"), ("meta_l-right", "right"), ("meta_l-pgup", "max")):
         vm.send_keys(keys)
         time.sleep(2)
         name, (x, y, w, h, ax, ay, aw, ah) = active_window(vm)
@@ -226,8 +228,10 @@ def test_windows_snap_and_maximise_with_meta_arrows(vm, logdir):
 
 
 def test_typeface_and_window_switcher(vm, logdir):
-    font = as_user(vm, "kreadconfig6 --file kdeglobals --group General --key font").stdout
-    switcher = as_user(vm, "kreadconfig6 --file kwinrc --group TabBox --key LayoutName").stdout
+    # Read inside the session: the AEGIS look-and-feel defaults live in ~/.config/kdedefaults,
+    # which Plasma adds to the session's XDG_CONFIG_DIRS (run 46021359536 read them outside).
+    font = in_session(vm, "kreadconfig6 --file kdeglobals --group General --key font").stdout
+    switcher = in_session(vm, "kreadconfig6 --file kwinrc --group TabBox --key LayoutName").stdout
     matched = vm.ssh("fc-match Inter").stdout
     log(logdir, "desktop", f"font: {font.strip()}; Alt+Tab: {switcher.strip()}; {matched}")
     assert font.startswith("Inter,"), font

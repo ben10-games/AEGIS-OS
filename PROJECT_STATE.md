@@ -162,7 +162,16 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   kquickimageeditor, accounts-qml-module, kf6-bluez-qt (LGPL), pcaudiolib (GPL-3.0+), libao
   (GPL-2.0+), dotconf (LGPL-2.1): about 33 MB, Fedora-signed, `fedora`/`updates` only.
   Also picked up: llvm-libs 23.1.6, pipewire 1.6.12.
-- **M10 hybrid desktop (in progress, first CI run pending):** top bar (AEGIS mark with
+- **M10 first CI run, v3 run 46021359536 on `4ff9c0c`:** desktop suite 12/14; other v3
+  suites green. Passed: the greeter runs the AEGIS theme; a 36 px full-width top bar and
+  the centred dock at 1024, 1366, 1920 and 4096 px; Meta+A opens Quick Settings (583 kB
+  of the screen changed); Meta+E, Ctrl+Alt+T, Meta+I, Meta+Shift+S start their
+  applications in 0.1–0.3 s; Meta+Left/Right snap to exact halves; Quick Settings actions
+  change the real settings; no QML errors, no denials. Failed: Meta+Up on a half tile made
+  a quarter tile (KWin's behaviour; Meta+PgUp maximises, test and tour hint corrected);
+  font and Alt+Tab defaults read outside the session (test now reads inside it). Same
+  commit: `build` 46021359460 and `live-iso` 46021359978 green with the new layout.
+- **M10 hybrid desktop (in progress):** top bar (AEGIS mark with
   the active application, global menu, search Meta+S, tray with notifications, AEGIS Quick
   Settings Meta+A, clock) and the floating dock; Quick Settings (Dark/Light, Liquid Glass
   profile, Night Light, Do Not Disturb, screenshot, network, sound, display, lock) through

@@ -94,7 +94,7 @@ Item {
             Step {
                 key: "workspace.maximise"
                 title: "Maximise it"
-                hint: "Double-click the title bar, drag it to the top edge, or press Meta+↑."
+                hint: "Double-click the title bar, drag it to the top edge, or press Meta+PgUp."
             }
             Step {
                 key: "workspace.minimise"

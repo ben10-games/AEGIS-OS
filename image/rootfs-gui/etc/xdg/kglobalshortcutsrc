@@ -12,6 +12,7 @@ Overview=Meta+Tab\tMeta+W,Meta+W,Toggle Overview
 Window Move=Alt+F7,none,Move Window
 Window Resize=Alt+F8,none,Resize Window
 Window Minimize=Meta+PgDown,Meta+PgDown,Minimize Window
+Window Maximize=Meta+PgUp,Meta+PgUp,Maximize Window
 
 [services][systemsettings.desktop]
 _launch=Meta+I
