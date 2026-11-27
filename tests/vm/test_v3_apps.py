@@ -38,7 +38,7 @@ from test_v3_vdi import (
 CHROME = "com.google.Chrome"
 INSTALL_TIMEOUT_S = 1200
 
-CREATE = """
+CREATE = r"""
 import socket, sys
 s = socket.socket(socket.AF_UNIX)
 s.connect("/run/aegis/provision.sock")

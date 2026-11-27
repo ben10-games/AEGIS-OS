@@ -79,6 +79,10 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
     Administrator label in AEGIS Setup. The M9 Chrome suite in that run failed before
     installing anything: the test sent the account request without the newline the
     helper waits for (fixed).
+  - Repeated green: v3 run 45979036799 on `0be5ca8` (Secure Boot 8/8, VDI 7/7). Its Chrome
+    suite failed again before installing anything: the request script in the test lost
+    its escape sequence (a non-raw string), so Python could not parse it (fixed; the
+    script is now compiled and exercised against a local socket before pushing).
   - **Not verified in VirtualBox** (owner check after M9) (waiting for the regenerated
     RPM lock). Not verified in VirtualBox.
 - **M9 (prepared): persistent development signing (ADR-0015).** Workflow
