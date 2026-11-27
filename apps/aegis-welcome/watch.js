@@ -37,7 +37,9 @@ function placeTour(window) {
     const x = a.x + a.width - g.width - 12;
     const y = a.y + 12;
     if (Math.round(g.x) !== Math.round(x) || Math.round(g.y) !== Math.round(y))
-        window.frameGeometry = Qt.rect(x, y, g.width, Math.min(g.height, a.height - 24));
+        // A plain object: KWin's scripting converts it to a rectangle (Qt.rect is not
+        // available in plain KWin scripts; the panel stayed in place in run 46070946621).
+        window.frameGeometry = { x: x, y: y, width: g.width, height: Math.min(g.height, a.height - 24) };
 }
 
 function watch(window) {

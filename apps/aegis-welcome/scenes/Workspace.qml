@@ -61,20 +61,18 @@ Item {
             Layout.fillWidth: true
             Layout.preferredWidth: 3
             spacing: 10
-            RowLayout {
+            Label {
                 Layout.fillWidth: true
-                Label {
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: "#a9b8c6"
-                    font { family: "Inter"; pixelSize: 15 }
-                    text: "Practise on a real window. This tour stays on top so you can follow along."
-                }
-                Button {
-                    text: "Open a practice window"
-                    Accessible.name: "Open a Files window to practise with"
-                    onClicked: welcome.openFiles()
-                }
+                wrapMode: Text.WordWrap
+                color: "#a9b8c6"
+                font { family: "Inter"; pixelSize: 15 }
+                text: "Practise on a real window. This tour stays on top, at the side, so you "
+                    + "can follow along."
+            }
+            Button {
+                text: "Open a practice window"
+                Accessible.name: "Open a Files window to practise with"
+                onClicked: welcome.openFiles()
             }
             Step {
                 key: "workspace.move"
