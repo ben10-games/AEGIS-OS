@@ -4,6 +4,28 @@
 VirtualBox-like hardware; not yet verified in VirtualBox itself. Signed with per-build
 development keys; production keys do not exist yet.
 
+## Second development VDI (milestones M9–M12 and part of M13), in testing
+
+New since the first VDI:
+
+- **Signed system updates and rollback** tested on the VDI: an unsigned update and one
+  signed by an unknown key are refused; an AEGIS-signed update installs, and your
+  account, files, settings, wallpaper and applications are kept; rolling back keeps them
+  too. (Within one build; tests across separate builds wait for persistent development
+  keys.)
+- **Hybrid AEGIS desktop**: translucent top bar with the application in front, its
+  menus, search, Quick Settings and clock; floating glass dock; AEGIS login screen; Inter
+  typeface; Windows-style snapping and keys; Alt+Tab grid.
+- **Welcome to AEGIS**: an interactive tour with the real desktop, keyboard and screen
+  reader accessible, reduced motion, resumes where you left off.
+- **AEGIS App Center**: search, categories, publisher and permission details, install,
+  update and remove for your account only; update notices, never automatic updates.
+- **Swap in memory (zram)**, which the desktop lacked.
+- Spectacle (screenshots), Inter and the Orca screen reader are installed.
+
+Known: Chrome's first start opens KDE's wallet setup (a fix needs the owner's approval of
+one more package, `kwallet-pam`).
+
 ## First development VDI (milestone M8, part of M9)
 
 New:

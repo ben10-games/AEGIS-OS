@@ -65,21 +65,36 @@ computer, so do not hand out a copy of your disk after you have set it up.
 
 ## 4. Using it
 
-The desktop is the AEGIS GUI v2 desktop (floating glass dock, launcher, AEGIS Security,
-AEGIS Appearance). Screen size follows the VirtualBox window (View → Auto-resize Guest
-Display); Host+F is full screen.
+**Welcome to AEGIS** opens after your first login: a short tour you do with the real
+desktop (open the launcher and Files, move, snap, maximise and minimise a window, choose
+light or dark and a glass style, find an application, see what protects the computer).
+Skip it whenever you like; start it again from the launcher (Welcome to AEGIS). It
+remembers where you were.
 
-**Installing applications** (the graphical App Center comes in a later milestone): open
-Konsole from the launcher and install from Flathub for your account, for example Google
-Chrome:
+The desktop:
 
-```bash
-flatpak install --user flathub com.google.Chrome
-```
+| Where | What |
+|---|---|
+| Top bar, left | The AEGIS mark (opens the launcher) and the application in front, with its menus |
+| Top bar, right | Search (Meta+S), network, sound and notifications, **Quick Settings** (Meta+A), clock and calendar |
+| Dock, bottom | The launcher (Meta), your pinned and open applications (Meta+1…9), AEGIS Security |
+| Quick Settings | Dark mode, Liquid Glass style, Night Light, Do Not Disturb, screenshot, network, sound, display, lock |
 
-Applications installed this way need no administrator password, live in your home
-folder and stay installed when you shut down. Chrome then appears in the launcher. Give
-the VM 8 GB of memory if you use Chrome with several tabs.
+Keys: Meta+E files, Ctrl+Alt+T terminal, Meta+I settings, Meta+Tab overview, Alt+Tab switch
+windows, Meta+← / Meta+→ snap to a half, Meta+PgUp maximise, Meta+PgDown minimise, Meta+L
+lock, Meta+Shift+S screenshot of an area. Screen size follows the VirtualBox window (View →
+Auto-resize Guest Display); Host+F is full screen. In VirtualBox without 3D acceleration,
+choose **Performance** glass in Quick Settings for the smoothest desktop.
+
+**Installing applications: AEGIS App Center** (launcher → AEGIS App Center). Search or
+browse, open an application to see who publishes it and what it can access, then
+Install. Applications are installed for your account only: no administrator password,
+they live in your home folder and stay installed when you shut down. "Verified
+publisher" means Flathub confirmed who publishes the app; it does not mean the app has
+been checked to be safe, so look at its permissions. The App Center tells you when
+updates are available (once a day); it installs them only when you choose Update. The
+terminal way also works: `flatpak install --user flathub com.google.Chrome`. Give the VM
+8 GB of memory if you use Chrome with several tabs.
 
 ## 5. Backups, snapshots and recovery
 
