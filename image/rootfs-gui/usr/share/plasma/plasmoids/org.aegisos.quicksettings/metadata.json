@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "KPlugin": {
+        "Id": "org.aegisos.quicksettings",
+        "Name": "AEGIS Quick Settings",
+        "Description": "Dark or light, Liquid Glass profile, Night Light, Do Not Disturb, screenshot, lock and settings",
+        "Icon": "aegis-quicksettings",
+        "Category": "System Information",
+        "Authors": [{"Name": "AEGIS OS"}],
+        "License": "GPL-2.0-or-later",
+        "Version": "3.0"
+    }
+}

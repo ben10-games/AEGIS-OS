@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# AEGIS Quick Settings (v3, M10): the actions behind the Quick Settings panel in the top
+# bar. Runs as the desktop user and changes only that user's own KDE settings; nothing
+# here needs or gets administrator rights.
+#
+#   quick-settings status                 key=value lines for the panel
+#   quick-settings scheme dark|light      AEGIS Dark / AEGIS Light colour scheme
+#   quick-settings glass PROFILE          auto | full | balanced | performance
+#   quick-settings nightlight on|off      warmer colours (KWin Night Light, constant)
+#
+# The colour scheme is applied with plasma-apply-colorscheme, the same code System
+# Settings uses, so the choice survives a wallpaper change (the accent is taken from the
+# wallpaper) and a restart (CI v3 run 45826914131).
+set -uo pipefail
+
+glass=/usr/libexec/aegis/glass-profile
+
+read_key() { # FILE GROUP KEY
+  kreadconfig6 --file "$1" --group "$2" --key "$3" 2> /dev/null
+}
+
+kwin_reconfigure() {
+  busctl --user call org.kde.KWin /KWin org.kde.KWin reconfigure > /dev/null 2>&1 || true
+}
+
+case "${1:-status}" in
+  status)
+    scheme="$(read_key kdeglobals General ColorScheme)"
+    echo "scheme=${scheme:-AEGISDark}"
+    echo "glass=$("${glass}" status 2> /dev/null | sed -n 's/^choice=//p')"
+    night="$(read_key kwinrc NightColor Active)"
+    echo "nightlight=$([[ "${night}" == true ]] && echo on || echo off)"
+    ;;
+  scheme)
+    case "${2:-}" in
+      dark) plasma-apply-colorscheme AEGISDark ;;
+      light) plasma-apply-colorscheme AEGISLight ;;
+      *)
+        echo "usage: quick-settings scheme dark|light" >&2
+        exit 2
+        ;;
+    esac
+    ;;
+  glass)
+    exec "${glass}" apply "${2:-}"
+    ;;
+  nightlight)
+    case "${2:-}" in
+      on)
+        kwriteconfig6 --file kwinrc --group NightColor --key Active true
+        kwriteconfig6 --file kwinrc --group NightColor --key Mode Constant
+        kwriteconfig6 --file kwinrc --group NightColor --key NightTemperature 4200
+        ;;
+      off) kwriteconfig6 --file kwinrc --group NightColor --key Active false ;;
+      *)
+        echo "usage: quick-settings nightlight on|off" >&2
+        exit 2
+        ;;
+    esac
+    kwin_reconfigure
+    ;;
+  *)
+    echo "usage: quick-settings status|scheme|glass|nightlight" >&2
+    exit 2
+    ;;
+esac

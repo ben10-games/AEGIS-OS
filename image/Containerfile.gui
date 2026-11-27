@@ -61,6 +61,21 @@ RUN mkdir -p /etc/xdg \
     && test -L /etc/systemd/system/display-manager.service \
     && rm -rf /usr/libexec/aegis-build
 
+# v3 hybrid desktop (M10): the AEGIS login screen must be the one SDDM uses (nothing in
+# /etc may choose another theme), and its parts, the new panel widgets, the Quick
+# Settings helper and the approved packages (Inter, Spectacle, Orca) must be present.
+RUN test -f /usr/share/sddm/themes/aegis/Main.qml \
+    && grep -q '^Current=aegis$' /usr/lib/sddm/sddm.conf.d/zz-aegis-theme.conf \
+    && echo "SDDM theme settings in /usr/lib and /etc:" \
+    && grep -rHs '^Current=' /usr/lib/sddm/sddm.conf.d /etc/sddm.conf.d /etc/sddm.conf || true \
+    && test -z "$(grep -rls '^Current=' /etc/sddm.conf.d /etc/sddm.conf 2> /dev/null)" \
+    && test "$(ls /usr/lib/sddm/sddm.conf.d | sort | tail -n 1)" = zz-aegis-theme.conf \
+    && test -x /usr/libexec/aegis/quick-settings \
+    && test -f /usr/share/plasma/plasmoids/org.aegisos.quicksettings/contents/ui/main.qml \
+    && test -f /usr/share/plasma/plasmoids/org.aegisos.activewindow/contents/ui/main.qml \
+    && fc-list : family | tr ',' '\n' | grep -qx 'Inter' \
+    && command -v spectacle && command -v orca
+
 LABEL org.opencontainers.image.title="AEGIS OS (graphical development, GUI v1)"
 
 RUN bootc container lint --fatal-warnings

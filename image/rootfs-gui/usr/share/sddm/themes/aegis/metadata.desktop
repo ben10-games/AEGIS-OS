@@ -1,0 +1,12 @@
+[SddmGreeterTheme]
+Name=AEGIS
+Description=AEGIS OS login screen
+Author=AEGIS OS
+License=GPL-2.0-or-later
+Type=sddm-theme
+Version=3.0
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=aegis
+Theme-API=2.0
+QtVersion=6

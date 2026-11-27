@@ -1,0 +1,17 @@
+# AEGIS OS (v3, M10): system-wide keyboard shortcut defaults. Users change them in
+# System Settings > Keyboard > Shortcuts; their own ~/.config/kglobalshortcutsrc takes
+# precedence. kglobalaccel reads its configuration only through KConfig's XDG cascade,
+# hence /etc/xdg (ADR-0014). Shortcuts of AEGIS panel widgets (Meta+A Quick Settings,
+# Meta+S search) are set by the AEGIS layout; KDE's own defaults stay as they are
+# (Meta launcher, Meta+E files, Meta+L lock, Meta+D desktop, Meta+V clipboard,
+# Meta+arrows snap and maximise, Meta+1…9 dock, Ctrl+Alt+T terminal).
+# Format: active shortcuts (tab-separated), default, description.
+
+[kwin]
+Overview=Meta+Tab\tMeta+W,Meta+W,Toggle Overview
+
+[services][systemsettings.desktop]
+_launch=Meta+I
+
+[services][org.kde.spectacle.desktop]
+RectangularRegionScreenShot=Meta+Shift+S

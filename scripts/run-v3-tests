@@ -4,6 +4,7 @@
 #      build's keys (the sealed boot chain of the v3 image, QEMU q35);
 #   2. tests/vm/test_v3_vdi.py on the exported VDI on VirtualBox-like hardware without
 #      Secure Boot keys (first-boot setup, login, persistence over a power-off);
+#   2b. tests/vm/test_v3_desktop.py: the hybrid AEGIS desktop (M10), offline;
 #   3. tests/vm/test_v3_apps.py with network (Flathub, Google's download server): Chrome
 #      installed by the user persists over a power-off;
 #   4. tests/vm/test_v3_update.py with network (needs out/images/aegis-v3-update.oci.tar,
@@ -56,6 +57,7 @@ status=0
 run_suite none out/junit-v3-secureboot.xml tests/vm/test_secure_boot.py \
   --disk out/disk-v3.raw --sealed-variant v3 || status=1
 run_suite none out/junit-v3.xml tests/vm/test_v3_vdi.py || status=1
+run_suite none out/junit-v3-desktop.xml tests/vm/test_v3_desktop.py || status=1
 if [[ "${AEGIS_V3_SKIP_NETWORK_TESTS:-0}" != 1 ]]; then
   run_suite bridge out/junit-v3-apps.xml tests/vm/test_v3_apps.py || status=1
   if [[ -f out/images/aegis-v3-update.oci.tar ]]; then

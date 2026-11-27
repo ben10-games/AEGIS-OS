@@ -596,9 +596,14 @@ def dock_geometry(vm) -> tuple[int, ...]:
     for _ in range(10):
         time.sleep(1)
         out = as_user(vm, f'journalctl --user --since "{since}" -o cat', check=False).stdout
-        lines = [x for x in out.splitlines() if "AEGIS-DOCK" in x]
-        if lines:
-            return tuple(int(v) for v in lines[-1].split("AEGIS-DOCK ")[1].split())
+        found = [
+            tuple(int(v) for v in x.split("AEGIS-DOCK ")[1].split())
+            for x in out.splitlines()
+            if "AEGIS-DOCK" in x
+        ]
+        if found:
+            # The dock is the panel lowest on the screen (v3 adds a top bar).
+            return max(found, key=lambda d: d[3])
     raise AssertionError("KWin reported no dock window")
 
 

@@ -127,15 +127,19 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   and started in 3.3 s; no SELinux denials. Chrome showed "Restore pages?" because the
   test ends Chrome by stopping its service. The VM had no swap (zram) active: to be
   checked in M13.
-- **M9 update and rollback on the VDI (written, first run pending):**
-  `tests/vm/test_v3_update.py`. Version A = the exported VDI; version B = v3 plus an update
-  marker (`AEGIS_V3_UPDATE=1`, sealed and signed, never released), served by the test
-  registry as AEGIS-signed, unsigned and untrusted-key variants. One VM: account, Chrome,
-  file, colour scheme, glass profile, wallpaper on A; unsigned and untrusted updates
-  refused with nothing staged; signed update to B staged and booted; everything kept
-  and Chrome starts; rollback to A; everything kept. Within one run A and B share the
-  per-build key; the cross-build form (A from an earlier run) needs the persistent
-  development identity.
+- **M9 update and rollback on the VDI, same-build form: green.** v3 run 46015720076 on
+  `0d1bd3b` (QEMU on VirtualBox-like hardware, not VirtualBox), `tests/vm/test_v3_update.py`
+  6/6, besides Secure Boot 8/8, VDI 7/7, Chrome 6/6. Version A (the VDI) with account,
+  Chrome, a file, AEGIS Light, Performance Glass and wallpaper. Unsigned update refused
+  by the image's policy ("A signature…"), untrusted-key update refused (cryptographic
+  verification failure), nothing staged either time. AEGIS-signed update to version B
+  staged in 14 s and booted (bootc: B booted, A as rollback); everything kept, Chrome
+  starts, no SELinux denials. `bootc rollback` to A: everything kept, Chrome starts, no
+  denials. A and B were signed with the same per-build key in one run; the cross-build
+  form (A from an earlier run) needs the persistent development identity.
+  Found: Chrome's first start opens KDE's wallet first-use wizard (no `kwallet-pam`, which
+  would open the wallet with the login password); asking the owner to approve the
+  package.
 - **M9 signing bootstrap: not run; owner setup not confirmed.** The workflow could not
   be started: GitHub returns 404 for it, because a workflow with only a manual trigger
   can be started only from the default branch. It now starts from a v3-branch commit
@@ -158,7 +162,14 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   kquickimageeditor, accounts-qml-module, kf6-bluez-qt (LGPL), pcaudiolib (GPL-3.0+), libao
   (GPL-2.0+), dotconf (LGPL-2.1): about 33 MB, Fedora-signed, `fedora`/`updates` only.
   Also picked up: llvm-libs 23.1.6, pipewire 1.6.12.
-- **M10 and later:** not started.
+- **M10 hybrid desktop (in progress, first CI run pending):** top bar (AEGIS mark with
+  the active application, global menu, search Meta+S, tray with notifications, AEGIS Quick
+  Settings Meta+A, clock) and the floating dock; Quick Settings (Dark/Light, Liquid Glass
+  profile, Night Light, Do Not Disturb, screenshot, network, sound, display, lock) through
+  `/usr/libexec/aegis/quick-settings` as the user; AEGIS login screen (SDDM theme `aegis`);
+  Inter, Alt+Tab thumbnail grid, edge snapping; shortcuts Meta+I settings, Meta+Tab
+  overview, Meta+Shift+S screenshot. Test: `tests/vm/test_v3_desktop.py`.
+- **M11 and later:** not started.
 
 ### GUI v2 track (Liquid Glass 2.0, VirtualBox display, performance), branch `claude/aegis-os-gui-v2`
 

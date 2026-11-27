@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "KPlugin": {
+        "Id": "org.aegisos.activewindow",
+        "Name": "AEGIS Mark and Active Application",
+        "Description": "The AEGIS mark (opens the launcher) and the name of the application in front",
+        "Icon": "aegis-os",
+        "Category": "Windows and Tasks",
+        "Authors": [{"Name": "AEGIS OS"}],
+        "License": "GPL-2.0-or-later",
+        "Version": "3.0"
+    }
+}
