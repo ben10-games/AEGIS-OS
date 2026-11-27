@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Welcome to AEGIS
+Comment=Interactive tour on the first login; exits at once once finished or skipped
+Exec=aegis-welcome --autostart
+Icon=aegis-os
+NoDisplay=true
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2

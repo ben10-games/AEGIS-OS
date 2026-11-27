@@ -142,8 +142,10 @@ def boot(vm, logdir: Path, label: str) -> None:
     )
 
 
-def log_in_at_greeter(vm, logdir: Path, label: str) -> float:
-    """Type the password at SDDM's login screen, as a person would."""
+def log_in_at_greeter(vm, logdir: Path, label: str, keep_tour: bool = False) -> float:
+    """Type the password at SDDM's login screen, as a person would. The Welcome tour
+    (M11) starts after a login until it is finished; suites that test other things close
+    it (KEEP_TOUR leaves it running, for tests/vm/test_v3_welcome.py)."""
     wait_for(vm, "pgrep -f sddm-greeter", 180, "the login screen")
     time.sleep(10)
     shot(vm, logdir, f"greeter-{label}")
@@ -157,6 +159,11 @@ def log_in_at_greeter(vm, logdir: Path, label: str) -> float:
     )
     seconds = time.monotonic() - started
     log(logdir, "timings", f"{label}: password typed to desktop processes {seconds:.1f} s")
+    if not keep_tour:
+        for _ in range(30):
+            if vm.ssh(f"pkill -u {USER} -x aegis-welcome", check=False).returncode == 0:
+                break
+            time.sleep(1)
     return seconds
 
 

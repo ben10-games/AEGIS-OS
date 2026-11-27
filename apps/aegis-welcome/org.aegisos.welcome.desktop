@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Welcome to AEGIS
+GenericName=Interactive tour
+Comment=Learn the AEGIS desktop by doing: dock, windows, appearance, apps and security
+Exec=aegis-welcome --replay
+Icon=aegis-os
+Categories=Utility;Documentation;
+Keywords=tour;help;welcome;onboarding;
+StartupNotify=true

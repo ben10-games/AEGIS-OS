@@ -169,7 +169,19 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   `/usr/libexec/aegis/quick-settings` as the user; AEGIS login screen (SDDM theme `aegis`);
   Inter, Alt+Tab thumbnail grid, edge snapping; shortcuts Meta+I settings, Meta+Tab
   overview, Meta+Shift+S screenshot. Test: `tests/vm/test_v3_desktop.py`.
-- **M11 and later:** not started.
+- **M11 Welcome to AEGIS (written, first CI run pending):** `apps/aegis-welcome` (Qt Quick
+  with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
+  Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your
+  workspace (move, resize, snap, maximise and minimise a real window, completed from
+  KWin's reports through `watch.js`), Make it yours (live Dark/Light, Liquid Glass,
+  wallpaper, Undo), Explore applications (offline sample catalogue; "verified publisher"
+  explained as not a safety claim), Security and privacy (real state, honest about Secure
+  Boot off), You're ready. Back/Next/Skip, Alt+arrows, Escape; progress in
+  `~/.local/state/aegis/welcome.json`; first-login autostart, replay from the launcher;
+  reduced motion (KDE setting or switch); lite visuals under Performance Glass; no
+  privileges. Test: `tests/vm/test_v3_welcome.py` (QMP keyboard and a real pointer drag,
+  AT-SPI for the other controls, D-Bus state, CPU during the opening animation).
+- **M12 and later:** not started.
 
 ### GUI v2 track (Liquid Glass 2.0, VirtualBox display, performance), branch `claude/aegis-os-gui-v2`
 

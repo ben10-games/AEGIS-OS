@@ -39,6 +39,8 @@ RUN systemctl disable sshd.service \
               -e 's|^IMAGE_ID=.*|IMAGE_ID=aegis-v3|' "${os_release}" \
     && grep -q '^IMAGE_ID=aegis-v3$' "${os_release}" \
     && test -x /usr/libexec/aegis/aegis-setup \
+    && test -x /usr/bin/aegis-welcome \
+    && test -f /usr/share/aegis/welcome/watch.js \
     && ! systemctl is-enabled sshd.service \
     && ! grep -q '<service name="ssh"' /usr/lib/firewalld/zones/aegis.xml \
     && test ! -e /root/.ssh/authorized_keys \

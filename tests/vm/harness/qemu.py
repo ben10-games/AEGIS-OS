@@ -454,6 +454,39 @@ class Vm:
                 )
                 time.sleep(0.1)
 
+    def drag(self, x1: float, y1: float, x2: float, y2: float, steps: int = 20) -> None:
+        """Press the left button at (x1, y1), move in STEPS to (x2, y2) and release, as a
+        person dragging with the mouse (coordinates as fractions of the screen)."""
+        if self.cfg.qmp_socket is None:
+            raise HarnessError("this virtual machine was started without a control socket")
+
+        def at(x: float, y: float) -> list[dict]:
+            return [
+                {"type": "abs", "data": {"axis": "x", "value": int(x * 32767)}},
+                {"type": "abs", "data": {"axis": "y", "value": int(y * 32767)}},
+            ]
+
+        with QmpClient(self.cfg.qmp_socket) as qmp:
+            qmp.command("input-send-event", events=at(x1, y1))
+            time.sleep(0.3)
+            qmp.command(
+                "input-send-event",
+                events=[{"type": "btn", "data": {"down": True, "button": "left"}}],
+            )
+            time.sleep(0.2)
+            for i in range(1, steps + 1):
+                qmp.command(
+                    "input-send-event",
+                    events=at(x1 + (x2 - x1) * i / steps, y1 + (y2 - y1) * i / steps),
+                )
+                time.sleep(0.04)
+            time.sleep(0.3)
+            qmp.command(
+                "input-send-event",
+                events=[{"type": "btn", "data": {"down": False, "button": "left"}}],
+            )
+            time.sleep(0.2)
+
     def press_power_button(self) -> None:
         """Send the ACPI power-button event, as a person pressing the button would."""
         if self.cfg.qmp_socket is None:
