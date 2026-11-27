@@ -213,6 +213,22 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   after release), the practice window (`dolphin --new-window`), the Light/Dark tiles'
   accessible role, App Center progress text (flatpak prints no percentages without a
   terminal), and test-side issues (commit check, replay while running, stale page).
+- **M12 App Center: automated suite green, v3 run 46058727757 on `27e6631`** (QEMU with
+  network, not VirtualBox): 6/6. Catalogue loads and search finds Chrome and Firefox;
+  Firefox's page shows "Verified publisher" with the explanation that it is not a safety
+  guarantee, and its permissions; Chrome installs from the App Center into the user
+  installation in 55 s with per-component progress ("Installing org.freedesktop.Platform
+  (step 5)…"), no system installation, and opens; with an older Chrome installed, the
+  daily check announced the update without applying it, and "Update all" installed it in
+  13 s; Remove uninstalls; with Flathub unreachable the error reads "No internet
+  connection"; Chrome is still listed under Installed after a complete power-off; no
+  SELinux denials. Not tested: a full disk.
+- **Same run:** tour 6/10 (Make it yours, Security, replay/skip/reduced motion and no
+  restart after finishing pass; drag, window move and the scene 5 search failed: the
+  drop target matched a label with the same name, Alt+F7 moved nothing, typing went to
+  the Files window in front). The desktop session ended once after Spectacle was killed
+  during its area selection (5 desktop tests then failed); the test now closes it with
+  Escape. All other suites green.
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your

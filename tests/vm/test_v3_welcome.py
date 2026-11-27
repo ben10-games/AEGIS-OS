@@ -192,13 +192,33 @@ def kwin_lines(vm, script: str, marker: str) -> list[list[str]]:
     raise AssertionError(f"KWin printed nothing for {marker}")
 
 
-ACTIVATE_FILES = """
+ACTIVATE = """
 for (const w of workspace.windowList())
-    if (String(w.resourceClass) === "org.kde.dolphin" && w.normalWindow) {
+    if (String(w.resourceClass) === "CLASS" && w.normalWindow) {
         workspace.activeWindow = w;
-        console.info("AEGIS-ACTIVATED " + w.caption);
+        const g = w.frameGeometry;
+        const s = workspace.virtualScreenSize;
+        console.info("AEGIS-ACTIVATED " + s.width + " " + s.height + " " + Math.round(g.x) + " "
+            + Math.round(g.y) + " " + Math.round(g.width) + " " + Math.round(g.height));
     }
 """
+
+
+def activate(vm, cls: str) -> list[int]:
+    """Make the window of CLASS the active one (as a click on it would); return screen
+    width and height and the window's frame geometry."""
+    rows = kwin_lines(vm, ACTIVATE.replace("CLASS", cls), "AEGIS-ACTIVATED")
+    time.sleep(1)
+    return [int(v) for v in rows[-1]]
+
+
+def done_within(vm, step: str, seconds: float) -> bool:
+    started = time.monotonic()
+    while time.monotonic() - started < seconds:
+        if step in completed(vm):
+            return True
+        time.sleep(1)
+    return False
 
 
 def start_tour(vm, *arguments: str) -> None:
@@ -292,12 +312,19 @@ def test_scene_3_moves_resizes_snaps_maximises_and_minimises_a_real_window(vm, l
     time.sleep(2)
     press(vm, "Open a Files window to practise with")
     time.sleep(5)
-    # Make the practice window the active one, as the user's click on it would.
-    kwin_lines(vm, ACTIVATE_FILES, "AEGIS-ACTIVATED")
-    time.sleep(1)
-    vm.send_keys("alt-f7", *["right"] * 12, "ret")
+    sw, sh, x, y, w, h = activate(vm, "org.kde.dolphin")
+    # Move: drag the title bar with the mouse (the main way; Alt+F7 is the keyboard way).
+    vm.drag((x + w / 2) / sw, (y + 12) / sh, (x + w / 2 + 140) / sw, (y + 12 + 70) / sh)
+    if not done_within(vm, "workspace.move", 8):
+        log(logdir, "welcome", "move: the title-bar drag was not reported; trying Alt+F7")
+        vm.send_keys("alt-f7", *["right"] * 12, "ret")
     wait_done(vm, "workspace.move")
-    vm.send_keys("alt-f8", *["right"] * 12, "ret")
+    # Resize: Alt+F8 and arrows, or drag the bottom-right corner.
+    sw, sh, x, y, w, h = activate(vm, "org.kde.dolphin")
+    vm.send_keys("alt-f8", *["right"] * 12, *["down"] * 6, "ret")
+    if not done_within(vm, "workspace.resize", 8):
+        log(logdir, "welcome", "resize: Alt+F8 was not reported; dragging the corner")
+        vm.drag((x + w - 2) / sw, (y + h - 2) / sh, (x + w + 100) / sw, (y + h + 60) / sh)
     wait_done(vm, "workspace.resize")
     vm.send_keys("meta_l-left")
     wait_done(vm, "workspace.snap")
@@ -327,6 +354,7 @@ def test_scene_4_changes_the_real_desktop_and_undoes(vm, logdir):
 def test_scene_5_finds_an_application_and_its_permissions(vm, logdir):
     press(vm, "Next")
     assert scene(vm) == 4
+    activate(vm, "org.aegisos.welcome")  # Files from scene 3 may still be in front
     assert atspi(vm, "focus", "Search applications", check=False).returncode == 0
     time.sleep(1)
     vm.type_text("browser")

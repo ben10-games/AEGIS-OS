@@ -198,6 +198,11 @@ def test_shortcut_starts_its_application(vm, logdir, keys, process):
     seconds = wait_for(vm, f"pgrep -u {USER} -x {process}", 30, f"{process} after {keys}")
     log(logdir, "desktop", f"{keys}: {process} started after {seconds:.1f} s")
     time.sleep(3)
+    if process == "spectacle":
+        # Close the area selection as a person would: killing Spectacle while its
+        # full-screen overlay was up once ended the session (run 46058727757).
+        vm.send_keys("esc")
+        time.sleep(2)
     vm.ssh(f"pkill -u {USER} -x {process}", check=False)
     time.sleep(2)
 

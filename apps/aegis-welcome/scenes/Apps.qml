@@ -60,6 +60,14 @@ Item {
                 font.family: "Inter"
                 onTextChanged: if (text.trim().length >= 2 && scene.results.length > 0) welcome.complete("apps.search")
             }
+            // Type to search as soon as the scene is shown.
+            Connections {
+                target: welcome
+                function onSceneChanged() {
+                    if (welcome.scene === 4) search.forceActiveFocus();
+                }
+            }
+            Component.onCompleted: if (welcome.scene === 4) search.forceActiveFocus()
             ListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true

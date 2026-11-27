@@ -66,7 +66,7 @@ Item {
 
             Label {
                 anchors { top: parent.top; horizontalCenter: parent.horizontalCenter; topMargin: 18 }
-                text: "Practice dock"
+                text: "Practice: drag an icon down onto the dock"
                 color: "#a9b8c6"
                 font { family: "Inter"; pixelSize: 13 }
             }
