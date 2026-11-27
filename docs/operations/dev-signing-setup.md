@@ -21,7 +21,11 @@ GitHub → repository **AEGIS-OS** → **Settings** → **Environments** → **N
 
 ## 2. Environment `aegis-dev-bootstrap` (holds the one-time token, needs your approval)
 
-**New environment** → name `aegis-dev-bootstrap` → **Configure environment**.
+**It probably exists already, unprotected**: on 2026-11-27 run 46015720213 started the
+bootstrap job by mistake, and GitHub creates an environment that a job names if it does
+not exist yet. That run stopped at the missing token; no key was generated and nothing
+was stored. If it is listed, open it; otherwise **New environment** → name
+`aegis-dev-bootstrap` → **Configure environment**. Then:
 
 1. **Required reviewers**: tick it and add yourself (`ben10-games`). Leave **Prevent
    self-review** unticked: you are the only reviewer.
@@ -52,10 +56,12 @@ token → **Add secret**.
 
 Tell Claude that steps 1–3 are done. GitHub shows **Run workflow** only for workflows on
 the default branch, and this one is only on `claude/aegis-os-v3`, so Claude starts it
-with a commit to that branch whose message contains `[bootstrap-dev-signing]` (and which
-touches this file). Ordinary pushes never start it.
+with a commit to that branch that changes `keys/dev/bootstrap-request` and whose subject
+line begins with `[bootstrap-dev-signing]`. Nothing else starts it.
 
-The run then waits for you: GitHub → **Actions** → **dev-signing-bootstrap** → the
+A first job, without any secret, checks that `aegis-dev-bootstrap` requires a reviewer
+and that `aegis-dev-signing` is limited to selected branches; if not, it stops and the
+key job is never created. The run then waits for you: GitHub → **Actions** → **dev-signing-bootstrap** → the
 waiting run → **Review deployments** → tick `aegis-dev-bootstrap` → **Approve and
 deploy**. Before generating anything it checks that `aegis-dev-signing` is limited to
 selected branches and that `aegis-dev-bootstrap` requires a reviewer, and stops if not.

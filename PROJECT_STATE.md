@@ -143,6 +143,14 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   first checks that `aegis-dev-signing` is branch-limited and `aegis-dev-bootstrap`
   requires a reviewer. Waiting for the owner: `docs/operations/dev-signing-setup.md`
   steps 1–3 (the token now also needs Environments: Read-only).
+  **Incident, run 46015720213 (`0d1bd3b`):** the commit message that described the
+  marker contained it, so the bootstrap job started; `aegis-dev-bootstrap` did not exist,
+  GitHub created it unprotected, and the job ran without review. It stopped at its first
+  line (no token): no key was generated, nothing was stored or printed. Hardened: the
+  workflow now starts only when `keys/dev/bootstrap-request` changes and the commit
+  subject begins with the marker, and a secret-free preflight job (actions: read) checks
+  both environments' protection before the key job can exist. The owner should open the
+  now-existing `aegis-dev-bootstrap` and add the reviewer and branch rule (step 2).
 - **Packages for M10/M11/M13 locked** (update-inputs run 46015922956, 682 packages):
   spectacle (GPL-2.0-or-later), rsms-inter-fonts (OFL-1.1), orca (LGPL-2.1-or-later)
   with their dependencies: speech-dispatcher (GPL-2.0-or-later/LGPL), espeak-ng

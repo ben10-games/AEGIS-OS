@@ -59,7 +59,11 @@ PACKAGE_WRITERS = {
     "update-inputs.yml": "resolve",
 }
 # Steps other than registry logins that may see the token, each reviewed.
-TOKEN_STEPS = {("mirror-base.yml", "Copy the pinned image, keeping its digest")}
+TOKEN_STEPS = {
+    ("mirror-base.yml", "Copy the pinned image, keeping its digest"),
+    # Read-only (actions: read) check of the signing environments' protection (ADR-0015).
+    ("dev-signing-bootstrap.yml", "Check the environments' protection (read-only)"),
+}
 JOB = re.compile(r"^  ([A-Za-z0-9_-]+):\s*$", re.MULTILINE)
 
 

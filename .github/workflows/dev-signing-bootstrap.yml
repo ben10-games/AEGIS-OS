@@ -2,21 +2,26 @@ name: dev-signing-bootstrap
 
 # ADR-0015: creates the persistent DEVELOPMENT signing identity (Secure Boot PK/KEK/db
 # and the image signing key) once, and stores it only as secrets of the environment
-# aegis-dev-signing. Runs on the v3 branch only, and only after the owner approves the
-# deployment to the reviewer-gated environment aegis-dev-bootstrap, which holds the
-# owner's short-lived bootstrap token. Never creates production keys.
-# Started by a push whose head commit message contains [bootstrap-dev-signing] (GitHub
-# offers "Run workflow" only for workflows on the default branch, and this one is not
-# merged there), or by hand once it is. Other pushes skip the job and create no
-# deployment. Setup and rotation: docs/operations/dev-signing-setup.md.
+# aegis-dev-signing. Never creates production keys. Setup and rotation:
+# docs/operations/dev-signing-setup.md.
+#
+# Started only by a push to the v3 branch that changes keys/dev/bootstrap-request and
+# whose commit subject line begins with [bootstrap-dev-signing] (GitHub offers "Run
+# workflow" only for workflows on the default branch, which this one is not on), or by
+# hand with the confirmation text once it is.
+#
+# Two jobs: 'preflight' holds no secret and checks, with read access only, that
+# aegis-dev-bootstrap exists and requires a reviewer and that aegis-dev-signing deploys
+# only to selected branches. Only then is 'bootstrap' created; it waits for the owner's
+# approval in aegis-dev-bootstrap. (Run 46015720213 showed why: a job that names an
+# environment which does not exist yet creates it, unprotected, and runs at once. That
+# run stopped at the missing token, before any key was generated.)
 on:
   push:
     branches:
       - claude/aegis-os-v3
     paths:
-      - .github/workflows/dev-signing-bootstrap.yml
-      - scripts/bootstrap-dev-signing
-      - docs/operations/dev-signing-setup.md
+      - keys/dev/bootstrap-request
   workflow_dispatch:
     inputs:
       confirm:
@@ -25,23 +30,50 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 concurrency:
   group: dev-signing-bootstrap
   cancel-in-progress: false
 
 jobs:
-  bootstrap:
-    name: Create the development signing identity (aegis-dev-signing)
+  preflight:
+    name: Check that both signing environments are protected
     if: >-
       ${{ github.ref == 'refs/heads/claude/aegis-os-v3'
       && (inputs.confirm == 'create the development signing identity'
       || (github.event_name == 'push'
-      && contains(github.event.head_commit.message, '[bootstrap-dev-signing]'))) }}
+      && startsWith(github.event.head_commit.message, '[bootstrap-dev-signing]'))) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    steps:
+      - name: Check the environments' protection (read-only)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          reviewers="$(gh api "repos/${REPOSITORY}/environments/aegis-dev-bootstrap" \
+            --jq '[.protection_rules[] | select(.type == "required_reviewers")] | length')"
+          branches="$(gh api "repos/${REPOSITORY}/environments/aegis-dev-signing" \
+            --jq '.deployment_branch_policy.custom_branch_policies')"
+          echo "aegis-dev-bootstrap required-reviewer rules: ${reviewers}"
+          echo "aegis-dev-signing limited to selected branches: ${branches}"
+          if [[ "${reviewers}" -lt 1 || "${branches}" != true ]]; then
+            echo "error: finish steps 1 and 2 of docs/operations/dev-signing-setup.md" >&2
+            exit 1
+          fi
+
+  bootstrap:
+    name: Create the development signing identity (aegis-dev-signing)
+    needs: preflight
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     environment: aegis-dev-bootstrap
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

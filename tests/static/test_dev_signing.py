@@ -11,15 +11,25 @@ WORKFLOW = ".github/workflows/dev-signing-bootstrap.yml"
 SCRIPT = "scripts/bootstrap-dev-signing"
 
 
-def test_bootstrap_is_manual_branch_limited_and_reviewer_gated(root):
+def test_bootstrap_is_branch_limited_preflighted_and_reviewer_gated(root):
     text = (root / WORKFLOW).read_text()
     triggers = text.split("\non:\n", 1)[1].split("\npermissions:", 1)[0]
     assert re.findall(r"^  (\w+):", triggers, flags=re.MULTILINE) == ["push", "workflow_dispatch"]
-    assert "      - claude/aegis-os-v3\n" in triggers
-    assert "contains(github.event.head_commit.message, '[bootstrap-dev-signing]')" in text
-    assert "environment: aegis-dev-bootstrap" in text
-    assert "github.ref == 'refs/heads/claude/aegis-os-v3'" in text
-    assert "inputs.confirm == 'create the development signing identity'" in text
+    # Only a change of the request file starts it, and only with the marker at the very
+    # beginning of the commit message (run 46015720213 was started by a message that
+    # merely mentioned the marker).
+    assert re.search(r"paths:\n\s+- keys/dev/bootstrap-request\n", triggers)
+    assert "startsWith(github.event.head_commit.message, '[bootstrap-dev-signing]')" in text
+    assert "contains(github.event.head_commit.message" not in text
+    jobs = text.split("\njobs:\n", 1)[1]
+    preflight, bootstrap = jobs.split("\n  bootstrap:\n", 1)
+    # The preflight holds no secret and names no environment; it checks both.
+    assert "environment:" not in preflight and "AEGIS_DEV" not in preflight
+    assert "required_reviewers" in preflight and "custom_branch_policies" in preflight
+    assert "actions: read" in preflight
+    # The bootstrap job exists only after the preflight passed.
+    assert "needs: preflight" in bootstrap
+    assert "environment: aegis-dev-bootstrap" in bootstrap
     assert "upload-artifact" not in text
     assert "packages: write" not in text
     assert text.count("AEGIS_DEV_BOOTSTRAP_TOKEN") == 1
