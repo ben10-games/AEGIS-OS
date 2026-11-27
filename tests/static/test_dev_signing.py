@@ -14,7 +14,9 @@ SCRIPT = "scripts/bootstrap-dev-signing"
 def test_bootstrap_is_manual_branch_limited_and_reviewer_gated(root):
     text = (root / WORKFLOW).read_text()
     triggers = text.split("\non:\n", 1)[1].split("\npermissions:", 1)[0]
-    assert re.findall(r"^  (\w+):", triggers, flags=re.MULTILINE) == ["workflow_dispatch"]
+    assert re.findall(r"^  (\w+):", triggers, flags=re.MULTILINE) == ["push", "workflow_dispatch"]
+    assert "      - claude/aegis-os-v3\n" in triggers
+    assert "contains(github.event.head_commit.message, '[bootstrap-dev-signing]')" in text
     assert "environment: aegis-dev-bootstrap" in text
     assert "github.ref == 'refs/heads/claude/aegis-os-v3'" in text
     assert "inputs.confirm == 'create the development signing identity'" in text
@@ -27,6 +29,9 @@ def test_bootstrap_keeps_private_keys_off_disk_logs_and_arguments(root):
     text = (root / SCRIPT).read_text()
     assert "mount -t tmpfs" in text and "trap cleanup EXIT" in text
     assert "refusing to replace the identity" in text
+    # The environments' protection is checked before any key is generated.
+    assert text.index("custom_branch_policies") < text.index("scripts/dev-keys")
+    assert text.index("required_reviewers") < text.index("scripts/dev-keys")
     # Secrets reach gh only on standard input.
     for line in text.splitlines():
         if "gh secret set" in line:

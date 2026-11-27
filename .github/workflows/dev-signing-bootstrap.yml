@@ -2,11 +2,21 @@ name: dev-signing-bootstrap
 
 # ADR-0015: creates the persistent DEVELOPMENT signing identity (Secure Boot PK/KEK/db
 # and the image signing key) once, and stores it only as secrets of the environment
-# aegis-dev-signing. Manual start only, on the v3 branch, after the owner approves the
+# aegis-dev-signing. Runs on the v3 branch only, and only after the owner approves the
 # deployment to the reviewer-gated environment aegis-dev-bootstrap, which holds the
 # owner's short-lived bootstrap token. Never creates production keys.
-# Setup and rotation: docs/operations/dev-signing-setup.md.
+# Started by a push whose head commit message contains [bootstrap-dev-signing] (GitHub
+# offers "Run workflow" only for workflows on the default branch, and this one is not
+# merged there), or by hand once it is. Other pushes skip the job and create no
+# deployment. Setup and rotation: docs/operations/dev-signing-setup.md.
 on:
+  push:
+    branches:
+      - claude/aegis-os-v3
+    paths:
+      - .github/workflows/dev-signing-bootstrap.yml
+      - scripts/bootstrap-dev-signing
+      - docs/operations/dev-signing-setup.md
   workflow_dispatch:
     inputs:
       confirm:
@@ -26,7 +36,9 @@ jobs:
     name: Create the development signing identity (aegis-dev-signing)
     if: >-
       ${{ github.ref == 'refs/heads/claude/aegis-os-v3'
-      && inputs.confirm == 'create the development signing identity' }}
+      && (inputs.confirm == 'create the development signing identity'
+      || (github.event_name == 'push'
+      && contains(github.event.head_commit.message, '[bootstrap-dev-signing]'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     environment: aegis-dev-bootstrap

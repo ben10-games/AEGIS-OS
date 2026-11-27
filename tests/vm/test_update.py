@@ -46,7 +46,12 @@ def sealed_digest(variant: str) -> str:
 
 
 def skopeo_push(
-    registry: Registry, workdir: Path, tag: str, extra: list[str], repository: str = "aegis-dev"
+    registry: Registry,
+    workdir: Path,
+    tag: str,
+    extra: list[str],
+    repository: str = "aegis-dev",
+    archive: Path = UPDATE_ARCHIVE,
 ) -> str:
     """Push the update image to the test registry; return the manifest digest."""
     registries_d = workdir / "registries.d"
@@ -61,7 +66,7 @@ def skopeo_push(
     subprocess.run(
         ["skopeo", "--policy", str(policy), "--registries.d", str(registries_d), "copy",
          "--dest-tls-verify=false", "--digestfile", str(digest_file), *extra,
-         f"oci-archive:{UPDATE_ARCHIVE}", destination],
+         f"oci-archive:{archive}", destination],
         check=True, capture_output=True, text=True, timeout=1800,
     )  # fmt: skip
     return digest_file.read_text().strip()

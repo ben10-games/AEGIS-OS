@@ -40,6 +40,22 @@ declare -A files=(
   [AEGIS_DEV_IMAGE_PUB]=signing/aegis-os.pub
 )
 
+# The protection the identity relies on (ADR-0015): aegis-dev-signing deploys only to
+# selected branches; aegis-dev-bootstrap needs a reviewer. Checked before any key exists.
+protection() { # ENVIRONMENT JQ
+  gh api "repos/${repository}/environments/$1" --jq "$2"
+}
+if [[ "$(protection "${environment}" '.deployment_branch_policy.custom_branch_policies')" != true ]]; then
+  echo "error: ${environment} must be limited to selected branches (setup step 1)" >&2
+  exit 1
+fi
+if [[ "$(protection aegis-dev-bootstrap \
+  '[.protection_rules[] | select(.type == "required_reviewers")] | length')" -lt 1 ]]; then
+  echo "error: aegis-dev-bootstrap must require a reviewer (setup step 2)" >&2
+  exit 1
+fi
+echo "ok: ${environment} is branch-limited and aegis-dev-bootstrap requires a reviewer"
+
 existing="$(gh secret list --repo "${repository}" --env "${environment}" --json name --jq '.[].name')"
 for name in "${!files[@]}"; do
   if grep -qx "${name}" <<< "${existing}"; then

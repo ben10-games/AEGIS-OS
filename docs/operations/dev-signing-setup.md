@@ -39,7 +39,7 @@ tokens** → **Fine-grained tokens** → **Generate new token**.
 | Expiration | 7 days |
 | Resource owner | `ben10-games` |
 | Repository access | **Only select repositories** → `ben10-games/AEGIS-OS` |
-| Repository permissions | **Secrets: Read and write** (Metadata: Read-only is added automatically). Nothing else. |
+| Repository permissions | **Secrets: Read and write** and **Environments: Read-only** (Metadata: Read-only is added automatically). Nothing else. |
 
 **Generate token** and copy it. Then, without pasting it anywhere else (not into a chat,
 a file or a terminal):
@@ -50,13 +50,17 @@ token → **Add secret**.
 
 ## 4. Create the identity
 
-Repository → **Actions** → **dev-signing-bootstrap** → **Run workflow** → branch
-`claude/aegis-os-v3`, confirmation `create the development signing identity` →
-**Run workflow**. (Or tell Claude that steps 1–3 are done; Claude starts it.)
+Tell Claude that steps 1–3 are done. GitHub shows **Run workflow** only for workflows on
+the default branch, and this one is only on `claude/aegis-os-v3`, so Claude starts it
+with a commit to that branch whose message contains `[bootstrap-dev-signing]` (and which
+touches this file). Ordinary pushes never start it.
 
-The run waits for you: open it → **Review deployments** → tick `aegis-dev-bootstrap` →
-**Approve and deploy**. It takes about 10 minutes. The log ends with the public
-certificates and fingerprints, which are safe to publish. No private key is printed.
+The run then waits for you: GitHub → **Actions** → **dev-signing-bootstrap** → the
+waiting run → **Review deployments** → tick `aegis-dev-bootstrap` → **Approve and
+deploy**. Before generating anything it checks that `aegis-dev-signing` is limited to
+selected branches and that `aegis-dev-bootstrap` requires a reviewer, and stops if not.
+It takes about 10 minutes. The log ends with the public certificates and fingerprints,
+which are safe to publish. No private key is printed.
 
 ## 5. Remove the token
 
@@ -69,8 +73,10 @@ certificates and fingerprints, which are safe to publish. No private key is prin
 ## If something fails
 
 - **"already holds …"**: the identity exists. Nothing was changed.
-- **HTTP 403 from `gh secret`**: the token lacks a permission. Edit it to add
-  **Environments: Read-only** as well, then run the workflow again. Nothing was stored.
+- **HTTP 403 from `gh api` or `gh secret`**: the token lacks a permission (step 3). Edit
+  it, then ask Claude to start the workflow again. Nothing was stored.
+- **"must be limited to selected branches" / "must require a reviewer"**: finish steps 1
+  or 2. Nothing was generated.
 - **The job never starts**: the branch rule or the review is missing (steps 1–2).
 
 ## Rotation (only if a key may have leaked, or before the certificates expire)

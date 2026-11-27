@@ -58,7 +58,8 @@ jobs:
           AEGIS_WITH_GUI: "1"
           AEGIS_WITH_V3: "1"
           AEGIS_SKIP_UPDATE_IMAGE: "1"
-          AEGIS_SEAL_VARIANTS: v3
+          AEGIS_V3_UPDATE: "1"
+          AEGIS_SEAL_VARIANTS: v3 v3-update
         run: scripts/build-image
 
       - name: Install the v3 image into a 64 GiB disk image file

@@ -129,6 +129,19 @@ if [[ "${AEGIS_WITH_V3:-0}" == 1 ]]; then
     --file image/Containerfile.v3 \
     .
   variants+=(v3)
+  # AEGIS_V3_UPDATE=1: the v3 update test image ("version B": v3 plus an update marker),
+  # sealed and signed like any image and never released (tests/vm/test_v3_update.py).
+  if [[ "${AEGIS_V3_UPDATE:-0}" == 1 ]]; then
+    echo "== building the v3 update test root filesystem (version B, never released)"
+    "${as_root[@]}" podman build \
+      "${locked[@]}" \
+      --build-arg "BASE=localhost/aegis-v3-rootfs:latest" \
+      --build-arg "AEGIS_UPDATE_VERSION=${version}.update" \
+      --tag localhost/aegis-v3-update-rootfs:latest \
+      --file image/Containerfile.update \
+      .
+    variants+=(v3-update)
+  fi
 fi
 
 # AEGIS_SEAL_VARIANTS="v3 ..." seals only these variants (the v3 workflow needs only the
@@ -181,15 +194,16 @@ for variant in "${variants[@]}"; do
   echo "${v1}" > "out/digests/${variant}.v1"
 done
 
-# The update image, for the update tests: they push it, signed, to a test registry.
-if [[ " ${variants[*]} " == *" dev-v2 "* ]]; then
+# The update images, for the update tests: they push them, signed, to a test registry.
+for update in dev-v2 v3-update; do
+  [[ " ${variants[*]} " == *" ${update} "* ]] || continue
   mkdir -p out/images
-  "${as_root[@]}" rm -f out/images/aegis-dev-v2.oci.tar
-  "${as_root[@]}" podman save --format oci-archive -o out/images/aegis-dev-v2.oci.tar \
-    localhost/aegis-dev-v2:latest
+  "${as_root[@]}" rm -f "out/images/aegis-${update}.oci.tar"
+  "${as_root[@]}" podman save --format oci-archive -o "out/images/aegis-${update}.oci.tar" \
+    "localhost/aegis-${update}:latest"
   "${as_root[@]}" chown -R "$(id -u):$(id -g)" out/images
   ls -l out/images
-fi
+done
 
 # The command line each UKI was sealed with (it contains the root digest). The VM tests
 # compare the running system's command line with it.

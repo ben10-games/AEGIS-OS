@@ -5,8 +5,11 @@
 #   2. tests/vm/test_v3_vdi.py on the exported VDI on VirtualBox-like hardware without
 #      Secure Boot keys (first-boot setup, login, persistence over a power-off);
 #   3. tests/vm/test_v3_apps.py with network (Flathub, Google's download server): Chrome
-#      installed by the user persists over a power-off. AEGIS_V3_SKIP_NETWORK_TESTS=1
-#      leaves it out.
+#      installed by the user persists over a power-off;
+#   4. tests/vm/test_v3_update.py with network (needs out/images/aegis-v3-update.oci.tar,
+#      AEGIS_V3_UPDATE=1): signed update A -> B and rollback with Chrome, account, files
+#      and settings kept; unsigned and untrusted updates refused.
+#   AEGIS_V3_SKIP_NETWORK_TESTS=1 leaves out 3 and 4.
 # The v3 image has its SSH server disabled; AEGIS_TEST_SSH_UNIT=1 makes the harness pass
 # a one-boot SSH unit as a firmware credential. Both suites run; fails if either failed.
 set -euo pipefail
@@ -55,5 +58,8 @@ run_suite none out/junit-v3-secureboot.xml tests/vm/test_secure_boot.py \
 run_suite none out/junit-v3.xml tests/vm/test_v3_vdi.py || status=1
 if [[ "${AEGIS_V3_SKIP_NETWORK_TESTS:-0}" != 1 ]]; then
   run_suite bridge out/junit-v3-apps.xml tests/vm/test_v3_apps.py || status=1
+  if [[ -f out/images/aegis-v3-update.oci.tar ]]; then
+    run_suite bridge out/junit-v3-update.xml tests/vm/test_v3_update.py || status=1
+  fi
 fi
 exit "${status}"

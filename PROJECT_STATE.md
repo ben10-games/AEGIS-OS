@@ -127,6 +127,22 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   and started in 3.3 s; no SELinux denials. Chrome showed "Restore pages?" because the
   test ends Chrome by stopping its service. The VM had no swap (zram) active: to be
   checked in M13.
+- **M9 update and rollback on the VDI (written, first run pending):**
+  `tests/vm/test_v3_update.py`. Version A = the exported VDI; version B = v3 plus an update
+  marker (`AEGIS_V3_UPDATE=1`, sealed and signed, never released), served by the test
+  registry as AEGIS-signed, unsigned and untrusted-key variants. One VM: account, Chrome,
+  file, colour scheme, glass profile, wallpaper on A; unsigned and untrusted updates
+  refused with nothing staged; signed update to B staged and booted; everything kept
+  and Chrome starts; rollback to A; everything kept. Within one run A and B share the
+  per-build key; the cross-build form (A from an earlier run) needs the persistent
+  development identity.
+- **M9 signing bootstrap: not run; owner setup not confirmed.** The workflow could not
+  be started: GitHub returns 404 for it, because a workflow with only a manual trigger
+  can be started only from the default branch. It now starts from a v3-branch commit
+  containing `[bootstrap-dev-signing]` (still behind the owner's reviewer approval) and
+  first checks that `aegis-dev-signing` is branch-limited and `aegis-dev-bootstrap`
+  requires a reviewer. Waiting for the owner: `docs/operations/dev-signing-setup.md`
+  steps 1–3 (the token now also needs Environments: Read-only).
 - **M10 and later:** not started.
 
 ### GUI v2 track (Liquid Glass 2.0, VirtualBox display, performance), branch `claude/aegis-os-gui-v2`
