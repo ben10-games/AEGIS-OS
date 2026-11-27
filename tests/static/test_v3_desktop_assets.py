@@ -87,6 +87,10 @@ def test_shortcuts_typeface_and_window_switcher(root):
     assert "Overview=Meta+Tab\\tMeta+W," in shortcuts
     assert "[services][systemsettings.desktop]\n_launch=Meta+I" in shortcuts
     assert "RectangularRegionScreenShot=Meta+Shift+S" in shortcuts
-    defaults = (root / DEFAULTS).read_text()
-    assert "font=Inter,10," in defaults
-    assert "[kwinrc][TabBox]\nLayoutName=thumbnail_grid" in defaults
+    # In /etc/xdg: the look-and-feel defaults do not carry fonts or the switcher layout.
+    kdeglobals = (root / GUI / "usr/share/aegis/xdg/kdeglobals.aegis").read_text()
+    assert (
+        "kdeglobals.aegis >> /etc/xdg/kdeglobals" in (root / "image/Containerfile.gui").read_text()
+    )
+    assert "[General]\nfont=Inter,10," in kdeglobals
+    assert "[TabBox]\nLayoutName=thumbnail_grid" in (root / GUI / "etc/xdg/kwinrc").read_text()

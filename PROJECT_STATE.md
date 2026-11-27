@@ -205,7 +205,16 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   all, remove, plain error messages with Try again; a daily user timer only announces
   updates (never applies them). Test: `tests/vm/test_v3_appcenter.py` (network suite).
   Not tested: a full disk.
-- **M13:** not started.
+- **M13 measured performance, v3 run 46027289849 on `86cfe67`** (QEMU with KVM on a GitHub
+  runner, VirtualBox-like hardware, 2 CPUs, 4 GiB, software rendering; not VirtualBox):
+  first start to AEGIS Setup 16.8 s; reboot to login screen 7.6 s; boot 9.6 s (kernel
+  0.9 s, initrd 2.7 s, userspace 6.0 s, graphical.target after 6.0 s); password to desktop
+  4.6 s; idle CPU KWin 0.0 %, plasmashell 0.1 % (30 s); memory used 955 MiB of 3894 MiB
+  (plasmashell 448 MB, KWin 268 MB RSS); zram swap active (zram0, 1.9 GiB, zstd); window
+  shown after start: Files 2.9 s, Welcome tour 3.0 s, App Center 2.8 s. Performance suite
+  6/6. Desktop suite 13/14: Meta+PgUp maximise passes; Inter and the Alt+Tab grid were not
+  applied (Plasma ignores those keys in a look-and-feel package), now set in `/etc/xdg`.
+- **M13:** in progress.
 
 ### GUI v2 track (Liquid Glass 2.0, VirtualBox display, performance), branch `claude/aegis-os-gui-v2`
 

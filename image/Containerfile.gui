@@ -54,6 +54,8 @@ COPY image/rootfs-gui/ /
 # Select the AEGIS look-and-feel for every user (the only /etc change of this variant),
 # enable the display manager and boot to the graphical target.
 RUN mkdir -p /etc/xdg \
+    && echo "/etc/xdg/kdeglobals before AEGIS:" && cat /etc/xdg/kdeglobals 2> /dev/null || true \
+    && cat /usr/share/aegis/xdg/kdeglobals.aegis >> /etc/xdg/kdeglobals \
     && printf '[KDE]\nLookAndFeelPackage=org.aegisos.desktop\n' >> /etc/xdg/kdeglobals \
     && systemctl preset sddm.service \
     && systemctl --global enable aegis-flathub-user-remote.service \

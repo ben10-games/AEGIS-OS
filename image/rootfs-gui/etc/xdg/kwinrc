@@ -20,3 +20,8 @@ NoiseStrength=2
 [Wayland]
 InputMethod[$e]=
 VirtualKeyboardEnabled=false
+
+# Alt+Tab shows window thumbnails in a grid (v3, M10). The look-and-feel package cannot
+# set this: Plasma applies only some of its defaults (v3 run 46027289849).
+[TabBox]
+LayoutName=thumbnail_grid

@@ -1,0 +1,14 @@
+# AEGIS OS (v3, M10): system-wide KDE defaults that the AEGIS look-and-feel package cannot
+# carry (Plasma applies only some of its defaults: v3 run 46027289849 still showed Noto
+# Sans). Users change them in System Settings; their own ~/.config/kdeglobals takes
+# precedence. The image build appends this file to /etc/xdg/kdeglobals (which Fedora's
+# packages may already provide), then the look-and-feel selection.
+[General]
+font=Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+menuFont=Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+toolBarFont=Inter,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+smallestReadableFont=Inter,8,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+
+[WM]
+activeFont=Inter,10,-1,5,600,0,0,0,0,0,0,0,0,0,0,1
+
