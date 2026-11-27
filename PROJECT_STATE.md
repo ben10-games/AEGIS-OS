@@ -143,6 +143,13 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   first checks that `aegis-dev-signing` is branch-limited and `aegis-dev-bootstrap`
   requires a reviewer. Waiting for the owner: `docs/operations/dev-signing-setup.md`
   steps 1–3 (the token now also needs Environments: Read-only).
+- **Packages for M10/M11/M13 locked** (update-inputs run 46015922956, 682 packages):
+  spectacle (GPL-2.0-or-later), rsms-inter-fonts (OFL-1.1), orca (LGPL-2.1-or-later)
+  with their dependencies: speech-dispatcher (GPL-2.0-or-later/LGPL), espeak-ng
+  (GPL-3.0-or-later), liblouis and brlapi (LGPL-2.1-or-later), pyatspi, dasbus, kf6-purpose,
+  kquickimageeditor, accounts-qml-module, kf6-bluez-qt (LGPL), pcaudiolib (GPL-3.0+), libao
+  (GPL-2.0+), dotconf (LGPL-2.1): about 33 MB, Fedora-signed, `fedora`/`updates` only.
+  Also picked up: llvm-libs 23.1.6, pipewire 1.6.12.
 - **M10 and later:** not started.
 
 ### GUI v2 track (Liquid Glass 2.0, VirtualBox display, performance), branch `claude/aegis-os-gui-v2`
