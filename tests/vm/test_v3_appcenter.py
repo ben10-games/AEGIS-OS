@@ -95,9 +95,10 @@ def user_apps(vm) -> list[str]:
 def start_app_center(vm) -> None:
     vm.ssh(f"pkill -u {USER} -x aegis-appcenter", check=False)
     time.sleep(1)
-    in_session(
+    as_user(
         vm,
-        "--no-block --collect --setenv=QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1 aegis-appcenter",
+        "systemd-run --user --collect --quiet "
+        "--setenv=QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1 aegis-appcenter",
         check=False,
     )
     wait_for(vm, f"pgrep -u {USER} -x aegis-appcenter", 30, "the App Center")

@@ -178,7 +178,14 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   `/usr/libexec/aegis/quick-settings` as the user; AEGIS login screen (SDDM theme `aegis`);
   Inter, Alt+Tab thumbnail grid, edge snapping; shortcuts Meta+I settings, Meta+Tab
   overview, Meta+Shift+S screenshot. Test: `tests/vm/test_v3_desktop.py`.
-- **M11 Welcome to AEGIS (written, first CI run pending):** `apps/aegis-welcome` (Qt Quick
+- **M11/M12 first CI run, v3 run 46023524801 on `6cfb421`:** both applications compile
+  and are in the image; Secure Boot 8/8, VDI 7/7, Chrome 6/6, update and rollback 6/6
+  with them. The tour starts by itself 0.2 s after the desktop on the first login, loads
+  its KWin watcher, renders without QML errors (screenshot inspected); opening animation
+  CPU: aegis-welcome 34 %, KWin 76 % of one CPU (2 CPUs, software rendering). All later
+  tour and App Center tests failed because the test helper that starts the applications
+  combined `systemd-run --wait` with `--no-block` (fixed).
+- **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your
   workspace (move, resize, snap, maximise and minimise a real window, completed from

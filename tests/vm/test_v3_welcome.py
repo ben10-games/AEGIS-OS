@@ -180,10 +180,12 @@ def kwin_lines(vm, script: str, marker: str) -> list[list[str]]:
 
 def start_tour(vm, *arguments: str) -> None:
     """Start the tour in the session, with the accessibility bridge on."""
-    in_session(
+    # Without --wait (run 46023524801: in_session's --wait cannot be combined with
+    # --no-block, so the tour never started).
+    as_user(
         vm,
-        "--no-block --collect --setenv=QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1 aegis-welcome "
-        + " ".join(arguments),
+        "systemd-run --user --collect --quiet "
+        "--setenv=QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1 aegis-welcome " + " ".join(arguments),
         check=False,
     )
     wait_for(vm, f"pgrep -u {USER} -x aegis-welcome", 30, "the tour")
