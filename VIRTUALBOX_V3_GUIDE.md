@@ -10,8 +10,10 @@ where, is in section 8 and in `BUILD-INFO.txt`.
 ## 1. Download and check
 
 1. GitHub → Actions → workflow **v3** → a run with a green tick that has the artifact
-   **`aegis-os-v3-vdi`** (signed-in users only; kept 14 days). Download and unzip it into
-   a folder with about 20 GB free.
+   **`aegis-os-v3-vdi`** (signed-in users only; kept 14 days). Download it (about 3 GB)
+   and unzip it into a folder with about 20 GB free. It contains the disk
+   (`AEGIS-OS-v3-….vdi`), this guide, `CHANGELOG-v3.md`, `BUILD-INFO.txt`,
+   `TEST-REPORT.txt`, `SHA256SUMS` and the public Secure Boot certificates of the build.
 2. In a terminal in that folder:
 
    ```bash
@@ -67,6 +69,18 @@ The desktop is the AEGIS GUI v2 desktop (floating glass dock, launcher, AEGIS Se
 AEGIS Appearance). Screen size follows the VirtualBox window (View → Auto-resize Guest
 Display); Host+F is full screen.
 
+**Installing applications** (the graphical App Center comes in a later milestone): open
+Konsole from the launcher and install from Flathub for your account, for example Google
+Chrome:
+
+```bash
+flatpak install --user flathub com.google.Chrome
+```
+
+Applications installed this way need no administrator password, live in your home
+folder and stay installed when you shut down. Chrome then appears in the launcher. Give
+the VM 8 GB of memory if you use Chrome with several tabs.
+
 ## 5. Backups, snapshots and recovery
 
 **Before you rely on it, take a snapshot.** Machine → Take Snapshot (for example
@@ -80,7 +94,10 @@ before every system update as well.
 - only your files: copy them out of your home folder (for example to a VirtualBox shared
   folder or a USB stick passed through to the VM).
 
-**If the system does not start after an update** (updates arrive with milestone M9):
+**System updates are not available in this development build.** A newer build is a new
+disk: start it, set it up, and copy your files over (see backups above).
+
+**If the system does not start after an update** (for builds with updates, from M9):
 AEGIS keeps the previous version. At the start, press Space to open the boot menu and
 choose the previous entry; then run `sudo bootc rollback` and restart. Your files,
 settings and applications are not changed by an update or a rollback (they live in
@@ -132,7 +149,12 @@ The `v3` workflow builds the disk and, before offering it for download, tests in
   is created by typing into AEGIS Setup; a second account request is refused; root stays
   locked; the login screen accepts the typed password and the desktop starts; SELinux is
   enforcing with no denials; after a complete power-off and a new start, the account, a
-  file, the colour scheme, the glass profile and the wallpaper are still there.
+  file, the colour scheme, the glass profile and the wallpaper are still there;
+- Google Chrome installed from Flathub into the user's own installation (no system-wide
+  source, no administrator rights) starts, and after a complete power-off is still
+  installed and starts again, with no SELinux denials.
+
+`TEST-REPORT.txt` in the download lists every test of this build and its result.
 
 **Not verified: VirtualBox itself.** These results come from QEMU. The owner's own
 VirtualBox test is reported separately in `PROJECT_STATE.md`.

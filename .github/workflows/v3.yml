@@ -80,6 +80,14 @@ jobs:
           mkdir -p out
           sudo chown -R "$(id -u):$(id -g)" out
           scripts/summarize-v3 | tee out/summary-v3.txt
+          if [[ -d out/release-v3 ]]; then
+            {
+              echo "AEGIS OS v3 (development, EXPERIMENTAL): automated test report."
+              echo "These tests ran in QEMU on VirtualBox-like hardware, not in VirtualBox."
+              echo
+              AEGIS_SUMMARY_SCREENSHOTS=0 scripts/summarize-v3
+            } > out/release-v3/TEST-REPORT.txt
+          fi
           df -h / || true
 
       - name: Upload logs, screenshots and test reports

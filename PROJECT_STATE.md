@@ -97,15 +97,17 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   suite): account through the setup socket as `aegis-setup`, login by typing, per-user
   Flathub remote only, Chrome installed into the user installation on the btrfs disk,
   started, complete power-off, still listed and starts again, SELinux without denials.
-- **Regression under investigation (GUI v2 Live ISO on the renewed base):** live-iso runs
-  45822043527 (`e4c7405`) and 45823218002 (`f41c3f7`) pass 22 of 24 offline tests and the
-  Flatpak suite 5/5, but under Performance Glass KWin's blur effect stays loaded
-  (`test_renderer_identified_and_auto_profile`, `test_glass_profiles_switch_and_measure`;
-  KWin 86 % of a CPU while measuring, against 39–45 % in GUI v2). No KWin or Plasma
-  package changed in the lock; the base image itself did. The tests now record the
-  user's `kwinrc`, KWin's loaded effects and its configuration paths when this happens.
-  `build` (M1–M5, reproducibility, GUI under Secure Boot) is green on `5c22f44`
-  (run 45982673831).
+- **GUI v2 Live ISO on the renewed base: green, after an intermittent failure.** live-iso
+  runs 45822043527 (`e4c7405`) and 45823218002 (`f41c3f7`) failed 2 of 24 offline tests:
+  blur still loaded a fixed 4 s after switching to Performance Glass. Run 45987212326
+  (`bfe51d7`, same image inputs) passed 24/24 offline and 5/5 Flatpak, with KWin at
+  35–40 % of a CPU under Performance (GUI v2: 39–45 %). KWin applies a reconfigure
+  asynchronously, so the tests now wait up to 20 s for the expected effect state,
+  record how long it took, and log the user's `kwinrc`, KWin's loaded effects and its
+  configuration environment if it never arrives. (Correction: the 86 % quoted while
+  investigating was the Flatpak suite's 4-CPU Automatic-profile measurement, not
+  Performance Glass, and is not evidence of a regression.) `build` (M1–M5,
+  reproducibility, GUI under Secure Boot) is green on `5c22f44` (run 45982673831).
 - **M9 Chrome persistence green: v3 run 45982673897 on `5c22f44`** (QEMU, not
   VirtualBox): Secure Boot 8/8, VDI 7/7, Chrome suite 6/6. Per-user Flathub only;
   Chrome installed in 31 s into the user installation on the btrfs disk

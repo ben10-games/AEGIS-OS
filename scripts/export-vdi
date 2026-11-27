@@ -40,7 +40,7 @@ mkdir -p "${release}/secureboot-public"
          && qemu-img info '${release}/${name}'" | tee "${release}/qemu-img.txt"
 "${as_root[@]}" chown "$(id -u):$(id -g)" "${release}/${name}"
 
-cp VIRTUALBOX_V3_GUIDE.md "${release}/"
+cp VIRTUALBOX_V3_GUIDE.md CHANGELOG-v3.md "${release}/"
 # Public certificates only (the private keys never leave the build).
 for cert in PK KEK db; do
   cp "out/secureboot/${cert}.crt" "${release}/secureboot-public/"
@@ -70,7 +70,7 @@ fi
 } > "${release}/BUILD-INFO.txt"
 rm -f "${release}/qemu-img.txt"
 
-(cd "${release}" && sha256sum "${name}" VIRTUALBOX_V3_GUIDE.md BUILD-INFO.txt \
+(cd "${release}" && sha256sum "${name}" VIRTUALBOX_V3_GUIDE.md CHANGELOG-v3.md BUILD-INFO.txt \
   secureboot-public/*.crt > SHA256SUMS)
 cat "${release}/BUILD-INFO.txt" "${release}/SHA256SUMS"
 ls -l "${release}"

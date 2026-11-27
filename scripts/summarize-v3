@@ -7,8 +7,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 logs=out/vm-v3/logs
 
-python3 scripts/print_screenshots.py "${logs}" v3 setup:4 greeter-first:4 \
-  desktop-after-reboot:4 chrome-after:4 setup-filled:3 desktop:3
+# AEGIS_SUMMARY_SCREENSHOTS=0: text only (the TEST-REPORT.txt of the download).
+if [[ "${AEGIS_SUMMARY_SCREENSHOTS:-1}" != 0 ]]; then
+  python3 scripts/print_screenshots.py "${logs}" v3 setup:4 greeter-first:4 \
+    desktop-after-reboot:4 chrome-after:4 setup-filled:3 desktop:3
+fi
 
 section() {
   echo "=== $1"

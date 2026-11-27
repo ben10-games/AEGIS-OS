@@ -417,11 +417,23 @@ def blur_diagnostics(vm) -> str:
     )
 
 
-def assert_blur(vm, logdir, wanted: bool, label: str) -> None:
-    if effect_loaded(vm, "blur") != wanted:
-        log(logdir, "blur-diagnostics", f"{label}: blur loaded, wanted {wanted}\n")
-        log(logdir, "blur-diagnostics", blur_diagnostics(vm))
-        raise AssertionError(f"{label}: blur loaded is not {wanted} (see blur-diagnostics)")
+def assert_blur(vm, logdir, wanted: bool, label: str, deadline_s: float = 20) -> None:
+    """KWin applies a reconfigure asynchronously: wait for the wanted state (with a
+    deadline) instead of checking once after a fixed pause, which failed intermittently
+    (live-iso runs 45822043527 and 45823218002; same image passed in run 45987212326)."""
+    started = time.monotonic()
+    while time.monotonic() - started < deadline_s:
+        if effect_loaded(vm, "blur") == wanted:
+            log(
+                logdir,
+                "blur-timing",
+                f"{label}: blur loaded={wanted} after {time.monotonic() - started:.1f} s",
+            )
+            return
+        time.sleep(1)
+    log(logdir, "blur-diagnostics", f"{label}: blur loaded is not {wanted} after {deadline_s} s\n")
+    log(logdir, "blur-diagnostics", blur_diagnostics(vm))
+    raise AssertionError(f"{label}: blur loaded is not {wanted} (see blur-diagnostics)")
 
 
 def cpu_ticks(vm, names: tuple[str, ...]) -> dict[str, int]:
