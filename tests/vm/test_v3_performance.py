@@ -126,7 +126,11 @@ def test_application_start_times(vm, logdir, record_property, command, window, p
     as_user(vm, f"systemd-run --user --collect --quiet {command}", check=False)
     seconds = None
     while time.monotonic() - started < 90:
-        if any(row and row[0] == window for row in kwin(vm, WINDOWS, "AEGIS-WINDOWS")):
+        try:
+            rows = kwin(vm, WINDOWS, "AEGIS-WINDOWS")
+        except AssertionError:  # no normal window at all yet
+            rows = []
+        if any(row and row[0] == window for row in rows):
             seconds = time.monotonic() - started
             break
     assert seconds is not None, f"no {window} window within 90 s"

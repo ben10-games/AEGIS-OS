@@ -235,6 +235,12 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   above) covered the practice window, so its title bar could not be reached (now the tour
   becomes a side panel at the right edge in that scene); the sample results were not
   reachable through the accessibility interface (now plain accessible buttons).
+- **v3 run 46070946621 on `c1c3a9b`:** tour 8/10 (the window is moved by a real title-bar
+  drag with the tour as a side panel; app details complete); resizing failed: Alt+F8 did
+  nothing (the Alt+F7/Alt+F8 bindings did not take effect, removed with the hints that
+  promised them) and the AEGIS window style has no border to grab. The tour now teaches
+  KWin's Meta + right-button drag, which the test performs. Performance: the window poll
+  raised instead of waiting while no window existed yet (fixed). All other suites green.
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your

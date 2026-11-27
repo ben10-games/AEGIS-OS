@@ -5,9 +5,10 @@ first login the tour starts by itself. The test then works through all seven sce
 way a person would:
 
 - keyboard through QEMU's virtual keyboard: Alt+Right/Left between scenes, the Meta key
-  for the launcher, Meta+E for Files, Alt+F7/Alt+F8 and arrows to move and resize a real
-  window, Meta+Left / Meta+PgUp / Meta+PgDown to snap, maximise and minimise it;
-- the mouse through QEMU's tablet: a real drag and drop onto the practice dock;
+  for the launcher, Meta+E for Files, Meta+Left / Meta+PgUp / Meta+PgDown to snap,
+  maximise and minimise a real window;
+- the mouse through QEMU's tablet: a real drag and drop onto the practice dock, dragging
+  the real window by its title bar, resizing it with Meta and the right button;
 - the accessibility interface (AT-SPI, as a screen reader would): the other controls
   are found by their accessible names and activated, which also shows that every control
   of the tour can be used without a mouse.
@@ -315,19 +316,18 @@ def test_scene_3_moves_resizes_snaps_maximises_and_minimises_a_real_window(vm, l
     time.sleep(3)  # the tour shrinks to a side panel at the right edge
     sw, sh, x, y, w, h = activate(vm, "org.kde.dolphin")
     shot(vm, logdir, "welcome-3-start")
-    # Move: drag the title bar's left part with the mouse (the main way; Alt+F7 is the
-    # keyboard way); the tour panel is at the right edge.
+    # Move: drag the title bar's left part with the mouse; the tour panel is at the right.
     vm.drag((x + 90) / sw, (y + 12) / sh, (x + 90 + 140) / sw, (y + 12 + 70) / sh)
-    if not done_within(vm, "workspace.move", 8):
-        log(logdir, "welcome", "move: the title-bar drag was not reported; trying Alt+F7")
-        vm.send_keys("alt-f7", *["right"] * 12, "ret")
     wait_done(vm, "workspace.move")
-    # Resize: Alt+F8 and arrows, or drag the bottom-right corner.
+    # Resize: hold Meta and drag with the right mouse button (KWin, any window style; the
+    # AEGIS style has no visible border to grab, and Alt+F8 did nothing: runs 46065804382,
+    # 46070946621).
     sw, sh, x, y, w, h = activate(vm, "org.kde.dolphin")
-    vm.send_keys("alt-f8", *["right"] * 12, *["down"] * 6, "ret")
-    if not done_within(vm, "workspace.resize", 8):
-        log(logdir, "welcome", "resize: Alt+F8 was not reported; dragging the corner")
-        vm.drag((x + w - 2) / sw, (y + h - 2) / sh, (x + w + 100) / sw, (y + h + 60) / sh)
+    vm.drag(
+        (x + w * 0.75) / sw, (y + h * 0.75) / sh,
+        (x + w * 0.75 - 120) / sw, (y + h * 0.75 - 90) / sh,
+        button="right", hold="meta_l",
+    )  # fmt: skip
     wait_done(vm, "workspace.resize")
     vm.send_keys("meta_l-left")
     wait_done(vm, "workspace.snap")

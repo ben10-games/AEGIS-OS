@@ -454,9 +454,19 @@ class Vm:
                 )
                 time.sleep(0.1)
 
-    def drag(self, x1: float, y1: float, x2: float, y2: float, steps: int = 20) -> None:
-        """Press the left button at (x1, y1), move in STEPS to (x2, y2) and release, as a
-        person dragging with the mouse (coordinates as fractions of the screen)."""
+    def drag(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        steps: int = 20,
+        button: str = "left",
+        hold: str | None = None,
+    ) -> None:
+        """Press BUTTON at (x1, y1), move in STEPS to (x2, y2) and release, as a person
+        dragging with the mouse (coordinates as fractions of the screen). HOLD keeps a key
+        pressed meanwhile (e.g. "meta_l": KWin resizes with Meta and the right button)."""
         if self.cfg.qmp_socket is None:
             raise HarnessError("this virtual machine was started without a control socket")
 
@@ -466,12 +476,18 @@ class Vm:
                 {"type": "abs", "data": {"axis": "y", "value": int(y * 32767)}},
             ]
 
+        def key(down: bool) -> list[dict]:
+            return [{"type": "key", "data": {"down": down, "key": {"type": "qcode", "data": hold}}}]
+
         with QmpClient(self.cfg.qmp_socket) as qmp:
             qmp.command("input-send-event", events=at(x1, y1))
             time.sleep(0.3)
+            if hold:
+                qmp.command("input-send-event", events=key(True))
+                time.sleep(0.2)
             qmp.command(
                 "input-send-event",
-                events=[{"type": "btn", "data": {"down": True, "button": "left"}}],
+                events=[{"type": "btn", "data": {"down": True, "button": button}}],
             )
             time.sleep(0.2)
             for i in range(1, steps + 1):
@@ -483,8 +499,11 @@ class Vm:
             time.sleep(0.3)
             qmp.command(
                 "input-send-event",
-                events=[{"type": "btn", "data": {"down": False, "button": "left"}}],
+                events=[{"type": "btn", "data": {"down": False, "button": button}}],
             )
+            if hold:
+                time.sleep(0.1)
+                qmp.command("input-send-event", events=key(False))
             time.sleep(0.2)
 
     def press_power_button(self) -> None:

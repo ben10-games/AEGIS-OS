@@ -79,12 +79,12 @@ Item {
             Step {
                 key: "workspace.move"
                 title: "Move the window"
-                hint: "Drag its title bar. Keyboard: Alt+F7, then the arrow keys, then Enter."
+                hint: "Drag its title bar, or hold Meta and drag anywhere in the window."
             }
             Step {
                 key: "workspace.resize"
                 title: "Resize it"
-                hint: "Drag an edge or a corner. Keyboard: Alt+F8, arrows, Enter."
+                hint: "Hold Meta and drag with the right mouse button inside the window."
             }
             Step {
                 key: "workspace.snap"
