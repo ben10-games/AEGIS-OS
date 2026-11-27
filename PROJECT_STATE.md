@@ -83,7 +83,19 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
     suite failed again before installing anything: the request script in the test lost
     its escape sequence (a non-raw string), so Python could not parse it (fixed; the
     script is now compiled and exercised against a local socket before pushing).
-  - **Not verified in VirtualBox** (owner check after M9) (waiting for the regenerated
+  - **First experimental VDI published: v3 run 45992321699 on `4a69cef`**, every suite green
+    (QEMU on VirtualBox-like hardware, not VirtualBox): Secure Boot 8/8, VDI 7/7, Chrome
+    6/6 (installed in 34 s, started in 3.3 s before and after a complete power-off); no
+    key material of the build's 5 private keys on the disk. Same commit: `build`
+    45992321728, `live-iso` 45992321702, `lint` 45992321752 green. Artifact
+    `aegis-os-v3-vdi` (2,463,384,532 bytes zipped, kept until 2026-12-11):
+    https://github.com/ben10-games/AEGIS-OS/actions/runs/45992321699/artifacts/15194592920
+    `AEGIS-OS-v3-0.1.0-dev-4a69cef.vdi` SHA-256
+    `eb8347f09a02e06174cb9e4f5b2faba1210b51766355ef78c54ac214059b49e5` (64 GiB virtual,
+    5.72 GiB allocated); sealed root digest `54dad838…`. Labelled experimental; no system
+    updates in this build.
+  - **Not verified in VirtualBox.** Waiting for the owner's check
+    (`docs/operations/v3-virtualbox-checklist.md`). (waiting for the regenerated
     RPM lock). Not verified in VirtualBox.
 - **M9 (prepared): persistent development signing (ADR-0015).** Workflow
   `dev-signing-bootstrap` (manual, v3 branch, reviewer-gated environment
