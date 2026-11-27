@@ -11,7 +11,7 @@ logs=out/vm-v3/logs
 if [[ "${AEGIS_SUMMARY_SCREENSHOTS:-1}" != 0 ]]; then
   python3 scripts/print_screenshots.py "${logs}" v3 greeter-desktop:3 desktop-1920-dark:3 \
     desktop-1920-light:4 quick-settings:4 welcome-1:4 welcome-3:4 welcome-4:4 welcome-6:4 \
-    welcome-7:4 snapped:4
+    welcome-7:4 appcenter-firefox:4 appcenter-installed:4
 fi
 
 section() {
@@ -22,7 +22,7 @@ section() {
 
 section "v3: BUILD-INFO.txt" out/release-v3/BUILD-INFO.txt
 section "v3: SHA256SUMS" out/release-v3/SHA256SUMS
-for name in vdi timings release account system persistence apps apps-denials update update-denials desktop desktop-qml-errors desktop-denials welcome welcome-qml-errors welcome-denials; do
+for name in vdi timings release account system persistence apps apps-denials update update-denials desktop desktop-qml-errors desktop-denials welcome welcome-qml-errors welcome-denials appcenter appcenter-denials; do
   section "v3: ${name}" "${logs}/v3-${name}.txt" 60
 done
 echo "=== v3: console failures"
@@ -31,7 +31,7 @@ grep -haE 'FAILED|Failed to start|denied' "${logs}"/v3*serial*.log 2> /dev/null 
   | sort | uniq -c | sort -rn | head -n 20 || echo "(none)"
 echo
 
-for report in out/junit-v3-secureboot.xml out/junit-v3.xml out/junit-v3-desktop.xml out/junit-v3-welcome.xml out/junit-v3-apps.xml out/junit-v3-update.xml; do
+for report in out/junit-v3-secureboot.xml out/junit-v3.xml out/junit-v3-desktop.xml out/junit-v3-welcome.xml out/junit-v3-apps.xml out/junit-v3-appcenter.xml out/junit-v3-update.xml; do
   [[ -f "${report}" ]] || continue
   echo "=== test report ${report}"
   grep -o 'errors="[0-9]*" failures="[0-9]*" skipped="[0-9]*" tests="[0-9]*" time="[0-9.]*"' \

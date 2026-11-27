@@ -1,0 +1,9 @@
+[Unit]
+Description=AEGIS App Center: tell the user when application updates are available
+Documentation=file:///usr/share/doc/aegis/VIRTUALBOX_V3_GUIDE.md
+
+[Service]
+Type=oneshot
+# Notify only: updates are installed only when the user asks (owner decision 2026-11-26).
+ExecStart=/usr/bin/aegis-appcenter --check-updates
+Nice=10

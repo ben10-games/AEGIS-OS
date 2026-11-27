@@ -33,6 +33,7 @@ COPY image/rootfs/usr/lib/firewalld/zones/aegis.xml /usr/lib/firewalld/zones/aeg
 
 RUN systemctl disable sshd.service \
     && systemctl enable aegis-firstboot.service aegis-provision.socket \
+    && systemctl --global enable aegis-appcenter-updates.timer \
     && os_release="$(realpath /usr/lib/os-release)" \
     && sed -i -e 's|^VARIANT=.*|VARIANT="Desktop v3 (development)"|' \
               -e 's|^VARIANT_ID=.*|VARIANT_ID=v3|' \
@@ -40,6 +41,7 @@ RUN systemctl disable sshd.service \
     && grep -q '^IMAGE_ID=aegis-v3$' "${os_release}" \
     && test -x /usr/libexec/aegis/aegis-setup \
     && test -x /usr/bin/aegis-welcome \
+    && test -x /usr/bin/aegis-appcenter \
     && test -f /usr/share/aegis/welcome/watch.js \
     && ! systemctl is-enabled sshd.service \
     && ! grep -q '<service name="ssh"' /usr/lib/firewalld/zones/aegis.xml \

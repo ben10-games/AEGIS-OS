@@ -12,3 +12,4 @@ qt_standard_project_setup(REQUIRES 6.5)
 
 add_subdirectory(aegis-setup)
 add_subdirectory(aegis-welcome)
+add_subdirectory(aegis-appcenter)

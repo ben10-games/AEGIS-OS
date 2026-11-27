@@ -1,0 +1,10 @@
+[Unit]
+Description=Check daily whether application updates are available (notification only)
+
+[Timer]
+OnStartupSec=10min
+OnUnitActiveSec=1d
+RandomizedDelaySec=30min
+
+[Install]
+WantedBy=timers.target

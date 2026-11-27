@@ -181,7 +181,15 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   reduced motion (KDE setting or switch); lite visuals under Performance Glass; no
   privileges. Test: `tests/vm/test_v3_welcome.py` (QMP keyboard and a real pointer drag,
   AT-SPI for the other controls, D-Bus state, CPU during the opening animation).
-- **M12 and later:** not started.
+- **M12 AEGIS App Center (written, first CI run pending):** `apps/aegis-appcenter` (Qt Quick
+  with a C++ core) on Flatpak's own tool, always `--user` (no administrator rights):
+  Flathub AppStream catalogue (search, categories, icons, screenshots, description,
+  developer, licence), "Verified publisher" with its explanation (not a safety claim),
+  permissions in plain words with risk levels, install with progress, open, update one or
+  all, remove, plain error messages with Try again; a daily user timer only announces
+  updates (never applies them). Test: `tests/vm/test_v3_appcenter.py` (network suite).
+  Not tested: a full disk.
+- **M13:** not started.
 
 ### GUI v2 track (Liquid Glass 2.0, VirtualBox display, performance), branch `claude/aegis-os-gui-v2`
 

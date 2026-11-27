@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=AEGIS App Center
+GenericName=Software
+Comment=Find, install and update applications for your account
+Exec=aegis-appcenter
+Icon=system-software-install
+Categories=System;PackageManager;
+Keywords=apps;install;flathub;software;store;
+StartupNotify=true
