@@ -20,7 +20,8 @@ function report(event, window) {
             normal: window.normalWindow,
             transient: !!window.transient,
             popup: !!(window.popupWindow || window.dropdownMenu || window.popupMenu),
-            plasma: String(window.resourceClass) === "plasmashell"
+            // On Wayland the class is the application ID: "org.kde.plasmashell".
+            plasma: String(window.resourceClass).indexOf("plasmashell") >= 0
                 && !window.dock && !window.tooltip && !window.notification
                 && !window.onScreenDisplay
         }));

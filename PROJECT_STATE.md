@@ -185,6 +185,12 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   CPU: aegis-welcome 34 %, KWin 76 % of one CPU (2 CPUs, software rendering). All later
   tour and App Center tests failed because the test helper that starts the applications
   combined `systemd-run --wait` with `--no-block` (fixed).
+- **v3 run 46031049611 on `e634dbf`:** tour restart and resume now pass; the launcher step
+  was not detected (the watcher compared the Wayland class with "plasmashell"; it is
+  "org.kde.plasmashell", fixed); AT-SPI found no controls in the tour or the App Center
+  (diagnostics added: the helper lists the applications on the accessibility bus and
+  searches all of them). Performance repeated: reboot to login 7.5 s, boot 9.3 s, password
+  to desktop 4.5 s; opening animation CPU this time 14 % (tour) / 38 % (KWin).
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your

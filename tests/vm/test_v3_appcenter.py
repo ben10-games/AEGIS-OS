@@ -43,6 +43,7 @@ CHROME = "com.google.Chrome"
 APP_ATSPI = ATSPI.replace(
     '("aegis-welcome", "Welcome to AEGIS")', '("aegis-appcenter", "AEGIS App Center")'
 )
+assert APP_ATSPI != ATSPI, "the AT-SPI helper no longer names the tour's applications"
 INSTALL_TIMEOUT_S = 1200
 
 
@@ -106,7 +107,8 @@ def start_app_center(vm) -> None:
 
 
 def search(vm, text: str) -> None:
-    assert atspi(vm, "focus", "Search applications", check=False).returncode == 0
+    focus = atspi(vm, "focus", "Search applications", check=False)
+    assert focus.returncode == 0, f"{focus.stdout}{focus.stderr}\n{dump(vm)[-2500:]}"
     time.sleep(1)
     vm.send_keys("ctrl-a")
     vm.type_text(text)

@@ -55,10 +55,17 @@ def walk(node):
         if child is not None:
             yield from walk(child)
 
+APPS = ("aegis-welcome", "Welcome to AEGIS")
+
+def apps():
+    desktop = pyatspi.Registry.getDesktop(0)
+    every = [app for app in desktop if app is not None]
+    named = [app for app in every if app.name in APPS]
+    return named or every  # names differ between toolkits: then look everywhere
+
 def nodes():
-    for app in pyatspi.Registry.getDesktop(0):
-        if app is not None and app.name in ("aegis-welcome", "Welcome to AEGIS"):
-            yield from walk(app)
+    for app in apps():
+        yield from walk(app)
 
 def find(name):
     prefix = name.endswith("*")
@@ -75,6 +82,10 @@ def find(name):
 
 command, name = sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else ""
 if command == "dump":
+    try:
+        print("applications:", [app.name for app in pyatspi.Registry.getDesktop(0) if app])
+    except Exception as error:
+        print("no accessibility bus:", repr(error))
     for node in nodes():
         try:
             if node.getState().contains(pyatspi.STATE_SHOWING) and node.name:
@@ -156,7 +167,10 @@ def wait_done(vm, step: str, deadline_s: float = 20) -> None:
         if step in completed(vm):
             return
         time.sleep(1)
-    raise AssertionError(f"{step} was not completed; completed: {completed(vm)}")
+    raise AssertionError(
+        f"{step} was not completed; completed: {completed(vm)}; "
+        f"last window event: {prop(vm, 'lastEvent')}"
+    )
 
 
 def kwin_lines(vm, script: str, marker: str) -> list[list[str]]:
