@@ -171,7 +171,14 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   a quarter tile (KWin's behaviour; Meta+PgUp maximises, test and tour hint corrected);
   font and Alt+Tab defaults read outside the session (test now reads inside it). Same
   commit: `build` 46021359460 and `live-iso` 46021359978 green with the new layout.
-- **M10 hybrid desktop (in progress):** top bar (AEGIS mark with
+- **M10 hybrid desktop: automated suite green, v3 run 46037336379 on `6b6598c`** (QEMU,
+  not VirtualBox): desktop suite 14/14 (Inter and the Alt+Tab grid in effect in the
+  session; Meta+PgUp maximises), with Secure Boot 8/8, VDI 7/7, performance 6/6, Chrome
+  6/6, update and rollback 6/6 on the same image. Screenshots inspected: AEGIS login screen
+  (glass card, initial, name, focused password field, time and date, Restart and Shut
+  down), Dark and Light desktop at 1920x1080, Quick Settings. Owner review of the
+  screenshots and VirtualBox check outstanding.
+- **M10 hybrid desktop (details):** top bar (AEGIS mark with
   the active application, global menu, search Meta+S, tray with notifications, AEGIS Quick
   Settings Meta+A, clock) and the floating dock; Quick Settings (Dark/Light, Liquid Glass
   profile, Night Light, Do Not Disturb, screenshot, network, sound, display, lock) through
