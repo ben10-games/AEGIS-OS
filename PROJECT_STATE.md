@@ -268,6 +268,16 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   now sent base64-encoded, the property is read with `gdbus`, stderr is logged, and KDE's
   own setting (kaccessrc) is checked too; not yet run. Every other suite in that run
   passed (tour 10/10 again, 14 exercises) and build run 46085976341 and lint passed.
+- **build run 46089483875 on `fb23f9a` (a test-only commit): one failure, 82/83 VM tests
+  passed.** `test_firmware_supplied_command_line_extension_stops_the_machine`: the machine
+  with `enforcing=0` injected through SMBIOS powered itself off (systemd-shutdown on the
+  console), but "unexpected argument: enforcing=0" was not on the console, so the test
+  failed at its first assertion and its other checks (no login prompt, exit status 0)
+  were not reached. Passed on every earlier commit. Likely cause: the message went only
+  through journald (`StandardOutput=journal+console`), and `FailureAction=poweroff-force`
+  can stop the machine before journald writes it to the console. Fix: verify-cmdline
+  also writes the failure lines to the kernel log at critical priority; the check and
+  the forced power-off are unchanged. To be confirmed by the next build run.
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your

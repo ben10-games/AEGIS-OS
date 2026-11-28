@@ -53,8 +53,16 @@ done
 [[ "${v2}" -eq 1 ]] || problems+=("expected one composefs= argument, found ${v2}")
 
 if [[ "${#problems[@]}" -gt 0 ]]; then
-  echo "AEGIS: the kernel command line differs from the sealed one; stopping the machine."
-  printf 'AEGIS:   %s\n' "${problems[@]}"
+  # Also to the kernel log, at critical priority: the unit's FailureAction=poweroff-force
+  # can stop the machine before journald forwards stdout to the console (build run
+  # 46089483875 powered off correctly, but without this message on the console).
+  {
+    echo "AEGIS: the kernel command line differs from the sealed one; stopping the machine."
+    printf 'AEGIS:   %s\n' "${problems[@]}"
+  } | while IFS= read -r line; do
+    echo "${line}"
+    echo "<2>aegis-verify-cmdline: ${line}" > /dev/kmsg 2>/dev/null || true
+  done
   exit 1
 fi
 echo "AEGIS: kernel command line is the sealed one (${#running[@]} arguments)"
