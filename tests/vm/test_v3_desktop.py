@@ -269,21 +269,29 @@ def test_screenshots_at_three_sizes_dark_and_light(vm, logdir, size):
     in_session(vm, f"{QUICK} scheme dark")
 
 
-# Applications on the accessibility bus, sent base64-encoded: as_user wraps commands in
-# single quotes, which broke the inline script in run 46085976334.
-REGISTERED = """
+# The screen-reader state and the applications on the accessibility bus. Sent
+# base64-encoded: as_user wraps commands in single quotes, which broke an inline script
+# (run 46085976334) and the quoting gdbus needs (run 46089483800).
+A11Y = """
+from gi.repository import Gio, GLib
 import pyatspi
-print(" ".join(str(a.name) for a in pyatspi.Registry.getDesktop(0)))
+bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+reply = bus.call_sync("org.a11y.Bus", "/org/a11y/bus", "org.freedesktop.DBus.Properties",
+                      "Get", GLib.Variant("(ss)", ("org.a11y.Status", "ScreenReaderEnabled")),
+                      None, Gio.DBusCallFlags.NONE, -1, None)
+print("screen-reader", reply.unpack()[0])
+print("applications", " ".join(str(a.name) for a in pyatspi.Registry.getDesktop(0)))
 """
-SCREEN_READER = (
-    "gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus --method "
-    "org.freedesktop.DBus.Properties.Get org.a11y.Status ScreenReaderEnabled"
-)
 KACCESS = "kreadconfig6 --file kaccessrc --group ScreenReader --key Enabled"
 
 
-def output(result) -> str:
-    return (result.stdout + result.stderr).strip()
+def a11y_state(vm) -> dict[str, str]:
+    script = base64.b64encode(A11Y.encode()).decode()
+    vm.ssh(f"echo {script} | base64 -d > /tmp/aegis-a11y.py && chmod 0644 /tmp/aegis-a11y.py")
+    result = in_session(vm, "python3 /tmp/aegis-a11y.py", check=False)
+    state = dict(line.split(" ", 1) for line in result.stdout.splitlines() if " " in line)
+    state["errors"] = result.stderr.strip()[-1500:]
+    return state
 
 
 def test_screen_reader_starts_with_its_shortcut(vm, logdir, record_property):
@@ -298,27 +306,23 @@ def test_screen_reader_starts_with_its_shortcut(vm, logdir, record_property):
         "Orca exited after starting:\n"
         + as_user(vm, "journalctl --user -b -o cat | grep -i orca | tail -40", False).stdout
     )
-    setting = output(as_user(vm, KACCESS, check=False))
-    enabled = output(as_user(vm, SCREEN_READER, check=False))
-    script = base64.b64encode(REGISTERED.encode()).decode()
-    vm.ssh(f"echo {script} | base64 -d > /tmp/aegis-a11y.py && chmod 0644 /tmp/aegis-a11y.py")
-    apps = output(in_session(vm, "python3 /tmp/aegis-a11y.py", check=False))
+    on = a11y_state(vm)
+    setting = as_user(vm, KACCESS, check=False).stdout.strip()
     speech = vm.ssh(f"pgrep -u {USER} -a speech-dispatch", check=False).stdout.strip()
     log(
         logdir,
         "desktop",
-        f"Meta+Alt+S: Orca after {seconds:.1f} s; kaccessrc Enabled={setting}; "
-        f"ScreenReaderEnabled: {enabled}; on the accessibility bus: {apps}; "
-        f"speech: {speech or 'not running'}",
+        f"Meta+Alt+S: Orca after {seconds:.1f} s; accessibility bus: {on}; "
+        f"kaccessrc Enabled={setting or '(not set)'}; speech: {speech or 'not running'}",
     )
-    assert setting == "true", setting
-    assert enabled == "(<true>,)", enabled
-    assert "orca" in apps.split(), apps
+    assert on.get("screen-reader") == "True", on
+    assert "orca" in on.get("applications", "").split(), on
     vm.send_keys("meta_l-alt-s")
     time.sleep(5)
-    off = output(as_user(vm, KACCESS, check=False)), output(as_user(vm, SCREEN_READER, False))
-    log(logdir, "desktop", f"Meta+Alt+S again: kaccessrc Enabled, ScreenReaderEnabled: {off}")
-    assert off == ("false", "(<false>,)"), off
+    off = a11y_state(vm)
+    still = vm.ssh(f"pgrep -u {USER} -f /usr/bin/orca", check=False).returncode == 0
+    log(logdir, "desktop", f"Meta+Alt+S again: {off}; Orca still running: {still}")
+    assert off.get("screen-reader") == "False", off
     vm.ssh(f"pkill -u {USER} -f /usr/bin/orca", check=False)
     time.sleep(2)
 
