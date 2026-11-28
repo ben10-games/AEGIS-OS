@@ -21,7 +21,11 @@ New since the first VDI:
 - **AEGIS App Center**: search, categories, publisher and permission details, install,
   update and remove for your account only; update notices, never automatic updates.
 - **Swap in memory (zram)**, which the desktop lacked.
-- Spectacle (screenshots), Inter and the Orca screen reader are installed.
+- Spectacle (screenshots, Meta+Shift+S), Inter and the Orca screen reader (Meta+Alt+S
+  turns it on and off) are installed.
+- Measured in QEMU (2 CPUs, 4 GiB; not VirtualBox): login screen 7.5 s after a reboot,
+  desktop 4.6 s after the password, idle desktop below 0.2 % CPU, about 950 MiB of
+  memory in use, applications open in about 3 s.
 
 Known: Chrome's first start opens KDE's wallet setup (a fix needs the owner's approval of
 one more package, `kwallet-pam`).

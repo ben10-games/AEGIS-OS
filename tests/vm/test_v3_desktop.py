@@ -8,7 +8,8 @@ widgets load without QML errors, Quick Settings actions change the real settings
 Meta+A opens the panel, the keyboard shortcuts start what they promise, windows snap and
 maximise with Meta+arrows (geometry from KWin), the AEGIS typeface and window switcher
 are in effect, and screenshots at three screen sizes in AEGIS Dark and AEGIS Light for
-visual review (all in the uploaded logs, a few in the job log).
+visual review (all in the uploaded logs, a few in the job log), and the screen reader (Orca)
+starts and stops with Meta+Alt+S.
 """
 
 from __future__ import annotations
@@ -266,6 +267,47 @@ def test_screenshots_at_three_sizes_dark_and_light(vm, logdir, size):
         time.sleep(4)
         shot(vm, logdir, f"desktop-{label}-{scheme}")
     in_session(vm, f"{QUICK} scheme dark")
+
+
+REGISTERED = (
+    "python3 -c 'import pyatspi; "
+    'print(" ".join(str(a.name) for a in pyatspi.Registry.getDesktop(0)))\''
+)
+SCREEN_READER = (
+    "busctl --user get-property org.a11y.Bus /org/a11y/bus org.a11y.Status ScreenReaderEnabled"
+)
+
+
+def test_screen_reader_starts_with_its_shortcut(vm, logdir, record_property):
+    """M13 accessibility: Meta+Alt+S (KDE's screen-reader shortcut) starts Orca, which
+    joins the accessibility bus with speech through speech-dispatcher; pressing it again
+    turns the screen reader off."""
+    vm.send_keys("meta_l-alt-s")
+    seconds = wait_for(vm, f"pgrep -u {USER} -f /usr/bin/orca", 30, "Orca after Meta+Alt+S")
+    record_property("seconds_to_screen_reader", round(seconds, 1))
+    time.sleep(8)
+    assert vm.ssh(f"pgrep -u {USER} -f /usr/bin/orca", check=False).returncode == 0, (
+        "Orca exited after starting:\n"
+        + as_user(vm, "journalctl --user -b -o cat | grep -i orca | tail -40", False).stdout
+    )
+    enabled = as_user(vm, SCREEN_READER, check=False).stdout.strip()
+    apps = in_session(vm, REGISTERED, check=False).stdout.strip()
+    speech = vm.ssh(f"pgrep -u {USER} -a speech-dispatch", check=False).stdout.strip()
+    log(
+        logdir,
+        "desktop",
+        f"Meta+Alt+S: Orca after {seconds:.1f} s; ScreenReaderEnabled: {enabled}; "
+        f"on the accessibility bus: {apps}; speech: {speech or 'not running'}",
+    )
+    assert enabled == "b true", enabled
+    assert "orca" in apps.split(), apps
+    vm.send_keys("meta_l-alt-s")
+    time.sleep(5)
+    off = as_user(vm, SCREEN_READER, check=False).stdout.strip()
+    log(logdir, "desktop", f"Meta+Alt+S again: ScreenReaderEnabled: {off}")
+    assert off == "b false", off
+    vm.ssh(f"pkill -u {USER} -f /usr/bin/orca", check=False)
+    time.sleep(2)
 
 
 def test_no_failed_units_or_denials(vm, logdir):

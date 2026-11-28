@@ -248,6 +248,20 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   panel, which stays on top, so KWin resized the tour instead of Files; scene 7 then
   missed the four exercises that follow. The test now presses inside the part of the
   Files window the panel leaves visible (a test fix; the tour is unchanged).
+- **All suites green on one commit, `2c02efe` (QEMU on GitHub Actions, not VirtualBox):**
+  v3 run 46082103431: Secure Boot 8/8, VDI 7/7, desktop 14/14, **tour 10/10 (all 14
+  exercises completed from real input)**, performance 6/6, apps 6/6, App Center 6/6,
+  update and rollback 6/6 (same build), no SELinux denials, no failed units. build run
+  46082103381: M1–M5 VM tests, golden manifests, SBOM, the graphical image under Secure
+  Boot, reproducibility R-01/R-02/R-03. lint run 46082103368. The live ISO (GUI v2) last
+  ran on `7c2ebc2` (run 46076944129, green); none of its inputs changed up to `2c02efe`.
+  Measured: reboot to the login screen 7.5 s, boot 9.5 s (kernel 0.9, initrd 2.7,
+  userspace 5.9), password to desktop 4.5–4.6 s, idle CPU KWin 0.0 % and plasmashell
+  0.1 %, 950 MiB in use of 3.8 GiB, zram swap 1.9 GiB, windows shown after 2.8–2.9 s,
+  Chrome installed from the App Center in 36 s.
+- **M13 accessibility (added, not yet run):** the desktop suite turns the screen reader on
+  with Meta+Alt+S and checks that Orca runs, joins the accessibility bus and that the bus
+  reports the screen reader on, then off again with the same keys.
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your
