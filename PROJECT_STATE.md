@@ -137,7 +137,7 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   starts, no SELinux denials. `bootc rollback` to A: everything kept, Chrome starts, no
   denials. A and B were signed with the same per-build key in one run; the cross-build
   form (A from an earlier run) needs the persistent development identity.
-  Found: Chrome's first start opens KDE's wallet first-use wizard (no `kwallet-pam`, which
+  Found: Chrome's first start opens KDE's wallet first-use wizard (no `pam-kwallet`, which
   would open the wallet with the login password); asking the owner to approve the
   package.
 - **M9 signing bootstrap: not run; owner setup not confirmed.** The workflow could not
@@ -318,13 +318,16 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
 - **M13 status:** regression, measurements, accessibility and docs done (QEMU on CI).
   Open, needing the owner: VirtualBox validation (`docs/operations/v3-virtualbox-checklist.md`),
   the M9 cross-build update (persistent development keys:
-  `docs/operations/dev-signing-setup.md`), approval of `kwallet-pam`, and the decision to
+  `docs/operations/dev-signing-setup.md`), approval of `pam-kwallet`, and the decision to
   publish a development VDI (asked for after M9 is complete).
 - **Experimental preview (owner approval 2026-11-28):** publish an experimental v3 VDI now,
-  without waiting for the M9 signing setup; add `kwallet-pam` (KDE Wallet opened with the
+  without waiting for the M9 signing setup; add `pam-kwallet` (KDE Wallet opened with the
   login password; no fixed wallet password, no plain-text storage, no unlocking without a
-  password login). `kwallet-pam` added to the gui inputs; lock regeneration pending
-  (update-inputs run 46104619616). Written, not run yet: an image build check (Fedora's
+  password login). Update-inputs run 46104619616 resolved and verified the inputs, then
+  stopped: "'kwallet-pam' requested for gui but not locked". Fedora's RPM is `pam-kwallet`
+  (6.8.3-1.fc45; KDE's project name is kwallet-pam), which only provides the other name.
+  Inputs, build check, tests and docs now name `pam-kwallet`; the build check also
+  verifies that this package owns `pam_kwallet5.so`. Lock regeneration pending. Written, not run yet: an image build check (Fedora's
   SDDM stack hands the password to pam_kwallet; no wallet or salt in the image), VDI tests
   (wallet opened by the typed password, secret not in plain text, files unreadable for
   others, password in no log, nothing runs as the user before the login, wallet opens

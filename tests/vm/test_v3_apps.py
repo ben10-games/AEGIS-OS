@@ -77,8 +77,9 @@ def chrome_starts(vm, logdir, label: str) -> None:
     log(logdir, "apps", f"{label}: Chrome process after {seconds:.1f} s\n{processes}")
     assert processes.strip(), "Chrome exited"
     shot(vm, logdir, f"chrome-{label}")
-    # kwallet-pam opened the wallet at the login, so Chrome's first use of the system's
-    # secret storage must not open KDE's wallet setup assistant (v3 run 46015720076).
+    # pam_kwallet (package pam-kwallet) opened the wallet at the login, so Chrome's first
+    # use of the system's secret storage must not open KDE's wallet setup assistant (v3
+    # run 46015720076).
     from test_v3_desktop import kwin  # here: test_v3_desktop imports this module
 
     windows = kwin(vm, WINDOWS, "AEGIS-WINDOW")

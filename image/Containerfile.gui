@@ -79,13 +79,14 @@ RUN test -f /usr/share/sddm/themes/aegis/Main.qml \
     && command -v spectacle && command -v orca \
     && python3 -c "import pyatspi; print('accessibility stack (pyatspi) loads')"
 
-# KDE Wallet with the login password (kwallet-pam, docs/architecture/v3-kwallet.md):
+# KDE Wallet with the login password (Fedora package pam-kwallet, docs/architecture/v3-kwallet.md):
 # SDDM's password login must hand the typed password to pam_kwallet (auth) and start
 # the wallet with the derived key (session). The image must not contain a wallet or a
 # wallet salt; whatever wallet settings packages ship are printed as evidence.
 RUN echo "KDE Wallet in SDDM's PAM stacks:" \
     && { grep -Hn kwallet /etc/pam.d/sddm /etc/pam.d/sddm-autologin /etc/pam.d/sddm-greeter || true; } \
-    && test -f /usr/lib64/security/pam_kwallet5.so \
+    && rpm -q pam-kwallet \
+    && test "$(rpm -qf /usr/lib64/security/pam_kwallet5.so --qf "%{NAME}")" = pam-kwallet \
     && test -n "$(find /usr/libexec /usr/lib -name pam_kwallet_init 2> /dev/null)" \
     && grep -Eq '^-?auth[[:space:]]+optional[[:space:]]+pam_kwallet5\.so' /etc/pam.d/sddm \
     && grep -Eq '^-?session[[:space:]]+optional[[:space:]]+pam_kwallet5\.so[[:space:]]+auto_start' /etc/pam.d/sddm \

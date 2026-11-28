@@ -1,13 +1,13 @@
-# KDE Wallet with the login password (v3, `kwallet-pam`)
+# KDE Wallet with the login password (v3, Fedora package `pam-kwallet`)
 
 The owner approved this on 2026-11-28. Applications keep saved passwords in the KDE Wallet,
-for example Chrome through the system's secret storage. Without `kwallet-pam` the wallet
+for example Chrome through the system's secret storage. Without `pam-kwallet` the wallet
 has no key at login, so Chrome's first start opened KDE's wallet setup assistant (v3 run
 46015720076). With it, the password typed at the login screen opens the wallet.
 
 ## How it works
 
-- **Package:** `kwallet-pam` comes from Fedora, in the gui install step. AEGIS adds no PAM
+- **Package:** `pam-kwallet` (KDE's kwallet-pam project) comes from Fedora, in the gui install step. AEGIS adds no PAM
   configuration of its own. Fedora's SDDM login stack, `/etc/pam.d/sddm`, already lists the
   module:
   - `-auth optional pam_kwallet5.so` at authentication;

@@ -12,10 +12,10 @@ has the SSH server disabled. Everything else is done like a person would: the fi
 account is created by typing into AEGIS Setup, the user logs in by typing the password at
 the login screen, and after a complete power-off the machine is started again.
 
-KDE Wallet (kwallet-pam, docs/architecture/v3-kwallet.md): the wallet must be opened by
-typing the password at the login screen, keep a secret only in encrypted form, be
-unreadable for other users, stay closed until that login, and open again after a
-complete power-off with the same password.
+KDE Wallet (pam_kwallet, Fedora package pam-kwallet; docs/architecture/v3-kwallet.md):
+the wallet must be opened by typing the password at the login screen, keep a secret
+only in encrypted form, be unreadable for other users, stay closed until that login,
+and open again after a complete power-off with the same password.
 """
 
 from __future__ import annotations
@@ -293,7 +293,7 @@ def test_login_screen_and_desktop(vm, logdir, record_property):
 
 
 def test_wallet_is_opened_by_the_password_login(vm, logdir):
-    """kwallet-pam: typing the password at the login screen created and opened the
+    """pam_kwallet: typing the password at the login screen created and opened the
     wallet, with no setup assistant. A secret written to it is on the disk only in
     encrypted form, in files other users cannot read, and the password is in no log."""
     service, handle = wallet_open_handle(vm, logdir, "first login")

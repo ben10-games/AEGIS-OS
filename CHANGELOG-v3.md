@@ -35,7 +35,7 @@ Fixed:
   console before the power-off.
 
 - Chrome's first start no longer opens KDE's wallet setup: the password you type at the
-  login screen opens your KDE Wallet (`kwallet-pam`; no built-in wallet password, closed
+  login screen opens your KDE Wallet (Fedora's `pam-kwallet`; no built-in wallet password, closed
   until you log in).
 
 Known: changing your login password does not change the wallet's password; applications
