@@ -57,6 +57,18 @@ write() { # FILE GROUP KEY VALUE
   kwriteconfig6 --notify --file "$1" --group "$2" --key "$3" "$4"
 }
 
+effects() { # NAME=on|off ...: load or unload KWin effects now, as KDE's effects settings
+  # do after saving. A reconfigure alone sometimes left blur loaded under Performance
+  # Glass, with blurEnabled=false already in kwinrc (live-iso run 46092984916).
+  local pair method
+  for pair in "$@"; do
+    method=unloadEffect
+    [[ "${pair#*=}" == on ]] && method=loadEffect
+    busctl --user call org.kde.KWin /Effects org.kde.kwin.Effects "${method}" s "${pair%%=*}" \
+      > /dev/null 2>&1 || true
+  done
+}
+
 apply_profile() { # full | balanced | performance
   local profile="$1"
   case "${profile}" in
@@ -91,6 +103,11 @@ apply_profile() { # full | balanced | performance
       ;;
   esac
   busctl --user call org.kde.KWin /KWin org.kde.KWin reconfigure > /dev/null 2>&1 || true
+  case "${profile}" in
+    full) effects blur=on magiclamp=on squash=off scale=on ;;
+    balanced) effects blur=on magiclamp=off squash=on scale=on ;;
+    performance) effects blur=off magiclamp=off squash=off scale=off ;;
+  esac
   printf '%s\n' "${profile}" > "${effective_file}"
 }
 

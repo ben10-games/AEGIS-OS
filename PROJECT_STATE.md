@@ -281,7 +281,14 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   through journald (`StandardOutput=journal+console`), and `FailureAction=poweroff-force`
   can stop the machine before journald writes it to the console. Fix: verify-cmdline
   also writes the failure lines to the kernel log at critical priority; the check and
-  the forced power-off are unchanged. To be confirmed by the next build run.
+  the forced power-off are unchanged. build run 46092984884 on `05cdf4c` (with the fix):
+  green, the SMBIOS test passed (one run so far).
+- **live-iso run 46092984916 on `05cdf4c`: 22/24 offline, network 5/5.** The GUI v2
+  blur check failed again under Performance Glass (auto and explicit): after 20 s KWin
+  still had `blur` loaded although the user's kwinrc had `blurEnabled=false`; the
+  `reconfigure` call alone did not unload it. `glass-profile` now also loads or unloads
+  each effect it changes through `org.kde.kwin.Effects`, as KDE's effects settings do,
+  so the change applies to users too, not only in the test. Not yet run.
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your
