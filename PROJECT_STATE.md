@@ -339,7 +339,21 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   46105970545 green. Next: diagnostics on failure (PAM stack, pam_kwallet journal, the
   daemon's command line, hand-over socket, helper unit, session environment, wallet
   files) printed in the summary, and a targeted run (`v3` started by hand with
-  `suites=vdi`; a targeted run never publishes). Written, not run yet: an image build check (Fedora's
+  `suites=vdi`; a targeted run never publishes).
+- **Targeted v3 run 46109798171 (`0c62686`, VDI suite only): cause found, not an
+  integration fault.** pam_kwallet ran at auth, setcred and session start of the
+  password login and started `ksecretd --pam-login`. The helper unit handed over the
+  environment through `kwallet5.socket`, and `kdewallet.kwl` and `kdewallet.salt` (both
+  0600) were created at the first login. The AEGIS Setup autologin got "open_session
+  called without kwallet5_key", so nothing was opened. In KDE Frameworks 6.32, ksecretd
+  (the former kwalletd) keeps the wallet and serves only the Secret Service API;
+  `/usr/bin/kwalletd6` is a separate KWallet-API wrapper that D-Bus starts on demand. The
+  test called that wrapper, which started it, and it reported `isOpen = false`. The wallet
+  tests now use the Secret Service, as Chrome and libsecret do, and are stricter: the
+  service must be owned by the pam-started ksecretd, its `kdewallet` collection must be
+  unlocked, a secret must be stored and read back with no prompt, and the wallet file must
+  change on disk without containing the secret. The probe script was checked against a
+  mock Secret Service before the run. Written, not run yet: an image build check (Fedora's
   SDDM stack hands the password to pam_kwallet; no wallet or salt in the image), VDI tests
   (wallet opened by the typed password, secret not in plain text, files unreadable for
   others, password in no log, nothing runs as the user before the login, wallet opens

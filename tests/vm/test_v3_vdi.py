@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import json
 import secrets
 import shutil
 import subprocess
@@ -45,8 +46,64 @@ FULL_NAME = "Aegis Tester"
 PASSWORD = "aegis" + secrets.token_hex(6)  # lower case and digits: typed through QMP
 TOKEN = secrets.token_hex(8)
 WALLET_SECRET = "aegis-wallet-probe-" + secrets.token_hex(8)
-WALLET_APP = "aegis-test"
-WALLET_FOLDER = "AEGIS-Test"
+
+# The applications' way into the KDE Wallet: the Secret Service API (libsecret, Chrome).
+# Since KDE Frameworks 6.14 the wallet is kept by ksecretd (the former kwalletd), which
+# pam_kwallet starts with the key derived from the login password (--pam-login) and
+# which serves only org.freedesktop.secrets; /usr/bin/kwalletd6 is a separate KWallet-API
+# wrapper started on demand by D-Bus (v3 run 46109798171). Calls never answer a prompt:
+# a prompt path other than "/" means a dialog would be needed, which fails the test.
+WALLET_PROBE_SCRIPT = r"""
+import json, sys
+from gi.repository import Gio, GLib
+
+bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+NAME, ROOT = "org.freedesktop.secrets", "/org/freedesktop/secrets"
+SERVICE, COLLECTION = "org.freedesktop.Secret.Service", "org.freedesktop.Secret.Collection"
+
+def call(dest, path, iface, method, args, reply):
+    return bus.call_sync(dest, path, iface, method, args, GLib.VariantType(reply),
+                         Gio.DBusCallFlags.NONE, 30000, None).unpack()
+
+def ss(path, iface, method, args, reply):
+    return call(NAME, path, iface, method, args, reply)
+
+def prop(path, iface, name):
+    return ss(path, "org.freedesktop.DBus.Properties", "Get",
+              GLib.Variant("(ss)", (iface, name)), "(v)")[0]
+
+dbus = ("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus")
+out = {}
+owner = call(*dbus, "GetNameOwner", GLib.Variant("(s)", (NAME,)), "(s)")[0]
+pid = call(*dbus, "GetConnectionUnixProcessID", GLib.Variant("(s)", (owner,)), "(u)")[0]
+out["owner"] = open(f"/proc/{pid}/cmdline", "rb").read().replace(b"\0", b" ").decode().strip()
+default = ss(ROOT, SERVICE, "ReadAlias", GLib.Variant("(s)", ("default",)), "(o)")[0]
+out["default"] = default
+out["collections"] = {
+    c: {"label": prop(c, COLLECTION, "Label"), "locked": prop(c, COLLECTION, "Locked")}
+    for c in prop(ROOT, SERVICE, "Collections")
+}
+session = ss(ROOT, SERVICE, "OpenSession",
+             GLib.Variant("(sv)", ("plain", GLib.Variant("s", ""))), "(vo)")[1]
+attributes = {"aegis-test": "wallet-probe"}
+if sys.argv[1] == "write" and default != "/":
+    properties = {
+        "org.freedesktop.Secret.Item.Label": GLib.Variant("s", "AEGIS wallet test"),
+        "org.freedesktop.Secret.Item.Attributes": GLib.Variant("a{ss}", attributes),
+    }
+    secret = (session, b"", sys.argv[2].encode(), "text/plain")
+    item, prompt = ss(default, COLLECTION, "CreateItem",
+                      GLib.Variant("(a{sv}(oayays)b)", (properties, secret, True)), "(oo)")
+    out["created"], out["create_prompt"] = item, prompt
+unlocked, locked = ss(ROOT, SERVICE, "SearchItems", GLib.Variant("(a{ss})", (attributes,)),
+                      "(aoao)")
+out["found_unlocked"], out["found_locked"] = unlocked, locked
+if unlocked:
+    values = ss(ROOT, SERVICE, "GetSecrets", GLib.Variant("(aoo)", (unlocked, session)),
+                "(a{o(oayays)})")[0]
+    out["values"] = [bytes(v[2]).decode() for v in values.values()]
+print(json.dumps(out))
+"""
 
 REQUEST = """
 import socket, sys
@@ -175,29 +232,42 @@ def log_in_at_greeter(vm, logdir: Path, label: str, keep_tour: bool = False) -> 
     return seconds
 
 
-def wallet_service(vm, logdir: Path) -> str:
-    """The user's wallet daemon on the session bus (started by pam_kwallet at login),
-    as "NAME PATH". Fails with the evidence if none appears."""
-    names = ""
-    for _ in range(30):
-        names = as_user(vm, "busctl --user list --no-legend", check=False).stdout
-        found = [line.split()[0] for line in names.splitlines() if "kwalletd" in line]
-        if found:
-            name = "org.kde.kwalletd6" if "org.kde.kwalletd6" in found else found[0]
-            return f"{name} /modules/{name.rsplit('.', 1)[1]}"
-        time.sleep(2)
-    processes = vm.ssh(f"pgrep -u {USER} -a 'kwallet|ksecret' || true").stdout
-    pam = vm.ssh("journalctl -b -o cat | grep -i kwallet | tail -n 20 || true").stdout
-    log(logdir, "wallet", f"bus names:\n{names}\nprocesses:\n{processes}\njournal:\n{pam}")
-    raise AssertionError("no KDE Wallet daemon on the session bus after the login")
+def secret_service(vm, logdir: Path, label: str, mode: str = "read") -> dict:
+    """The Secret Service state as the user sees it (and, with mode "write", store
+    WALLET_SECRET); on an error, record the diagnostics and fail."""
+    encoded = base64.b64encode(WALLET_PROBE_SCRIPT.encode()).decode()
+    vm.ssh(
+        f"echo {encoded} | base64 -d > /tmp/aegis-secrets.py && chmod 0644 /tmp/aegis-secrets.py"
+    )
+    result = as_user(
+        vm, f"python3 /tmp/aegis-secrets.py {mode} {WALLET_SECRET}", check=False, timeout=90
+    )
+    log(logdir, "wallet", f"{label} ({mode}): {result.stdout.strip()} {result.stderr.strip()}")
+    if result.returncode != 0:
+        wallet_diagnostics(vm, logdir, label)
+        raise AssertionError(f"the Secret Service call failed: {result.stderr.strip()[-500:]}")
+    return json.loads(result.stdout)
 
 
-def wallet(vm, service: str, method: str, signature: str = "", *args: object) -> str:
-    """Call the KWallet D-Bus API as the user; return busctl's reply ("TYPE VALUE")."""
-    call = f"busctl --user --timeout=30 call {service} org.kde.KWallet {method}"
-    if signature:
-        call += f" {signature} " + " ".join(str(a) for a in args)
-    return as_user(vm, call, timeout=60).stdout.strip()
+def assert_unlocked_by_the_login(vm, logdir: Path, label: str, state: dict) -> None:
+    """The wallet daemon is the one pam_kwallet started with the login key, and its
+    default collection (the wallet kdewallet) is open without any prompt."""
+    ok = (
+        "ksecretd" in state["owner"]
+        and "--pam-login" in state["owner"]
+        and state["default"] != "/"
+        and state["collections"].get(state["default"], {}).get("locked") is False
+    )
+    if not ok:
+        wallet_diagnostics(vm, logdir, label)
+    assert "ksecretd" in state["owner"], f"the secret service is not ksecretd: {state['owner']}"
+    assert "--pam-login" in state["owner"], (
+        f"the wallet daemon was not started by pam_kwallet with the login key: {state['owner']}"
+    )
+    assert state["default"] != "/", f"no default wallet: {state}"
+    collection = state["collections"][state["default"]]
+    assert collection["label"] == "kdewallet" or state["default"].endswith("/kdewallet"), state
+    assert collection["locked"] is False, f"the login did not open the wallet: {collection}"
 
 
 def wallet_diagnostics(vm, logdir: Path, label: str) -> None:
@@ -229,6 +299,7 @@ def wallet_diagnostics(vm, logdir: Path, label: str) -> None:
         "helper unit": "systemctl --user status plasma-kwallet-pam.service --no-pager -l",
         "unit files": "systemctl --user list-unit-files --no-pager --no-legend "
         "| grep -i -e kwallet -e secret",
+        "secret service names": "busctl --user list --no-legend | grep -i -e secret -e wallet",
         "manager environment": "systemctl --user show-environment "
         "| grep -e PAM_KWALLET -e XDG_SESSION",
         "autostart": "ls /etc/xdg/autostart | grep -i wallet",
@@ -241,21 +312,6 @@ def wallet_diagnostics(vm, logdir: Path, label: str) -> None:
         result = as_user(vm, command, check=False)
         out.append(f"## {name}\n{(result.stdout + result.stderr).strip()}")
     log(logdir, "wallet", "\n".join(out))
-
-
-def wallet_open_handle(vm, logdir: Path, label: str) -> tuple[str, int]:
-    """The wallet must already be open from the login (no dialog may be needed), then
-    an application handle for it."""
-    service = wallet_service(vm, logdir)
-    wallets = wallet(vm, service, "wallets")
-    is_open = wallet(vm, service, "isOpen", "s", "kdewallet")
-    log(logdir, "wallet", f"{label}: {service}; wallets {wallets}; kdewallet open: {is_open}")
-    if is_open != "b true":
-        wallet_diagnostics(vm, logdir, label)
-    assert is_open == "b true", f"the login did not open the wallet: {is_open}"
-    handle = int(wallet(vm, service, "open", "sxs", "kdewallet", 0, WALLET_APP).split()[1])
-    assert handle >= 0, f"the open wallet refused a handle: {handle}"
-    return service, handle
 
 
 # --- the file -------------------------------------------------------------------------
@@ -339,34 +395,37 @@ def test_login_screen_and_desktop(vm, logdir, record_property):
 
 def test_wallet_is_opened_by_the_password_login(vm, logdir):
     """pam_kwallet: typing the password at the login screen created and opened the
-    wallet, with no setup assistant. A secret written to it is on the disk only in
-    encrypted form, in files other users cannot read, and the password is in no log."""
-    service, handle = wallet_open_handle(vm, logdir, "first login")
-    wallet(vm, service, "createFolder", "iss", handle, WALLET_FOLDER, WALLET_APP)
-    written = wallet(
-        vm,
-        service,
-        "writePassword",
-        "issss",
-        handle,
-        WALLET_FOLDER,
-        "probe",
-        WALLET_SECRET,
-        WALLET_APP,
-    )
-    assert written == "i 0", f"writing to the wallet failed: {written}"
-    wallet(vm, service, "sync", "is", handle, WALLET_APP)
-    time.sleep(3)
+    wallet, with no setup assistant and no prompt. A secret stored through the Secret
+    Service (as Chrome does) is saved to the wallet file only in encrypted form, in files
+    other users cannot read, and the password is in no log."""
     home = vm.ssh(f"getent passwd {USER} | cut -d: -f6").stdout.strip()
     directory = f"{home}/.local/share/kwalletd"
+    wallet_file = f"{directory}/kdewallet.kwl"
+    state = secret_service(vm, logdir, "first login")
+    assert_unlocked_by_the_login(vm, logdir, "first login", state)
+    before = vm.ssh(f"stat -c '%s %Y' {wallet_file}", check=False).stdout.strip()
+    written = secret_service(vm, logdir, "first login", "write")
+    assert written.get("create_prompt") == "/", f"storing a secret needed a prompt: {written}"
+    assert written.get("values") == [WALLET_SECRET], written
+    after = before
+    for _ in range(20):  # ksecretd saves the wallet a few seconds after a change
+        time.sleep(2)
+        after = vm.ssh(f"stat -c '%s %Y' {wallet_file}", check=False).stdout.strip()
+        if after != before:
+            break
     listing = vm.ssh(f"ls -la {directory}; stat -c '%a %U %n' {home}", check=False).stdout
-    header = vm.ssh(f"head -c 16 {directory}/kdewallet.kwl | od -An -c", check=False).stdout
-    log(logdir, "wallet", f"wallet files:\n{listing}\nheader of kdewallet.kwl:\n{header}")
-    assert vm.ssh(f"test -s {directory}/kdewallet.kwl", check=False).returncode == 0
+    header = vm.ssh(f"head -c 16 {wallet_file} | od -An -c", check=False).stdout
+    log(
+        logdir,
+        "wallet",
+        f"wallet file before/after storing (size mtime): {before} / {after}\n"
+        f"{listing}\nheader of kdewallet.kwl:\n{header}",
+    )
+    assert after != before, "the stored secret was not saved to the wallet file"
     # pam_kwallet's salt: the wallet key was derived from the login password.
     assert vm.ssh(f"test -s {directory}/kdewallet.salt", check=False).returncode == 0
     assert header.split()[:7] == list("KWALLET"), header
-    plain = vm.ssh(f"grep -a -c -F {WALLET_SECRET} {directory}/kdewallet.kwl", check=False)
+    plain = vm.ssh(f"grep -a -c -F {WALLET_SECRET} {wallet_file}", check=False)
     assert plain.stdout.strip() == "0", "the secret is stored in plain text"
     for name in ("kdewallet.kwl", "kdewallet.salt"):
         other = vm.ssh(
@@ -374,8 +433,6 @@ def test_wallet_is_opened_by_the_password_login(vm, logdir):
             check=False,
         )
         assert other.returncode != 0, f"another user can read {name}"
-    read = wallet(vm, service, "readPassword", "isss", handle, WALLET_FOLDER, "probe", WALLET_APP)
-    assert read == f's "{WALLET_SECRET}"', read
     leaked = vm.ssh(f"journalctl -b -o cat | grep -c -F {PASSWORD}", check=False).stdout
     assert leaked.strip() == "0", "the login password appears in the journal"
 
@@ -454,10 +511,10 @@ def test_files_and_settings_survive_a_complete_power_off(vm, logdir):
 
 def test_wallet_opens_again_after_the_power_off(vm, logdir):
     """The same password typed at the login screen after a complete power-off opens the
-    wallet again, and the secret is still in it."""
-    service, handle = wallet_open_handle(vm, logdir, "after power-off")
-    read = wallet(vm, service, "readPassword", "isss", handle, WALLET_FOLDER, "probe", WALLET_APP)
-    assert read == f's "{WALLET_SECRET}"', read
+    wallet again, without a prompt, and the secret is still in it."""
+    state = secret_service(vm, logdir, "after power-off")
+    assert_unlocked_by_the_login(vm, logdir, "after power-off", state)
+    assert state.get("values") == [WALLET_SECRET], state
 
 
 def test_clean_power_off(vm):

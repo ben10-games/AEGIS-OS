@@ -18,21 +18,39 @@ has no key at login, so Chrome's first start opened KDE's wallet setup assistant
 - **Authentication:** when the password typed at the login screen is accepted, pam_kwallet
   derives the wallet key from it (PBKDF2 with SHA-512) and a random salt. The salt is
   created at the first login and kept in `~/.local/share/kwalletd/kdewallet.salt`.
-- **Session start:** pam_kwallet starts the user's wallet daemon and passes it the key over
-  a private socket. At the first login the daemon creates the wallet `kdewallet` with that
-  key. At later logins it opens the wallet.
+- **Session start:** pam_kwallet starts the user's wallet daemon, `ksecretd`, with the key
+  (`ksecretd --pam-login`). The helper `pam_kwallet_init` (user unit
+  `plasma-kwallet-pam.service`) then hands the session environment to it over
+  `$XDG_RUNTIME_DIR/kwallet5.socket`. At the first login the daemon creates the wallet
+  `kdewallet` with that key. At later logins it opens the wallet.
+- **Which daemon applications talk to:** since KDE Frameworks 6.14 the former kwalletd is
+  called `ksecretd`. It keeps the wallet and offers only the Secret Service API
+  (`org.freedesktop.secrets`), which libsecret and Chrome use. `/usr/bin/kwalletd6` is now a
+  separate wrapper for the old KWallet API: D-Bus starts it on demand, and it forwards to
+  the Secret Service. AEGIS's first wallet test asked that wrapper whether `kdewallet` was
+  open, which started the wrapper; it answered "no" while ksecretd had the wallet open (v3
+  runs 46105970546 and 46109798171). The tests now check the Secret Service itself.
 - **Storage:** the wallet is saved in `~/.local/share/kwalletd/kdewallet.kwl`, encrypted in
-  KDE's wallet format with the derived key. The home folder is the user's own (mode 0700).
+  KDE's wallet format with the derived key. The home folder is the user's own (mode 0700),
+  and both wallet files are mode 0600.
+
+Observed in the QEMU test (v3 run 46109798171):
+- `pam_kwallet5(sddm:auth)`, `(sddm:setcred)` and `(sddm:session)` ran at the password
+  login, and `ksecretd --pam-login` ran as the user.
+- `kdewallet.kwl` and `kdewallet.salt` were created at the first login.
+- For the AEGIS Setup autologin, pam_kwallet logged "open_session called without
+  kwallet5_key": with no password, it opened nothing.
 
 ## What it guarantees
 
 | Requirement | How it holds | Checked by |
 |---|---|---|
 | No hard-coded wallet password | The key is derived only from what the user types at the login screen. The image ships no wallet, no salt and no key. | Image build check; `test_wallet_is_opened_by_the_password_login` (the salt is created at the first login) |
-| No plain-text credentials | A secret written to the wallet does not appear in the wallet file, and the file has KWallet's encrypted format. The login password appears in no log. | `test_wallet_is_opened_by_the_password_login` |
+| Opened by the login, without a prompt | The Secret Service belongs to the `ksecretd` that pam_kwallet started with `--pam-login`. Its default collection, `kdewallet`, is unlocked. A secret can be stored and read back with no prompt. | `test_wallet_is_opened_by_the_password_login` |
+| No plain-text credentials | After a secret is stored through the Secret Service, the wallet file changes but does not contain the secret, and it has KWallet's encrypted format. The login password appears in no log. | `test_wallet_is_opened_by_the_password_login` |
 | Other users cannot read it | The wallet and salt files cannot be read by another account. | Same test (reads them as `nobody`) |
 | No unlocking without authentication | The wallet opens only in a session started by a password login. Autologin hands over no password, so pam_kwallet does nothing. This covers the AEGIS Setup session (system user `aegis-setup`) and the Live ISO, which also switches the wallet off. Until the password is typed after a boot, nothing runs as the user. | `test_files_and_settings_survive_a_complete_power_off` (no user process at the login screen) |
-| Works across a complete power-off | The same password opens the same wallet again, and the secret is still in it. | `test_wallet_opens_again_after_the_power_off` |
+| Works across a complete power-off | The same password opens the same wallet again (pam-started `ksecretd`, unlocked, no prompt), and the secret is still in it. | `test_wallet_opens_again_after_the_power_off` |
 | Chrome needs no wallet setup | No KDE Wallet window opens when Chrome starts for the first time. | `test_v3_apps.py` (`chrome_starts`) |
 
 These are QEMU tests on GitHub Actions, not VirtualBox.
