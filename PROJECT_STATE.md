@@ -365,7 +365,16 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   secret and for other users' access, and the docs state it.
 - **Experimental preview VDI (version 0.2.0-dev):** full regression and publication from
   the next commit (`[publish-vdi]`): v3 uploads the VDI only if every suite passes on that
-  file. Written, not run yet: an image build check (Fedora's
+  file.
+- **v3 run 46116338046 on `07c9efc`: not published.** Secure Boot 8/8, VDI 9/9 (wallet
+  green again), desktop 15/15, tour 10/10, Chrome 6/6, App Center 6/6, update and rollback
+  6/6, no denials. Performance 4/6: Dolphin's window appeared after 3.2 s, but no window
+  of the tour (`--replay`) or the App Center appeared within 90 s. On `3c52eb3` (same
+  image apart from the VDI's file name) they appeared after 2.8–2.9 s. The test recorded
+  nothing about why; it now logs the application's unit status, the user journal, KWin's
+  window list and a screenshot. build 46116338130 and lint 46116338049 green on
+  `07c9efc`; live-iso did not run (no image change since `3c52eb3`, where it was green).
+  Next: targeted performance run, then the publishing run. Written, not run yet: an image build check (Fedora's
   SDDM stack hands the password to pam_kwallet; no wallet or salt in the image), VDI tests
   (wallet opened by the typed password, secret not in plain text, files unreadable for
   others, password in no log, nothing runs as the user before the login, wallet opens

@@ -20,6 +20,7 @@ from test_v3_vdi import (
     as_user,
     log,
     log_in_at_greeter,
+    shot,
     vdi,  # noqa: F401  (fixture)
     vdi_machine,
     wait_for,
@@ -122,17 +123,36 @@ for (const w of workspace.windowList())
 def test_application_start_times(vm, logdir, record_property, command, window, process):
     """Time from starting the application to KWin showing its window (polled about once
     a second, so the figures are accurate to about a second)."""
+    unit = f"aegis-perf-{process}"
     started = time.monotonic()
-    as_user(vm, f"systemd-run --user --collect --quiet {command}", check=False)
+    as_user(vm, f"systemd-run --user --collect --quiet --unit={unit} {command}", check=False)
     seconds = None
+    rows: list[list[str]] = []
+    problem = ""
     while time.monotonic() - started < 90:
         try:
             rows = kwin(vm, WINDOWS, "AEGIS-WINDOWS")
-        except AssertionError:  # no normal window at all yet
-            rows = []
+            problem = ""
+        except AssertionError as error:  # no normal window at all yet, or no KWin output
+            rows, problem = [], str(error)
         if any(row and row[0] == window for row in rows):
             seconds = time.monotonic() - started
             break
+    if seconds is None:
+        # Why: is the application running, did it log anything, what does KWin show?
+        status = as_user(vm, f"systemctl --user status {unit} --no-pager -l", check=False)
+        journal = as_user(
+            vm, "journalctl --user -b -o short-monotonic -n 40 --no-pager", check=False
+        )
+        running = vm.ssh(f"pgrep -u {USER} -a -x {process} || true", check=False).stdout
+        log(
+            logdir,
+            "performance",
+            f"{command}: no {window} window within 90 s; last KWin windows {rows} {problem}\n"
+            f"running: {running.strip() or 'no'}\n{status.stdout}{status.stderr}\n"
+            f"user journal:\n{journal.stdout}",
+        )
+        shot(vm, logdir, f"performance-{process}")
     assert seconds is not None, f"no {window} window within 90 s"
     log(logdir, "performance", f"{command}: window shown after {seconds:.1f} s")
     record_property(f"window_{process}_s", round(seconds, 1))
