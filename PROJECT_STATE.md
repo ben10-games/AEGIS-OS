@@ -327,7 +327,11 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   stopped: "'kwallet-pam' requested for gui but not locked". Fedora's RPM is `pam-kwallet`
   (6.8.3-1.fc45; KDE's project name is kwallet-pam), which only provides the other name.
   Inputs, build check, tests and docs now name `pam-kwallet`; the build check also
-  verifies that this package owns `pam_kwallet5.so`. Lock regeneration pending. Written, not run yet: an image build check (Fedora's
+  verifies that this package owns `pam_kwallet5.so`. **Lock regenerated** (update-inputs
+  run 46105523492, 684 packages, negative input tests passed): one package added,
+  `pam-kwallet` 6.8.3-1.fc45 (23,925 bytes, `updates`, Fedora-signed), no dependency
+  changes; the RPM cache image published by run 46104619616 for the same package set was
+  verified and reused (`sha256:e9a11715…`). Written, not run yet: an image build check (Fedora's
   SDDM stack hands the password to pam_kwallet; no wallet or salt in the image), VDI tests
   (wallet opened by the typed password, secret not in plain text, files unreadable for
   others, password in no log, nothing runs as the user before the login, wallet opens

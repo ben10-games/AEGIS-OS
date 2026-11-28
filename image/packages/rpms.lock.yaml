@@ -4,9 +4,9 @@
 # yamllint disable rule:line-length
 lockfileVersion: 1
 base: "ghcr.io/ben10-games/aegis-os/fedora-bootc@sha256:f3afa8b1d590ba2842366e0bca4f921ba4a0c7b5ee72679b632aeaa08f170a1e"
-inputs: "sha256:b35cbbbc2b7c00564b3f3cb991e8a093a6bb22d307ba47d234d2a2d98810dec1"
-resolved: "2026-11-27T18:44:23Z"
-cache: "ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:0038041cb83f5b4fb0daa64d6e80e54c53bb639c007dcb5d9e614f7384ba114d"
+inputs: "sha256:2b09aee750827c0f788fcadde88d028b40d5b42fca02e5346586940169f24259"
+resolved: "2026-11-28T04:02:17Z"
+cache: "ghcr.io/ben10-games/aegis-os/rpm-inputs@sha256:e9a117155424ba0ff2d81c0648e98acc291f070d147045ef39931b59af4ba8e4"
 packages:
   - {set: apps-build, name: binutils, evr: "2.47-1.fc45", arch: x86_64, sha256: 9a3060e6686dd00a239a86e95140816968fa68a782cb385613dea620676c1dfb, size: 6545927, repo: fedora, location: "Packages/b/binutils-2.47-1.fc45.x86_64.rpm"}
   - {set: apps-build, name: cmake, evr: "4.3.0-7.fc45", arch: x86_64, sha256: 062773590bba065fb4443cb4377b9339b3c60b3d06d6e24528416cf43cf7cfdf, size: 15109160, repo: updates, location: "Packages/c/cmake-4.3.0-7.fc45.x86_64.rpm"}
@@ -529,6 +529,7 @@ packages:
   - {set: gui, name: opus, evr: "1.6-3.fc45", arch: x86_64, sha256: 501a2f4e5ddca1825d5a10ace305be8fd671aa6fee77bad99ce85ab229f86c1f, size: 260720, repo: fedora, location: "Packages/o/opus-1.6-3.fc45.x86_64.rpm"}
   - {set: gui, name: orc, evr: "0.4.41-4.fc45", arch: x86_64, sha256: 7af9cf7668a23600bb77a0863a91279857e6360be88484a612a8c27f91683092, size: 229399, repo: fedora, location: "Packages/o/orc-0.4.41-4.fc45.x86_64.rpm"}
   - {set: gui, name: orca, evr: "51.2-1.fc45", arch: noarch, sha256: fe0022dd00bd17b9653896b37013330f7bafb3ed04b0a36c0c58b97ae3c70eb6, size: 4574190, repo: updates, location: "Packages/o/orca-51.2-1.fc45.noarch.rpm"}
+  - {set: gui, name: pam-kwallet, evr: "6.8.3-1.fc45", arch: x86_64, sha256: 4256e0bfcc045424befe4eb3f348c885f7c0439b5ca080bf217b6a0ff88d76c5, size: 23925, repo: updates, location: "Packages/p/pam-kwallet-6.8.3-1.fc45.x86_64.rpm"}
   - {set: gui, name: pango, evr: "1.58.2-1.fc45", arch: x86_64, sha256: 98dffb38486d324625ac221cc6eac1343c37829645d58d3a204dc58934806b16, size: 377482, repo: fedora, location: "Packages/p/pango-1.58.2-1.fc45.x86_64.rpm"}
   - {set: gui, name: pcaudiolib, evr: "1.1-20.fc45", arch: x86_64, sha256: 2f6eadbe1890733d589096c92fcd7d604f7be6e945b72d12b7ebbd9c0d205cf5, size: 29487, repo: fedora, location: "Packages/p/pcaudiolib-1.1-20.fc45.x86_64.rpm"}
   - {set: gui, name: pcre2-utf16, evr: "10.49-1.fc45", arch: x86_64, sha256: 02f69a51ed87c95420838d15eae1e698ac11f545df215e19198341a49220b4f8, size: 263757, repo: updates, location: "Packages/p/pcre2-utf16-10.49-1.fc45.x86_64.rpm"}
