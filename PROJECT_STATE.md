@@ -270,7 +270,11 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   the accessibility bus** (with kaccess, KWin, plasmashell and others) and speech-dispatcher
   ran; the `gdbus` call needed quoting that as_user's single quotes do not allow, and
   kaccessrc has no such key in this Plasma (now only logged). The state is now read with
-  Gio inside the base64-encoded script; not yet run. Every other suite in run 46085976334
+  Gio inside the base64-encoded script. v3 run 46092984886 on `05cdf4c`: this at-spi2-core
+  has no `ScreenReaderEnabled` property ("No such property"), so the test now asserts what
+  was observed in three runs (Orca starts with Meta+Alt+S, keeps running, is on the
+  accessibility bus) and records the bus status properties and what a second Meta+Alt+S
+  does, to be asserted once seen. Every other suite in run 46085976334
   passed (tour 10/10 again, 14 exercises) and build run 46085976341 and lint passed.
 - **build run 46089483875 on `fb23f9a` (a test-only commit): one failure, 82/83 VM tests
   passed.** `test_firmware_supplied_command_line_extension_stops_the_machine`: the machine
