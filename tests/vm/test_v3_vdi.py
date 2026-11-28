@@ -200,6 +200,49 @@ def wallet(vm, service: str, method: str, signature: str = "", *args: object) ->
     return as_user(vm, call, timeout=60).stdout.strip()
 
 
+def wallet_diagnostics(vm, logdir: Path, label: str) -> None:
+    """Record how far pam_kwallet got: its PAM lines and journal messages, the wallet
+    daemon's command line (started by pam_kwallet with --pam-login, or by D-Bus without
+    the key), the hand-over socket and helper unit, the session environment and the
+    wallet files."""
+    uid = vm.ssh(f"id -u {USER}").stdout.strip()
+    home = vm.ssh(f"getent passwd {USER} | cut -d: -f6").stdout.strip()
+    shell = {
+        "pam.d/sddm": "grep -v '^#' /etc/pam.d/sddm",
+        "pam-kwallet files": "rpm -ql pam-kwallet",
+        "daemons": "ls -la /usr/bin/ksecretd /usr/bin/kwalletd6 2>&1; "
+        "ls /usr/share/dbus-1/services | grep -i -E 'kwallet|secret'",
+        "journal": "journalctl -b -o short-monotonic --no-pager "
+        "| grep -i -E 'kwallet|ksecret|secret' | tail -n 40",
+        "processes": f"ps -u {USER} -o pid,lstart,args "
+        "| grep -i -E 'kwallet|ksecret|socat' | grep -v grep",
+        "runtime dir": f"ls -la /run/user/{uid}",
+        "wallet files": f"ls -la {home}/.local/share/kwalletd 2>&1; "
+        f"cat {home}/.config/kwalletrc 2>&1",
+        "plasmashell environment": "tr '\\0' '\\n' < "
+        f"/proc/$(pgrep -u {USER} -x plasmashell)/environ "
+        "| grep -E 'PAM_KWALLET|XDG_SESSION|XDG_RUNTIME'",
+        "denials": "journalctl -b -o cat --no-pager | grep -E 'avc: +denied' | tail -n 10",
+    }
+    # as_user wraps the command in single quotes: none inside these.
+    user = {
+        "helper unit": "systemctl --user status plasma-kwallet-pam.service --no-pager -l",
+        "unit files": "systemctl --user list-unit-files --no-pager --no-legend "
+        "| grep -i -e kwallet -e secret",
+        "manager environment": "systemctl --user show-environment "
+        "| grep -e PAM_KWALLET -e XDG_SESSION",
+        "autostart": "ls /etc/xdg/autostart | grep -i wallet",
+    }
+    out = [f"--- diagnostics ({label})"]
+    for name, command in shell.items():
+        result = vm.ssh(command, check=False, timeout=60)
+        out.append(f"## {name}\n{(result.stdout + result.stderr).strip()}")
+    for name, command in user.items():
+        result = as_user(vm, command, check=False)
+        out.append(f"## {name}\n{(result.stdout + result.stderr).strip()}")
+    log(logdir, "wallet", "\n".join(out))
+
+
 def wallet_open_handle(vm, logdir: Path, label: str) -> tuple[str, int]:
     """The wallet must already be open from the login (no dialog may be needed), then
     an application handle for it."""
@@ -207,6 +250,8 @@ def wallet_open_handle(vm, logdir: Path, label: str) -> tuple[str, int]:
     wallets = wallet(vm, service, "wallets")
     is_open = wallet(vm, service, "isOpen", "s", "kdewallet")
     log(logdir, "wallet", f"{label}: {service}; wallets {wallets}; kdewallet open: {is_open}")
+    if is_open != "b true":
+        wallet_diagnostics(vm, logdir, label)
     assert is_open == "b true", f"the login did not open the wallet: {is_open}"
     handle = int(wallet(vm, service, "open", "sxs", "kdewallet", 0, WALLET_APP).split()[1])
     assert handle >= 0, f"the open wallet refused a handle: {handle}"

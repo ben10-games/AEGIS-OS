@@ -331,7 +331,15 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   run 46105523492, 684 packages, negative input tests passed): one package added,
   `pam-kwallet` 6.8.3-1.fc45 (23,925 bytes, `updates`, Fedora-signed), no dependency
   changes; the RPM cache image published by run 46104619616 for the same package set was
-  verified and reused (`sha256:e9a11715…`). Written, not run yet: an image build check (Fedora's
+  verified and reused (`sha256:e9a11715…`).
+- **v3 run 46105970546 on `3c52eb3`:** all suites green except the two wallet tests:
+  after the typed password login the wallet daemon (`ksecretd`, kf6-kwallet 6.32) reports
+  `isOpen("kdewallet") = false`, at the first login and after the power-off. Chrome opened
+  no wallet window. Same commit: build 46105970526, live-iso 46105970521, lint
+  46105970545 green. Next: diagnostics on failure (PAM stack, pam_kwallet journal, the
+  daemon's command line, hand-over socket, helper unit, session environment, wallet
+  files) printed in the summary, and a targeted run (`v3` started by hand with
+  `suites=vdi`; a targeted run never publishes). Written, not run yet: an image build check (Fedora's
   SDDM stack hands the password to pam_kwallet; no wallet or salt in the image), VDI tests
   (wallet opened by the typed password, secret not in plain text, files unreadable for
   others, password in no log, nothing runs as the user before the login, wallet opens

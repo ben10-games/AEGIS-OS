@@ -12,6 +12,13 @@ on:
     branches:
       - claude/aegis-os-v3
   workflow_dispatch:
+    inputs:
+      suites:
+        description: >-
+          Test suites to run: "all", or a space-separated subset of secureboot vdi
+          desktop welcome performance apps appcenter update. Only an "all" run can publish.
+        type: string
+        default: all
 
 permissions:
   contents: read
@@ -73,6 +80,8 @@ jobs:
         run: scripts/export-vdi
 
       - name: Test the sealed boot chain and the VDI in QEMU
+        env:
+          AEGIS_V3_SUITES: ${{ inputs.suites || 'all' }}
         run: scripts/run-v3-tests
 
       - name: Collect results
@@ -105,10 +114,12 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      # Only a VDI whose every test in this job passed is offered for download.
+      # Only a VDI whose every test in this job passed is offered for download; a
+      # targeted run (only some suites) never publishes.
       - name: Publish the tested VDI (development, experimental)
         if: >-
-          ${{ success() && (github.event_name == 'workflow_dispatch'
+          ${{ success() && (inputs.suites || 'all') == 'all'
+          && (github.event_name == 'workflow_dispatch'
           || contains(github.event.head_commit.message, '[publish-vdi]')) }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

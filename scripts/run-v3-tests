@@ -15,6 +15,9 @@
 #      and settings kept; unsigned and untrusted updates refused.
 #   5. tests/vm/test_v3_appcenter.py with network: the AEGIS App Center (M12).
 #   AEGIS_V3_SKIP_NETWORK_TESTS=1 leaves out 3, 4 and 5.
+#   AEGIS_V3_SUITES (default "all"): a space-separated subset of secureboot vdi desktop
+#   welcome performance apps appcenter update, for a targeted run (v3.yml publishes
+#   nothing from such a run).
 # The v3 image has its SSH server disabled; AEGIS_TEST_SSH_UNIT=1 makes the harness pass
 # a one-boot SSH unit as a firmware credential. Both suites run; fails if either failed.
 set -euo pipefail
@@ -57,17 +60,36 @@ run_suite() { # NETWORK JUNIT PYTEST-ARGS...
     --junitxml "${junit}"
 }
 
+suites=" ${AEGIS_V3_SUITES:-all} "
+wanted() { [[ "${suites}" == *" all "* || "${suites}" == *" $1 "* ]]; }
+read -r -a requested <<< "${suites}"
+for suite in "${requested[@]}"; do
+  case "${suite}" in
+    all | secureboot | vdi | desktop | welcome | performance | apps | appcenter | update) ;;
+    *)
+      echo "error: unknown suite in AEGIS_V3_SUITES: ${suite}" >&2
+      exit 2
+      ;;
+  esac
+done
+
 status=0
-run_suite none out/junit-v3-secureboot.xml tests/vm/test_secure_boot.py \
-  --disk out/disk-v3.raw --sealed-variant v3 || status=1
-run_suite none out/junit-v3.xml tests/vm/test_v3_vdi.py || status=1
-run_suite none out/junit-v3-desktop.xml tests/vm/test_v3_desktop.py || status=1
-run_suite none out/junit-v3-welcome.xml tests/vm/test_v3_welcome.py || status=1
-run_suite none out/junit-v3-performance.xml tests/vm/test_v3_performance.py || status=1
+if wanted secureboot; then
+  run_suite none out/junit-v3-secureboot.xml tests/vm/test_secure_boot.py \
+    --disk out/disk-v3.raw --sealed-variant v3 || status=1
+fi
+wanted vdi && { run_suite none out/junit-v3.xml tests/vm/test_v3_vdi.py || status=1; }
+wanted desktop && { run_suite none out/junit-v3-desktop.xml tests/vm/test_v3_desktop.py || status=1; }
+wanted welcome && { run_suite none out/junit-v3-welcome.xml tests/vm/test_v3_welcome.py || status=1; }
+if wanted performance; then
+  run_suite none out/junit-v3-performance.xml tests/vm/test_v3_performance.py || status=1
+fi
 if [[ "${AEGIS_V3_SKIP_NETWORK_TESTS:-0}" != 1 ]]; then
-  run_suite bridge out/junit-v3-apps.xml tests/vm/test_v3_apps.py || status=1
-  run_suite bridge out/junit-v3-appcenter.xml tests/vm/test_v3_appcenter.py || status=1
-  if [[ -f out/images/aegis-v3-update.oci.tar ]]; then
+  wanted apps && { run_suite bridge out/junit-v3-apps.xml tests/vm/test_v3_apps.py || status=1; }
+  if wanted appcenter; then
+    run_suite bridge out/junit-v3-appcenter.xml tests/vm/test_v3_appcenter.py || status=1
+  fi
+  if wanted update && [[ -f out/images/aegis-v3-update.oci.tar ]]; then
     run_suite bridge out/junit-v3-update.xml tests/vm/test_v3_update.py || status=1
   fi
 fi

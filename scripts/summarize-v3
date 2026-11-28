@@ -25,6 +25,7 @@ section "v3: SHA256SUMS" out/release-v3/SHA256SUMS
 for name in vdi timings release account system persistence apps apps-denials update update-denials desktop desktop-qml-errors desktop-denials welcome welcome-apps welcome-qml-errors welcome-denials appcenter appcenter-denials performance; do
   section "v3: ${name}" "${logs}/v3-${name}.txt" 60
 done
+section "v3: wallet" "${logs}/v3-wallet.txt" 160
 echo "=== v3: console failures"
 grep -haE 'FAILED|Failed to start|denied' "${logs}"/v3*serial*.log 2> /dev/null \
   | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/^\[ *[0-9.]+\] //' | cut -c1-200 \
