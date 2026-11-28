@@ -70,5 +70,15 @@ These are QEMU tests on GitHub Actions, not VirtualBox.
   wallet manager (KWallet Manager), so the wallet's own password cannot be changed there. To
   start over, close the applications that use the wallet, then delete
   `~/.local/share/kwalletd/kdewallet.*`. This loses the saved passwords.
+- **Labels and attributes are not encrypted.** ksecretd keeps the names and lookup
+  attributes of stored items (for example which application an entry belongs to) in
+  `~/.local/share/kwalletd/kdewallet_attributes.json`, readable only by you (0600). The
+  secrets themselves are only in the encrypted `kdewallet.kwl`; the test checks that the
+  stored secret is in none of these files.
+- **Applications using the old KWallet API** reach the wallet through the
+  `kwalletd6` wrapper, which forwards to the Secret Service. That path is not tested
+  here; in run 46109798171 the wrapper reported the wallet as not open. Some KDE
+  applications may therefore still ask for the wallet password. Chrome uses the Secret
+  Service and opened no wallet window in the tests.
 - **The encryption is KDE's wallet format** (Blowfish with a password-derived key). AEGIS
   does not change it.

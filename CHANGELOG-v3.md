@@ -38,8 +38,20 @@ Fixed:
   login screen opens your KDE Wallet (Fedora's `pam-kwallet`; no built-in wallet password, closed
   until you log in).
 
-Known: changing your login password does not change the wallet's password; applications
-then ask for the old one.
+Known issues:
+
+- Not yet tested in VirtualBox itself; every automated test ran in QEMU on
+  VirtualBox-like hardware.
+- No system updates for this disk: updates between separately built images need the
+  persistent development signing keys, which are not set up yet. A newer build is a new
+  disk.
+- Secure Boot is off in VirtualBox; see section 6 of the guide for what that means.
+- The disk is not encrypted.
+- Changing your login password does not change the wallet's password; applications then
+  ask for the old one.
+- KDE applications that use the older KWallet interface (rather than the Secret Service
+  that Chrome uses) have not been tested and may ask for the wallet password.
+- The App Center's handling of a full disk has not been tested.
 
 ## First development VDI (milestone M8, part of M9)
 

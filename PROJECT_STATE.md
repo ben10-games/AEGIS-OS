@@ -353,7 +353,19 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   service must be owned by the pam-started ksecretd, its `kdewallet` collection must be
   unlocked, a secret must be stored and read back with no prompt, and the wallet file must
   change on disk without containing the secret. The probe script was checked against a
-  mock Secret Service before the run. Written, not run yet: an image build check (Fedora's
+  mock Secret Service before the run.
+- **Wallet tests green: targeted v3 run 46111534118 on `0a66038`** (VDI suite 9/9, QEMU).
+  At the first login the Secret Service was owned by `/usr/bin/ksecretd --pam-login 13 14`
+  and `kdewallet` was unlocked; a secret was stored with no prompt; the wallet file grew
+  from 60 to 248 bytes and did not contain the secret. Both wallet files are 0600 in a
+  0700 home. Nothing ran as the user at the login screen after the reboot. After the
+  power-off the same password unlocked the wallet and the secret was read back. Also
+  found: ksecretd keeps item labels and attributes unencrypted in
+  `kdewallet_attributes.json` (0600). The test now checks every wallet file for the
+  secret and for other users' access, and the docs state it.
+- **Experimental preview VDI (version 0.2.0-dev):** full regression and publication from
+  the next commit (`[publish-vdi]`): v3 uploads the VDI only if every suite passes on that
+  file. Written, not run yet: an image build check (Fedora's
   SDDM stack hands the password to pam_kwallet; no wallet or salt in the image), VDI tests
   (wallet opened by the typed password, secret not in plain text, files unreadable for
   others, password in no log, nothing runs as the user before the login, wallet opens

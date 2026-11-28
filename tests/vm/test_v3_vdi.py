@@ -425,9 +425,15 @@ def test_wallet_is_opened_by_the_password_login(vm, logdir):
     # pam_kwallet's salt: the wallet key was derived from the login password.
     assert vm.ssh(f"test -s {directory}/kdewallet.salt", check=False).returncode == 0
     assert header.split()[:7] == list("KWALLET"), header
-    plain = vm.ssh(f"grep -a -c -F {WALLET_SECRET} {wallet_file}", check=False)
-    assert plain.stdout.strip() == "0", "the secret is stored in plain text"
-    for name in ("kdewallet.kwl", "kdewallet.salt"):
+    # Every wallet file (ksecretd also keeps item labels and attributes in
+    # kdewallet_attributes.json, v3 run 46111534118): no secret in plain text anywhere.
+    plain = vm.ssh(f"grep -r -a -l -F {WALLET_SECRET} {directory}", check=False)
+    assert plain.returncode == 1 and not plain.stdout.strip(), (
+        f"the secret is stored in plain text: {plain.stdout.strip()}"
+    )
+    names = vm.ssh(f"ls -A {directory}").stdout.split()
+    assert {"kdewallet.kwl", "kdewallet.salt"} <= set(names), names
+    for name in names:
         other = vm.ssh(
             f"setpriv --reuid=nobody --regid=nobody --clear-groups cat {directory}/{name}",
             check=False,

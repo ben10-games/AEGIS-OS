@@ -24,7 +24,7 @@ if [[ "${EUID}" -ne 0 ]]; then
   as_root=(sudo)
 fi
 
-version="${AEGIS_VERSION:-0.1.0-dev}"
+version="${AEGIS_VERSION:-0.2.0-dev}"
 revision="$(git rev-parse HEAD 2> /dev/null || echo unknown)"
 name="AEGIS-OS-v3-${version}-${revision:0:7}.vdi"
 

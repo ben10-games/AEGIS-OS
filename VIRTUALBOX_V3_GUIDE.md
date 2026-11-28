@@ -14,6 +14,15 @@ where, is in section 8 and in `BUILD-INFO.txt`.
    and unzip it into a folder with about 20 GB free. It contains the disk
    (`AEGIS-OS-v3-….vdi`), this guide, `CHANGELOG-v3.md`, `BUILD-INFO.txt`,
    `TEST-REPORT.txt`, `SHA256SUMS` and the public Secure Boot certificates of the build.
+   From a terminal on Linux (for example Linux Mint), with the GitHub CLI
+   (`sudo apt install gh`, then `gh auth login` once), using the run number from the
+   release notes:
+
+   ```bash
+   gh run download RUN_ID --repo ben10-games/AEGIS-OS --name aegis-os-v3-vdi --dir ~/AEGIS-OS-v3
+   ```
+
+   `gh` unpacks the files into `~/AEGIS-OS-v3`.
 2. In a terminal in that folder:
 
    ```bash
