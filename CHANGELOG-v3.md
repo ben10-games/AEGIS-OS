@@ -4,7 +4,7 @@
 VirtualBox-like hardware; not yet verified in VirtualBox itself. Signed with per-build
 development keys; production keys do not exist yet.
 
-## Second development VDI (milestones M9–M12 and part of M13), in testing
+## Second development VDI: experimental preview (milestones M9–M13)
 
 New since the first VDI:
 
@@ -34,8 +34,12 @@ Fixed:
 - When the sealed command-line check stops a machine, its reason now always reaches the
   console before the power-off.
 
-Known: Chrome's first start opens KDE's wallet setup (a fix needs the owner's approval of
-one more package, `kwallet-pam`).
+- Chrome's first start no longer opens KDE's wallet setup: the password you type at the
+  login screen opens your KDE Wallet (`kwallet-pam`; no built-in wallet password, closed
+  until you log in).
+
+Known: changing your login password does not change the wallet's password; applications
+then ask for the old one.
 
 ## First development VDI (milestone M8, part of M9)
 

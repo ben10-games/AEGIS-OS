@@ -142,6 +142,14 @@ enrolling them has not been tested yet). With Secure Boot off:
 AEGIS does not describe this setup as "verified boot". Secure Boot with AEGIS's keys is
 tested only in automated QEMU tests.
 
+**Saved passwords (KDE Wallet).** Typing your password at the login screen opens your
+KDE Wallet, where applications such as Chrome keep saved passwords; nothing asks you to
+set up a wallet. The wallet is encrypted with a key made from your login password, and
+there is no built-in wallet password. It stays closed until you log in with your
+password, and is open while you are logged in, for every program you run. If you change
+your login password, the wallet keeps the old one: applications will ask for the old
+password (details: `docs/architecture/v3-kwallet.md`).
+
 **The disk is not encrypted.** Anyone who can read the `.vdi` file (on your computer, a
 backup or a copy) can read your files and settings. Keep the file where only you can
 read it. Disk encryption is planned for a later milestone.
@@ -173,6 +181,11 @@ The `v3` workflow builds the disk and, before offering it for download, tests in
 - Google Chrome installed from Flathub into the user's own installation (no system-wide
   source, no administrator rights) starts, and after a complete power-off is still
   installed and starts again, with no SELinux denials.
+- the KDE Wallet: opened by the password typed at the login screen (no setup assistant,
+  also not when Chrome starts the first time), a saved secret is not in the wallet file in
+  plain text, other users cannot read the wallet, nothing runs as the user before the
+  login, and after a complete power-off the same password opens the wallet again with
+  the secret still in it.
 - the desktop: login screen theme, top bar and dock at three screen sizes, Quick
   Settings changing the real settings, each shortcut above starting what it promises,
   snapping and maximising (window positions read from KWin), the screen reader turning

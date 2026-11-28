@@ -324,7 +324,13 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   without waiting for the M9 signing setup; add `kwallet-pam` (KDE Wallet opened with the
   login password; no fixed wallet password, no plain-text storage, no unlocking without a
   password login). `kwallet-pam` added to the gui inputs; lock regeneration pending
-  (update-inputs).
+  (update-inputs run 46104619616). Written, not run yet: an image build check (Fedora's
+  SDDM stack hands the password to pam_kwallet; no wallet or salt in the image), VDI tests
+  (wallet opened by the typed password, secret not in plain text, files unreadable for
+  others, password in no log, nothing runs as the user before the login, wallet opens
+  again after a complete power-off) and a Chrome check (no wallet window);
+  `docs/architecture/v3-kwallet.md`. Also fixed: in `Containerfile.gui`, `a && b || true
+  && c` let an earlier failed check pass (the SDDM theme check); now grouped.
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your
