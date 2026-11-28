@@ -76,6 +76,12 @@ gui:
   # gobject-introspection ships and which Orca pulls in as a weak dependency; images are
   # built without weak dependencies, so without it Orca cannot start (v3 run 46040929112).
   - gobject-introspection
+  # v3 (owner approval 2026-11-28): KDE Wallet integration with the login password.
+  # pam_kwallet derives the wallet key from the password typed at the login screen, so
+  # the wallet opens only after a password login and never through autologin
+  # (docs/architecture/v3-kwallet.md). Without it Chrome's first start opens the wallet
+  # setup assistant (v3 run 46015720076).
+  - kwallet-pam
 live:
   - dracut-live
 apps-build:

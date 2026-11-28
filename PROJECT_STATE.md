@@ -320,6 +320,11 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   the M9 cross-build update (persistent development keys:
   `docs/operations/dev-signing-setup.md`), approval of `kwallet-pam`, and the decision to
   publish a development VDI (asked for after M9 is complete).
+- **Experimental preview (owner approval 2026-11-28):** publish an experimental v3 VDI now,
+  without waiting for the M9 signing setup; add `kwallet-pam` (KDE Wallet opened with the
+  login password; no fixed wallet password, no plain-text storage, no unlocking without a
+  password login). `kwallet-pam` added to the gui inputs; lock regeneration pending
+  (update-inputs).
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your
