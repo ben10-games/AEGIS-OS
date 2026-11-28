@@ -374,7 +374,24 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   nothing about why; it now logs the application's unit status, the user journal, KWin's
   window list and a screenshot. build 46116338130 and lint 46116338049 green on
   `07c9efc`; live-iso did not run (no image change since `3c52eb3`, where it was green).
-  Next: targeted performance run, then the publishing run. Written, not run yet: an image build check (Fedora's
+  Next: targeted performance run, then the publishing run.
+- Targeted performance run 46121179511 (`ffd9bb1`): 6/6, the windows appeared in time. The
+  earlier failure was not reproduced; its cause is not known (now recorded if it recurs).
+- **Second experimental VDI published: v3 run 46122784186 on `ffd9bb1`** (started by hand,
+  all suites; QEMU on VirtualBox-like hardware, not VirtualBox). All 66 tests passed:
+  - Secure Boot 8/8, VDI 9/9 (with both wallet tests), desktop 15/15, tour 10/10,
+    performance 6/6, Chrome 6/6, App Center 6/6, update and rollback 6/6 (same build);
+  - no SELinux denials.
+  Measured: first start to AEGIS Setup 16.5 s; reboot to login screen 7.5 s; boot 9.2 s;
+  password to desktop 4.5–4.7 s; idle CPU 0.0 % KWin and 0.1 % plasmashell; 954 MiB in
+  use; Dolphin, tour and App Center windows after 2.8–2.9 s; Chrome installed in 33 s.
+  Artifact `aegis-os-v3-vdi` (ID 15255379647, 2,521,754,250 bytes zipped, kept until
+  2026-12-12): `AEGIS-OS-v3-0.2.0-dev-ffd9bb1.vdi`, SHA-256
+  `fdaedb54886bccd54060602cca6d1d2f6f6f6fa45856bca4740589c8cd33a7dc` (64 GiB virtual,
+  5.83 GiB allocated); sealed root digest `b47feac9…`. build 46116338130 and lint
+  46116338049 were green on `07c9efc` (same image); live-iso 46105970521 green on `3c52eb3`
+  (same image inputs). The first VDI (run 45992321699) is unchanged. **Not verified in
+  VirtualBox:** waiting for the owner's results. Written, not run yet: an image build check (Fedora's
   SDDM stack hands the password to pam_kwallet; no wallet or salt in the image), VDI tests
   (wallet opened by the typed password, secret not in plain text, files unreadable for
   others, password in no log, nothing runs as the user before the login, wallet opens
