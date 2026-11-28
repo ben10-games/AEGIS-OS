@@ -259,9 +259,15 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   userspace 5.9), password to desktop 4.5–4.6 s, idle CPU KWin 0.0 % and plasmashell
   0.1 %, 950 MiB in use of 3.8 GiB, zram swap 1.9 GiB, windows shown after 2.8–2.9 s,
   Chrome installed from the App Center in 36 s.
-- **M13 accessibility (added, not yet run):** the desktop suite turns the screen reader on
-  with Meta+Alt+S and checks that Orca runs, joins the accessibility bus and that the bus
-  reports the screen reader on, then off again with the same keys.
+- **M13 accessibility:** the desktop suite turns the screen reader on with Meta+Alt+S and
+  checks that Orca runs, joins the accessibility bus and that KDE and the bus report the
+  screen reader on, then off again with the same keys. v3 run 46085976334 on `2beaf2c`:
+  Meta+Alt+S started Orca (with speech-dispatcher) and it kept running, but the two
+  checks after it returned nothing: the inline Python broke inside the helper's single
+  quotes, and the `busctl` read gave no output (stderr was not recorded). The script is
+  now sent base64-encoded, the property is read with `gdbus`, stderr is logged, and KDE's
+  own setting (kaccessrc) is checked too; not yet run. Every other suite in that run
+  passed (tour 10/10 again, 14 exercises) and build run 46085976341 and lint passed.
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your
