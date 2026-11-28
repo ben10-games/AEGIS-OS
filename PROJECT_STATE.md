@@ -274,7 +274,9 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   has no `ScreenReaderEnabled` property ("No such property"), so the test now asserts what
   was observed in three runs (Orca starts with Meta+Alt+S, keeps running, is on the
   accessibility bus) and records the bus status properties and what a second Meta+Alt+S
-  does, to be asserted once seen. Every other suite in run 46085976334
+  does, to be asserted once seen. v3 run 46096485688 on `fdd82fc`: on, the bus reports
+  `IsEnabled: True` and Orca is on it; after a second Meta+Alt+S, `IsEnabled: False`, Orca
+  has left the bus and exited. The test now requires both. Every other suite in run 46085976334
   passed (tour 10/10 again, 14 exercises) and build run 46085976341 and lint passed.
 - **build run 46089483875 on `fb23f9a` (a test-only commit): one failure, 82/83 VM tests
   passed.** `test_firmware_supplied_command_line_extension_stops_the_machine`: the machine
@@ -292,7 +294,18 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   still had `blur` loaded although the user's kwinrc had `blurEnabled=false`; the
   `reconfigure` call alone did not unload it. `glass-profile` now also loads or unloads
   each effect it changes through `org.kde.kwin.Effects`, as KDE's effects settings do,
-  so the change applies to users too, not only in the test. Not yet run.
+  so the change applies to users too, not only in the test.
+- **All four workflows green on one commit, `fdd82fc` (QEMU on GitHub Actions, not
+  VirtualBox):** v3 run 46096485688 (Secure Boot 8/8, VDI 7/7, desktop 15/15 including
+  the screen reader, tour 10/10 with all 14 exercises, performance 6/6, apps 6/6, App
+  Center 6/6, update and rollback 6/6 within one build; no SELinux denials, no failed
+  units); build run 46096485557 (M1–M5 VM tests with the SMBIOS command-line test,
+  golden manifests, SBOM, graphical image under Secure Boot, reproducibility
+  R-01/R-02/R-03); live-iso run 46096485568 (GUI v2 Live ISO 24/24 offline including the
+  blur checks with the glass-profile fix, 5/5 network); lint run 46096485606. Measured on
+  the VDI: reboot to login screen 7.5 s, boot 9.4 s, password to desktop 4.6 s, idle CPU
+  KWin and plasmashell 0.0 %, 950 MiB in use, windows shown after 2.8–3.0 s, Chrome
+  installed from the App Center in 36 s.
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your

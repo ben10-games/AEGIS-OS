@@ -9,7 +9,7 @@ Meta+A opens the panel, the keyboard shortcuts start what they promise, windows 
 maximise with Meta+arrows (geometry from KWin), the AEGIS typeface and window switcher
 are in effect, and screenshots at three screen sizes in AEGIS Dark and AEGIS Light for
 visual review (all in the uploaded logs, a few in the job log), and the screen reader (Orca)
-starts with Meta+Alt+S.
+starts and stops with Meta+Alt+S.
 """
 
 from __future__ import annotations
@@ -296,7 +296,8 @@ def a11y_state(vm) -> dict[str, str]:
 
 def test_screen_reader_starts_with_its_shortcut(vm, logdir, record_property):
     """M13 accessibility: Meta+Alt+S (KDE's screen-reader shortcut) starts Orca, which
-    keeps running and joins the accessibility bus (speech through speech-dispatcher)."""
+    keeps running and joins the accessibility bus (speech through speech-dispatcher);
+    pressing it again turns the screen reader off and Orca exits."""
     vm.send_keys("meta_l-alt-s")
     seconds = wait_for(vm, f"pgrep -u {USER} -f /usr/bin/orca", 30, "Orca after Meta+Alt+S")
     record_property("seconds_to_screen_reader", round(seconds, 1))
@@ -315,14 +316,17 @@ def test_screen_reader_starts_with_its_shortcut(vm, logdir, record_property):
         f"kaccessrc Enabled={setting or '(not set)'}; speech: {speech or 'not running'}",
     )
     assert "orca" in on.get("applications", "").split(), on
-    # Turning it off again is recorded, not yet asserted: run 46092984886 showed that this
-    # at-spi2-core has no ScreenReaderEnabled property, so what "off" looks like here is
-    # taken from a run before it is required.
+    assert on.get("status") == "{'IsEnabled': True}", on
+    # Off again, as run 46096485688 showed it: the bus reports accessibility off, Orca
+    # leaves the bus and exits (this at-spi2-core has no ScreenReaderEnabled property).
     vm.send_keys("meta_l-alt-s")
     time.sleep(5)
     off = a11y_state(vm)
     still = vm.ssh(f"pgrep -u {USER} -f /usr/bin/orca", check=False).returncode == 0
     log(logdir, "desktop", f"Meta+Alt+S again: {off}; Orca still running: {still}")
+    assert off.get("status") == "{'IsEnabled': False}", off
+    assert "orca" not in off.get("applications", "").split(), off
+    assert not still, "Orca kept running after Meta+Alt+S turned the screen reader off"
     vm.ssh(f"pkill -u {USER} -f /usr/bin/orca", check=False)
     time.sleep(2)
 
