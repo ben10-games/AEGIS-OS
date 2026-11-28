@@ -86,6 +86,11 @@ lock, Meta+Shift+S screenshot of an area. Screen size follows the VirtualBox win
 Auto-resize Guest Display); Host+F is full screen. In VirtualBox without 3D acceleration,
 choose **Performance** glass in Quick Settings for the smoothest desktop.
 
+**Accessibility.** Meta+Alt+S turns the Orca screen reader on and off (give the VM an
+audio device to hear it). The tour, the App Center and the desktop can be used with the
+keyboard alone; the tour has a **Reduce motion** switch and follows KDE's animation
+setting.
+
 **Installing applications: AEGIS App Center** (launcher → AEGIS App Center). Search or
 browse, open an application to see who publishes it and what it can access, then
 Install. Applications are installed for your account only: no administrator password,
@@ -168,8 +173,25 @@ The `v3` workflow builds the disk and, before offering it for download, tests in
 - Google Chrome installed from Flathub into the user's own installation (no system-wide
   source, no administrator rights) starts, and after a complete power-off is still
   installed and starts again, with no SELinux denials.
+- the desktop: login screen theme, top bar and dock at three screen sizes, Quick
+  Settings changing the real settings, each shortcut above starting what it promises,
+  snapping and maximising (window positions read from KWin), the screen reader turning
+  on and off with Meta+Alt+S;
+- Welcome to AEGIS: every exercise completed with real keyboard and mouse input, skip,
+  replay, reduced motion, progress kept across a restart and a power-off;
+- the App Center: search, publisher and permission details, install with progress,
+  update offered but applied only on request, remove, a plain error without the
+  internet, an installed application still there after a power-off;
+- system updates on this disk within one build: an unsigned update and one signed by an
+  unknown key are refused; a signed update installs and keeps the account, files,
+  settings and applications; rolling back keeps them too;
+- measured: about 7.5 s from a restart to the login screen and 4.6 s from the password
+  to the desktop, an idle desktop below 0.2 % CPU, about 950 MB of memory in use (2
+  processors, 4 GB; QEMU timings, VirtualBox will differ).
 
 `TEST-REPORT.txt` in the download lists every test of this build and its result.
 
 **Not verified: VirtualBox itself.** These results come from QEMU. The owner's own
-VirtualBox test is reported separately in `PROJECT_STATE.md`.
+VirtualBox test is reported separately in `PROJECT_STATE.md`. **Not verified either:** an
+update from one build to a separately built one (it needs persistent development
+signing keys, which are not set up yet), and Secure Boot in VirtualBox (see section 6).

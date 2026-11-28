@@ -306,6 +306,9 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
   the VDI: reboot to login screen 7.5 s, boot 9.4 s, password to desktop 4.6 s, idle CPU
   KWin and plasmashell 0.0 %, 950 MiB in use, windows shown after 2.8–3.0 s, Chrome
   installed from the App Center in 36 s.
+- **M13 documentation:** `VIRTUALBOX_V3_GUIDE.md` (accessibility; what the QEMU tests
+  cover; not verified: VirtualBox, cross-build updates, Secure Boot in VirtualBox) and
+  `CHANGELOG-v3.md` (fixes) updated.
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your

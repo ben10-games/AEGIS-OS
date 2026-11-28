@@ -27,6 +27,13 @@ New since the first VDI:
   desktop 4.6 s after the password, idle desktop below 0.2 % CPU, about 950 MiB of
   memory in use, applications open in about 3 s.
 
+Fixed:
+
+- Switching to Performance Glass sometimes left KWin's blur running; the glass profile
+  now turns each effect on or off in KWin directly (also in the Live ISO's code).
+- When the sealed command-line check stops a machine, its reason now always reaches the
+  console before the power-off.
+
 Known: Chrome's first start opens KDE's wallet setup (a fix needs the owner's approval of
 one more package, `kwallet-pam`).
 
