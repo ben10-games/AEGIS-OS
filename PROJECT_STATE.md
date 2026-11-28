@@ -309,6 +309,17 @@ owner's authorisation). User guide: `VIRTUALBOX_V3_GUIDE.md`.
 - **M13 documentation:** `VIRTUALBOX_V3_GUIDE.md` (accessibility; what the QEMU tests
   cover; not verified: VirtualBox, cross-build updates, Secure Boot in VirtualBox) and
   `CHANGELOG-v3.md` (fixes) updated.
+- **Final M13 regression on `e4e6a38` (code identical to `8c57e2c`, plus docs):** v3 run
+  46099879280 green, including the screen-reader test that now also requires turning off
+  (IsEnabled false, Orca leaves the bus and exits); build run 46099879283 green; lint run
+  46099879263 green. The live ISO did not run (no image input changed after `fdd82fc`,
+  where it was green: run 46096485568). Runs for this state-file-only commit were
+  cancelled to save CI time.
+- **M13 status:** regression, measurements, accessibility and docs done (QEMU on CI).
+  Open, needing the owner: VirtualBox validation (`docs/operations/v3-virtualbox-checklist.md`),
+  the M9 cross-build update (persistent development keys:
+  `docs/operations/dev-signing-setup.md`), approval of `kwallet-pam`, and the decision to
+  publish a development VDI (asked for after M9 is complete).
 - **M11 Welcome to AEGIS:** `apps/aegis-welcome` (Qt Quick
   with a C++ core), seven scenes: AEGIS awakens (the mark assembles from glass shards),
   Meet your desktop (real launcher and Files, drag-and-drop practice dock), Control your
